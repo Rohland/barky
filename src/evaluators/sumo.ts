@@ -6,7 +6,8 @@ import { startClock, stopClock } from "../lib/profiler";
 import { renderTemplate } from "../lib/renderer";
 import { flatten } from "../lib/utility";
 
-const Url = "https://api.eu.sumologic.com/api/v1/search/jobs";
+const SumoDomain = process.env["sumo-domain"] ?? "api.eu.sumologic.com";
+const SumoUrl = `https://${ SumoDomain }/api/v1/search/jobs`;
 const JobPollMillis = 1000;
 
 export async function sumoEvaluator(options, log) {
@@ -122,7 +123,7 @@ async function startSearch(app, _log) {
         autoParsingMode: "intelligent"
     };
     const result = await axios.post(
-        Url,
+        SumoUrl,
         search,
         getHeaders(app.token));
     return result.data.id;
@@ -132,7 +133,7 @@ async function isJobComplete(app, log) {
     const now = +new Date();
     while (+new Date() - now < app.timeout) {
         try {
-            const status = await axios.get(`${Url}/${app.jobId}`, getHeaders(app.token));
+            const status = await axios.get(`${SumoUrl}/${app.jobId}`, getHeaders(app.token));
             if (status.data.state.match(/done gathering results/i)) {
                 return status.data;
             }
@@ -146,13 +147,13 @@ async function isJobComplete(app, log) {
 }
 
 async function getSearchResult(app, _log) {
-    const result = await axios.get(`${Url}/${app.jobId}/records?offset=0&limit=100`, getHeaders(app.token));
+    const result = await axios.get(`${SumoUrl}/${app.jobId}/records?offset=0&limit=100`, getHeaders(app.token));
     return result.data;
 }
 
 async function deleteJob(app, log) {
     try {
-        await axios.delete(`${Url}/${app.jobId}`, getHeaders(app.token));
+        await axios.delete(`${SumoUrl}/${app.jobId}`, getHeaders(app.token));
     } catch (error) {
         log("error: could not delete job", {app, error});
         // no-op

@@ -156,6 +156,9 @@ web:
 The example below will search Sumo Logic using the given query, and iterate over the result set. The time window
 searched is specified by `period`. The validators evaluate each row (the expression is evaluated as JavaScript).
 
+For Sumo Logic queries, the default domain is `api.eu.sumologic.com` - however, this can be overridden using an 
+environment variable called `sumo-domain`.
+
 The example below does not have any alerts configured, see web example above to see what you can do with alerts.
 
 ```yaml
