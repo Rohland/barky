@@ -5,17 +5,17 @@ _Warning: Currently in alpha, use at own risk_
 
 Barky is intended to run custom monitoring in a simple and effective way, using a tool with no external dependencies (like databases) in order to drive effective alert/outage notifications.
 
-*What problem does this solve?*
+**What problem does this solve?**
 
 The noise and complexity of standard alerting solutions. When things go south, you don't want to be bombarded with hundreds of notifications. Barky's digest feature allows you to configure alerts in a way that you can be notified of an outage, and then be notified when the outage is resolved. It also allows you to configure alerts to only trigger during specific times of the day, and only on specific days of the week.
 
-*What does this do?*
+**What does this do?**
 
 It runs a custom set of evaluators (configured in simple markup using YAML) with (current) support for the following checks:
 
-- *web*: Evaluate any accessible site and validate status code, response time and response body
-- *sumo*: Runs custom Sumo Logic queries and evaluates results based on validator configuration
-- *mysql*: Runs custom mysql queries and evaluates results based on validator configuration
+- **web**: Evaluate any accessible site and validate status code, response time and response body
+- **sumo**: Runs custom Sumo Logic queries and evaluates results based on validator configuration
+- **mysql**: Runs custom mysql queries and evaluates results based on validator configuration
 
 Evaluations supported:
 
