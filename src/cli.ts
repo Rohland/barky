@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import * as Dotenv from "dotenv";
 Dotenv.config();
 import yargs from "yargs/yargs";

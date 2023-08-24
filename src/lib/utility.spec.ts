@@ -17,7 +17,6 @@ describe("utility functions", () => {
             });
         });
     });
-
     describe("localTimeString", () => {
         describe("with no config", () => {
             it("should use current locale", async () => {

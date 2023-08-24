@@ -335,30 +335,16 @@ Example resolution:
 
 ## Usage
 
-### Development/Testing
-
-In dev environments, you can run the tool using:
-
 ```bash
-npm start -- --env={path_to_yaml_excluding_extension}
-```
+# run the evaluator without digest
+npm barky@latest --env=configs/my.yaml
 
-To debug any issues:
+# run the evaluator with specific evaluator (comma separate for more)
+npm barky@latest --env=configs/my.yaml --eval=web
 
-```bash
-npm start -- --env={path_to_yaml_excluding_extension} --debug
-```
+# run the evaluator and digest step
+npm barky@latest --env=configs/my.yaml --digest=configs/digest/my-team.yaml --title="ACME Public"
 
-This will evaluate all configured evaluates in the YAML file referenced by {name}.yaml
-
-To run a custom subset of evaluators, you can do this as follows:
-
-```bash
-npm start -- --eval=web,mysql --env={path_to_yaml_excluding_extension}
-```
-
-To also run the digest step:
-
-```bash
-npm start -- --env={path_to_yaml_excluding_extension} --digest={path_to_digest_yaml} --title="ACME Public"
+# bypass prompt for installation
+npm barky@latest --yes --env=configs/my.yaml --eval=web --digest=configs/digest/my-team.yaml --title="ACME Public"
 ```
