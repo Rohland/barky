@@ -46,7 +46,7 @@ describe("loop", () => {
 
                 // assert
                 expect(runner).not.toHaveBeenCalled();
-                expect(canLockProcessForMock).toHaveBeenCalledWith("test-env-test-eval-test-digest");
+                expect(canLockProcessForMock).toHaveBeenCalledWith("test-env;test-eval;test-digest");
                 expect(result).toEqual(-1);
             });
         });
