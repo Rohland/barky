@@ -177,7 +177,7 @@ function expandAndConfigureApp(app, name) {
     return apps.map(variant => {
         return {
             name: name.replaceAll("$1", variant),
-            timeout: 10000,
+            timeout: 20000,
             ...app,
             query: app.query.replaceAll("$1", variant),
             period: parsePeriodRange(app.period),
