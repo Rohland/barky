@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-
 import * as Dotenv from "dotenv";
 Dotenv.config();
 import yargs from "yargs/yargs";
@@ -11,33 +10,38 @@ import { MonitorFailureResult } from "./models/result";
 import { destroy } from "./models/db";
 import { emitAndPersistResults, execute } from "./exec";
 import { initLocaleAndTimezone } from "./lib/utility";
+import { loop } from "./loop";
 
 (async () => {
     const args = await getArgs();
+    const exitCode = await loop(args, () => run(args));
+    process.exit(exitCode);
+})();
+
+async function run(args){
     const logger = log.bind(args);
-    let exitCode = 0;
     try {
         const config = getConfig(args, logger);
-        logger(`starting ${args.eval} evaluator`);
+        logger(`starting ${ args.eval } evaluators`);
         await execute(
             config,
             args.eval,
             logger);
-    } catch(err) {
+        return 0;
+    } catch (err) {
         logger(err, err);
-        // emits a global config error - assume Sumo monitor is set up for this
+        // emits a global config error - assume cloud watch monitor is set up for this as a safety net
         const result = new MonitorFailureResult(
             "watchdog",
             "configuration",
             err.message,
             null); // nothing we can do about this - digest will not be configured
         await emitAndPersistResults([result]);
-        exitCode = -1;
+        return -1;
     } finally {
         await destroy();
     }
-    process.exit(exitCode);
-})();
+}
 
 function getFileNamePart(fileName: string) {
     const parts = fileName.split(/[\\\/]+/);
@@ -89,11 +93,12 @@ function getConfig(args, log) {
     if (env.config) {
         initLocaleAndTimezone(env.config);
     }
+    const digest = getDigestConfiguration(args, log);
     return {
         fileName: fileInfo.fileName,
         ...args,
-        env: getConfigurationFromFile(file, fileInfo, log),
-        digest: getDigestConfiguration(args, log)
+        env,
+        digest
     };
 }
 
@@ -117,11 +122,11 @@ function log(msg, data) {
 
 async function getArgs() {
     const args = await yargs(hideBin(process.argv))
-        .usage("$0 --eval=<eval> --env=<env> --digest=<digest> --title=<title> --<debug>")
-        .command(
-            "--eval=<eval> --env=<env> --digest=<digest> --title=<title>",
-            "starts the relevant evaluator defined by <eval> for the configuration defined in <env>.yaml",
-        )
+        .usage("$0 [options]")
+        .option("debug", {
+            description: "If set, debug messages are printed to the console",
+            type: "boolean"
+        })
         .option("eval", {
             description: "Comma separated list of evaluators to run",
             type: "string",
@@ -134,13 +139,20 @@ async function getArgs() {
             description: "If set, the results will be processed with configured digest file",
             type: "string"
         })
+        .option("loop", {
+            description: "If set, the app runs in a loop (every 30 seconds) until exit",
+            type: "boolean"
+        })
+
         .option("title", {
             description: "When set, is used in notifications using variable {{ title }}",
             type: "string"
         })
-        .example("$0 --env=client", "→ run all evaluators using ./client.yaml")
-        .example("$0 --eval=mysql --env=client", "→ runs the mysql evaluator only")
-        .example("$0 --eval=web,mysql --env=client", "→ runs the mysql & web evaluators only")
+        .example("$0 --env=client", "run all evaluators using ./client.yaml")
+        .example("$0 --eval=mysql --env=client", "runs the mysql evaluator only")
+        .example("$0 --eval=web,mysql --env=client", "only runs mysql & web evaluators")
+        .example("$0 --env=client --digest=my-team --title='ACME'", "runs all evaluators and uses my-team config for digest")
+        .example("$0 --env=client --loop", "runs in a loop (every 30 seconds) until exit")
         .demandOption("env")
         .help("h")
         .alias("h", "help")

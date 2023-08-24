@@ -1,3 +1,5 @@
+import * as crypto from "crypto";
+
 export const DefaultLocale = process.env.LC_ALL
     || process.env.LC_MESSAGES
     || process.env.LANG
@@ -112,4 +114,8 @@ function correctCUTF8Locale(locale: string) {
 export function initLocaleAndTimezone(config) {
     locale = correctCUTF8Locale(config?.locale || DefaultLocale);
     timeZone = config?.timezone || defaultTimeZone;
+}
+
+export function hash(key: string) {
+    return crypto.createHash('md5').update(key ?? "").digest('hex');
 }

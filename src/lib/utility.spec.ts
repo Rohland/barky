@@ -1,4 +1,4 @@
-import { flatten, initLocaleAndTimezone, Time, toLocalTime, toLocalTimeString } from "./utility";
+import { flatten, hash, initLocaleAndTimezone, Time, toLocalTime, toLocalTimeString } from "./utility";
 
 describe("utility functions", () => {
     describe("flatten", () => {
@@ -182,6 +182,33 @@ describe("utility functions", () => {
                     // act & assert
                     expect(time.isBetween(new Time("21:34"), new Time("23:00"))).toEqual(false);
                 });
+            });
+        });
+    });
+    describe("hash", () => {
+        describe("with key", () => {
+            it("should hash", async () => {
+                // arrange
+                const key = "test 123";
+
+                // act
+                const h = hash(key);
+
+                // assert
+                expect(h.length).toEqual(32);
+            });
+        });
+        describe("with null, empty, undefined", () => {
+            it("should generate same hash", async () => {
+                // arrange
+                const values = [null, undefined, ""];
+
+                // act
+                const hashes = values.map(hash);
+
+                // assert
+                expect(hashes[0]).toEqual(hashes[1]);
+                expect(hashes[0]).toEqual(hashes[2]);
             });
         });
     });

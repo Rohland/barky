@@ -43,8 +43,11 @@ npx barky@latest --env=configs/my.yaml --eval=web
 # run the evaluator and digest step
 npx barky@latest --env=configs/my.yaml --digest=configs/digest/my-team.yaml --title="ACME Public"
 
+# run in a loop (every 30s) until exit
+npx barky@latest --env=configs/my.yaml --digest=configs/digest/my-team.yaml --title="ACME Public" --loop
+
 # bypass prompt for installation
-npx barky@latest --yes --env=configs/my.yaml --eval=web --digest=configs/digest/my-team.yaml --title="ACME Public"
+npx --yes barky@latest --env=configs/my.yaml --eval=web --digest=configs/digest/my-team.yaml --title="ACME Public"
 ```
 
 ## Evaluation
