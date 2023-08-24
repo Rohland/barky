@@ -30,7 +30,23 @@ In addition to this, the results are evaluated and alerts emitted in a digest fo
 - Slack
 
 So, the pipeline is `Evaluate > Digest` where the evaluation emitss status of things monitored and the digest step emits any alerts (triggered, ongoing or resolution) via the configured channels. The digest step is optional.
- 
+
+## Usage
+
+```bash
+# run the evaluator without digest
+npx barky@latest --env=configs/my.yaml
+
+# run the evaluator with specific evaluator (comma separate for more)
+npx barky@latest --env=configs/my.yaml --eval=web
+
+# run the evaluator and digest step
+npx barky@latest --env=configs/my.yaml --digest=configs/digest/my-team.yaml --title="ACME Public"
+
+# bypass prompt for installation
+npx barky@latest --yes --env=configs/my.yaml --eval=web --digest=configs/digest/my-team.yaml --title="ACME Public"
+```
+
 ## Evaluation
 
 #### Configuration
@@ -332,19 +348,3 @@ Example resolution:
 
 > ✅ @channel Previous outage resolved at 10:11:08. Duration was 1 minute.
 > See above for more details about affected services.
-
-## Usage
-
-```bash
-# run the evaluator without digest
-npm barky@latest --env=configs/my.yaml
-
-# run the evaluator with specific evaluator (comma separate for more)
-npm barky@latest --env=configs/my.yaml --eval=web
-
-# run the evaluator and digest step
-npm barky@latest --env=configs/my.yaml --digest=configs/digest/my-team.yaml --title="ACME Public"
-
-# bypass prompt for installation
-npm barky@latest --yes --env=configs/my.yaml --eval=web --digest=configs/digest/my-team.yaml --title="ACME Public"
-```
