@@ -32,6 +32,19 @@ describe("utility functions", () => {
                 expect(result).toEqual("02:00:00");
             });
         });
+        describe("with bad config", () => {
+            it("should throw error with clear info", async () => {
+                // arrange
+                initLocaleAndTimezone({
+                    locale: "xxx",
+                    timezone: "abc"
+                });
+                const date = new Date("2020-01-01T00:00:00.000Z");
+
+                // act
+                expect(() => toLocalTimeString(date)).toThrowError("Invalid locale or timezone (locale: 'xxx', timezone: 'abc')");
+            });
+        });
         describe("with specified locale", () => {
             it("should use current locale", async () => {
                 // arrange

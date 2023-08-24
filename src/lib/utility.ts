@@ -23,7 +23,11 @@ export function pluraliseWithS(word: string, count: number) {
 }
 
 export function toLocalTimeString(date: Date) {
-    return date.toLocaleTimeString(locale, { hour12: false, timeZone });
+    try {
+        return date.toLocaleTimeString(locale, { hour12: false, timeZone });
+    } catch (e) {
+        throw new Error(`Invalid locale or timezone (locale: '${ locale }', timezone: '${ timeZone }')`);
+    }
 }
 
 export class Time {
