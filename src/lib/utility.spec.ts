@@ -32,6 +32,19 @@ describe("utility functions", () => {
                 expect(result).toEqual("02:00:00");
             });
         });
+        describe("with 'C.UTF-8' locale", () => {
+            it("should use en-US", async () => {
+                // arrange
+                initLocaleAndTimezone({ locale: 'C.UTF-8'});
+                const date = new Date("2020-01-01T00:00:00.000Z");
+
+                // act
+                const result = toLocalTimeString(date);
+
+                // assert
+                expect(result).toEqual("02:00:00");
+            });
+        });
         describe("with bad config", () => {
             it("should throw error with clear info", async () => {
                 // arrange
@@ -44,6 +57,9 @@ describe("utility functions", () => {
                 // act
                 expect(() => toLocalTimeString(date)).toThrowError("Invalid locale or timezone (locale: 'xxx', timezone: 'abc')");
             });
+        });
+        describe("", () => {
+            
         });
         describe("with specified locale", () => {
             it("should use current locale", async () => {

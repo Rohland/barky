@@ -104,5 +104,8 @@ export function dayOfWeek(date: Date): number {
 
 export function initLocaleAndTimezone(config) {
     locale = config?.locale || DefaultLocale;
+    if (locale === 'C.UTF-8') {
+        locale = 'en-US';
+    }
     timeZone = config?.timezone || defaultTimeZone;
 }
