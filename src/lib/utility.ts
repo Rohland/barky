@@ -3,7 +3,7 @@ export const DefaultLocale = process.env.LC_ALL
     || process.env.LANG
     || process.env.LANGUAGE;
 const defaultTimeZone = "Africa/Johannesburg";
-let locale = DefaultLocale;
+let locale = DefaultLocale || "en-US";
 let timeZone = defaultTimeZone;
 
 export function flatten<T>(arr: T[]) {
