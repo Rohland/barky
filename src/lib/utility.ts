@@ -3,7 +3,7 @@ export const DefaultLocale = process.env.LC_ALL
     || process.env.LANG
     || process.env.LANGUAGE;
 const defaultTimeZone = "Africa/Johannesburg";
-let locale = DefaultLocale || "en-US";
+let locale = correctCUTF8Locale(DefaultLocale || "en-US");
 let timeZone = defaultTimeZone;
 
 export function flatten<T>(arr: T[]) {
@@ -102,10 +102,14 @@ export function dayOfWeek(date: Date): number {
     return lookup[day];
 }
 
-export function initLocaleAndTimezone(config) {
-    locale = config?.locale || DefaultLocale;
+function correctCUTF8Locale(locale: string) {
     if (locale === 'C.UTF-8') {
-        locale = 'en-US';
+        return 'en-US';
     }
+    return locale;
+}
+
+export function initLocaleAndTimezone(config) {
+    locale = correctCUTF8Locale(config?.locale || DefaultLocale);
     timeZone = config?.timezone || defaultTimeZone;
 }

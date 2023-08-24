@@ -58,24 +58,21 @@ describe("utility functions", () => {
                 expect(() => toLocalTimeString(date)).toThrowError("Invalid locale or timezone (locale: 'xxx', timezone: 'abc')");
             });
         });
-        describe("", () => {
-            
-        });
-        describe("with specified locale", () => {
-            it("should use current locale", async () => {
+        describe("with specified timezone", () => {
+            it("should use timezone", async () => {
                 // arrange
                 initLocaleAndTimezone({
                     locale: "en-ZA",
                     timezone: "America/New_York"
                 });
-                let date = new Date();
+                let date = new Date("2023-02-01T00:00:00.000Z");
 
                 // act
                 const result = toLocalTimeString(date);
 
                 // assert
-                date = new Date(date.setHours(date.getHours() - 6));
-                const time = date.toLocaleTimeString("en-ZA", { hour12: false});
+                date = new Date(date);
+                const time = date.toLocaleTimeString("en-ZA", { hour12: false, timeZone: "America/New_York"});
                 expect(result).toEqual(time);
             });
         });
