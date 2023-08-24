@@ -20,7 +20,7 @@ function isInstanceRunning(pid) {
 }
 
 export function canLockProcessFor(key): boolean {
-    const lock = `${ hash(key) }.lock`;
+    const lock = `.barky.${ hash(key) }.lock`;
     const pid = getPidForLock(lock);
     if (pid) {
         if (isInstanceRunning(pid)) {
