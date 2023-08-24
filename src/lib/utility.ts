@@ -99,6 +99,6 @@ export function dayOfWeek(date: Date): number {
 }
 
 export function initLocaleAndTimezone(config) {
-    locale = config?.locale ?? DefaultLocale;
-    timeZone = config?.timezone ?? defaultTimeZone;
+    locale = config?.locale || DefaultLocale;
+    timeZone = config?.timezone || defaultTimeZone;
 }
