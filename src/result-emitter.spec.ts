@@ -80,6 +80,26 @@ describe("result-emitter", () => {
             expect(item.toString).toHaveBeenCalledTimes(1);
             expect(console.log).toHaveBeenCalledWith("test");
         });
+        describe("when quiet enabled", () => {
+            it("should not emit", async () => {
+                // arrange
+                const item = {
+                    app: {
+                        quiet: true,
+                    },
+                    toString: jest.fn().mockReturnValueOnce("test")
+                };
+                const items = [item];
+
+                // act
+                // @ts-ignore
+                emitResults(items);
+
+                // assert
+                expect(item.toString).toHaveBeenCalledTimes(0);
+                expect(console.log).not.toHaveBeenCalledWith("test");
+            });
+        });
         describe("when item strings have line breaks", () => {
             it("should strip them", async () => {
                 // arrange

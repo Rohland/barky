@@ -2,12 +2,17 @@ import axios from "axios";
 import { startClock, stopClock } from "../lib/profiler";
 import { MonitorFailureResult, WebResult } from "../models/result";
 import { flatten } from "../lib/utility";
+import { log } from "../models/logger";
+import { EvaluatorResult } from "./types";
 
-export async function webEvaluator(options, log) {
-    log("evaluating web");
+export async function webEvaluator(options): Promise<EvaluatorResult> {
     const apps = getAppsToEvaluate(options.env);
-    log(`found ${apps.length} sites to evaluate`);
-    return await Promise.all(apps.map(app => tryEvaluate(app, log)));
+    log(`found ${ apps.length } web apps to evaluate`);
+    const results = await Promise.all(apps.map(app => tryEvaluate(app)));
+    return {
+        results,
+        apps
+    };
 }
 
 function getAppsToEvaluate(options) {
@@ -33,7 +38,7 @@ function expandAndConfigureApp(app, name) {
     });
 }
 
-async function tryEvaluate(app, log) {
+async function tryEvaluate(app) {
     try {
         return await evaluate(app, log);
     } catch (err) {
@@ -41,7 +46,7 @@ async function tryEvaluate(app, log) {
             "web",
             app.name,
             err.message,
-            app.alert);
+            app);
     }
 }
 
@@ -74,19 +79,24 @@ async function evaluate(app, log) {
         });
         statusResult = webResult.status;
     } catch (err) {
-        statusResult = err.response?.status || (err.code ?? err.name ?? err.toString());
+        const isTimeout = err.code === "ECONNABORTED" && stopClock(timer) >= timeout;
+        statusResult = isTimeout ? `Timed out after ${ timeout }ms` : err.response?.status || (err.code ?? err.name ?? err.toString());
     }
     const timeTaken = stopClock(timer);
-    const {success, msg} = evaluateResult(statusResult, expectedStatus, webResult, app.validators);
+    const {success, msg} = evaluateResult(
+        statusResult,
+        expectedStatus,
+        webResult,
+        app.validators);
     const result = new WebResult(
         date,
-        "health check",
+        "health",
         name,
         success,
         statusResult,
         msg,
         timeTaken,
-        app.alert);
+        app);
     log(`${success === true ? "OK: " : "FAIL: "} ${name} - ${url} [${timeTaken.toFixed(2)}ms]`);
     return result;
 }

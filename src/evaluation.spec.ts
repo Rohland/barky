@@ -1,7 +1,8 @@
-import { getEvaluators } from "./evaluation";
+import { evaluateType, getEvaluators } from "./evaluation";
 import { webEvaluator } from "./evaluators/web";
 import { mysqlEvaluator } from "./evaluators/mysql";
 import { sumoEvaluator } from "./evaluators/sumo";
+import { WebResult } from "./models/result";
 
 describe("evaluation", () => {
     describe("getEvaluators", () => {
@@ -36,13 +37,13 @@ describe("evaluation", () => {
             });
             describe("and supported type", () => {
                 describe.each([
-                    ["web", webEvaluator],
-                    ["WEB", webEvaluator],
-                    ["mysql", mysqlEvaluator],
-                    [" mysql ", mysqlEvaluator],
-                    ["sumo", sumoEvaluator],
-                    ["sUMo", sumoEvaluator],
-                ])(`when given %s`, (evaluator, expected) => {
+                    ["web", "web", webEvaluator],
+                    ["WEB", "web", webEvaluator],
+                    ["mysql", "mysql", mysqlEvaluator],
+                    [" mysql ", "mysql", mysqlEvaluator],
+                    ["sumo", "sumo", sumoEvaluator],
+                    ["sUMo", "sumo", sumoEvaluator],
+                ])(`when given %s`, (evaluator, type, expected) => {
                     it("should return func", async () => {
                         // arrange
                         const config = {};
@@ -51,7 +52,8 @@ describe("evaluation", () => {
                         const result = getEvaluators(config, evaluator);
 
                         // assert
-                        expect(result).toEqual([expected]);
+                        expect(result[0].evaluator).toEqual(expected);
+                        expect(result[0].type).toEqual(type);
                     });
                 });
             });
@@ -72,7 +74,55 @@ describe("evaluation", () => {
                 const result = getEvaluators(config, null);
 
                 // assert
-                expect(result).toEqual([webEvaluator, mysqlEvaluator, sumoEvaluator]);
+                expect(result).toEqual([
+                    {
+                        type: "web",
+                        evaluator: webEvaluator
+                    },
+                    {
+                        type: "mysql",
+                        evaluator: mysqlEvaluator
+                    },
+                    {
+                        type: "sumo",
+                        evaluator: sumoEvaluator
+                    }]);
+            });
+        });
+    });
+    describe("evaluateType", () => {
+        describe("when called", () => {
+            it("should execute evaluation and include ping info", async () => {
+                // arrange
+                const result = new WebResult(new Date(), "health", "wwww.codeo.co.za", "FAIL", "500", "500", 1, null);
+                const type = {
+                    type: "web",
+                    evaluator: jest.fn().mockResolvedValue({
+                        apps: [{}, {}],
+                        results: [result]
+                    })
+                };
+                const config = {};
+
+                // act
+                const results = await evaluateType(type, config);
+
+                // assert
+                expect(type.evaluator).toHaveBeenCalledWith(config);
+                expect(results.length).toEqual(2);
+                expect(results).toEqual([
+                    expect.objectContaining({
+                        type: "web",
+                        label: "monitor",
+                        identifier: "ping",
+                        result: 2,
+                        resultMsg: "2 evaluated",
+                        success: true,
+                        timeTaken: expect.any(Number),
+                        alert: null
+                    }),
+                    result
+                ])
             });
         });
     });

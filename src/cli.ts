@@ -11,6 +11,7 @@ import { destroy } from "./models/db";
 import { emitAndPersistResults, execute } from "./exec";
 import { initLocaleAndTimezone } from "./lib/utility";
 import { loop } from "./loop";
+import { initLogger, log } from "./models/logger";
 
 (async () => {
     const args = await getArgs();
@@ -19,23 +20,21 @@ import { loop } from "./loop";
 })();
 
 async function run(args){
-    const logger = log.bind(args);
+    initLogger(args);
     try {
-        const config = getConfig(args, logger);
-        logger(`starting ${ args.eval } evaluators`);
+        const config = getConfig(args);
+        log(`starting ${ args.eval } evaluators`);
         await execute(
             config,
-            args.eval,
-            logger);
+            args.eval);
         return 0;
     } catch (err) {
-        logger(err, err);
+        log(err, err);
         // emits a global config error - assume cloud watch monitor is set up for this as a safety net
         const result = new MonitorFailureResult(
             "watchdog",
             "configuration",
-            err.message,
-            null); // nothing we can do about this - digest will not be configured
+            err.message);
         await emitAndPersistResults([result]);
         return -1;
     } finally {
@@ -60,7 +59,7 @@ function getConfigFileInfo(file) {
     }
 }
 
-function getAndValidateConfigFileInfo(fileName, log) {
+function getAndValidateConfigFileInfo(fileName) {
     let file = null;
     const fileInfo = getConfigFileInfo(fileName);
     try {
@@ -76,7 +75,7 @@ function getAndValidateConfigFileInfo(fileName, log) {
     return { file, fileInfo };
 }
 
-function getConfigurationFromFile(file, fileInfo: { fileName: string; filePath: string }, log) {
+function getConfigurationFromFile(file, fileInfo: { fileName: string; filePath: string }) {
     try {
         return YAML.parse(file);
     } catch (err) {
@@ -87,13 +86,13 @@ function getConfigurationFromFile(file, fileInfo: { fileName: string; filePath: 
     }
 }
 
-function getConfig(args, log) {
-    const { file, fileInfo } = getAndValidateConfigFileInfo(args.env, log);
-    const env = getConfigurationFromFile(file, fileInfo, log);
+function getConfig(args) {
+    const { file, fileInfo } = getAndValidateConfigFileInfo(args.env);
+    const env = getConfigurationFromFile(file, fileInfo);
     if (env.config) {
         initLocaleAndTimezone(env.config);
     }
-    const digest = getDigestConfiguration(args, log);
+    const digest = getDigestConfiguration(args);
     return {
         fileName: fileInfo.fileName,
         ...args,
@@ -102,22 +101,14 @@ function getConfig(args, log) {
     };
 }
 
-function getDigestConfiguration(args, log) {
+function getDigestConfiguration(args) {
     if (!args.digest) {
         return null;
     }
-    const { file, fileInfo } = getAndValidateConfigFileInfo(args.digest, log);
-    const config = getConfigurationFromFile(file, fileInfo, log);
+    const { file, fileInfo } = getAndValidateConfigFileInfo(args.digest);
+    const config = getConfigurationFromFile(file, fileInfo);
     config.title ??= args.title ?? "";
     return config;
-}
-
-function log(msg, data) {
-    if (this.debug) {
-        data
-            ? console.log(msg, data)
-            : console.log(msg);
-    }
 }
 
 async function getArgs() {

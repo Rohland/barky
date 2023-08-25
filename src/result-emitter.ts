@@ -2,6 +2,9 @@ import { Result } from "./models/result";
 
 export function emitResults(results: Result[]) {
     results.forEach(x => {
+        if (x.app?.quiet) {
+            return;
+        }
         const sValue = x.toString()?.replace(/[\r\n]+/g, " ");
         console.log(sValue);
     });

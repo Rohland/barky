@@ -70,6 +70,15 @@ The following high level keys are supported (note, it is case sensitive):
 - sumo
 - mysql
 
+For each evaluator, a ping is emitted to `stdout` with information about what type was evaluated, and how many were evaluated.
+
+Example:
+
+```
+# date|type|label|identifer|success|result_text|result|time_taken
+2023-08-25T13:17:24.471Z|web|monitor|ping|1|7 evaluated|7|132.78
+```
+
 ##### Web Configuration
 
 Simple example:
@@ -124,6 +133,7 @@ Additional values that can be configured:
 - `headers` - a custom set of headers (see example below)
 - `vary-by` - enables variations of a given url, an instance for each variation is monitored
 - `validators` - enables a set of custom validators that must all be successful
+- `quiet` - if set to a truthy value, will suppress success output  
 - `alert` - defines the alert rules, see below
 
 **Alerts**
@@ -151,6 +161,7 @@ web:
     url: https://www.codeo.co.za/en-$1 # the vary-by instance value is captured into $1
     status: 200
     timeout: 10000
+    quiet: false # success output emitted
     headers:
     	x-my-custom-value: 123
     validators:
@@ -183,6 +194,7 @@ The example below does not have any alerts configured, see web example above to 
 ```yaml
   web-performance:
     name: web-performance
+    quiet: true # successful evaluation is suppressed
     token: sumo-token # the tool will expect an environment variable with the appropriate token using this key
     period: -10m to -0m
     query: >
@@ -233,6 +245,7 @@ Note, the `connection` value is used to lookup environment variables by conventi
 mysql:
   queue-processing:
     name: queue-performance
+    quiet: true # successful evaluation is suppressed
     connection: aws-aurora
     timeout: 15000 # query will timeout after 15s
     query: >

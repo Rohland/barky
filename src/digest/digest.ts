@@ -49,7 +49,9 @@ export function generateResultsToEvaluate(
             "OK (inferred)",
             0,
             true,
-            snapshot.alert
+            {
+                alert: snapshot.alert
+            }
         ));
     });
     return results;

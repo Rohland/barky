@@ -8,9 +8,8 @@ import { AlertConfiguration } from "./models/alert_configuration";
 
 export async function execute(
     config: any,
-    evals: string,
-    logger: (msg: string, data?: any) => void) {
-    const results = await evaluate(config, evals, logger);
+    evals: string) {
+    const results = await evaluate(config, evals);
     await runDigest(config, results);
 }
 
@@ -24,14 +23,16 @@ async function runDigest(
     await digest(channelConfigs, results);
 }
 
-function configureMonitorLogsWithAlertConfiguration(results: Result[], digestConfig) {
+export function configureMonitorLogsWithAlertConfiguration(
+    results: Result[],
+    digestConfig) {
     const monitorAlertConfig = digestConfig?.monitor?.alert;
     if (!monitorAlertConfig){
         return;
     }
     const config = new AlertConfiguration(monitorAlertConfig);
     results.filter(x => x instanceof MonitorFailureResult).forEach(x => {
-        x.alert = config;
+        x.alert ??= config;
     });
 }
 

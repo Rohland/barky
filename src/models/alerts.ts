@@ -38,6 +38,10 @@ export class AlertState {
         return toLocalTimeString(this.start_date);
     }
 
+    public get endTime() {
+        return this.isResolved ? toLocalTimeString(new Date()) : null;
+    }
+
     public get durationMinutes() {
             return Math.floor((new Date().valueOf() - this.start_date.valueOf()) / 1000 / 60);
     }

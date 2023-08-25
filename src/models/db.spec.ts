@@ -69,7 +69,9 @@ describe("persistResults", () => {
                         "OK",
                         123,
                         true,
-                        alertDigester as IAlertConfig
+                        {
+                            alert: alertDigester as IAlertConfig
+                        }
                     );
 
                     // act
@@ -95,7 +97,9 @@ describe("persistResults", () => {
                         123,
                         true,
                         {
-                            channels: ["test-channel"],
+                            alert: {
+                                channels: ["test-channel"],
+                            }
                         }
                     );
 
@@ -121,7 +125,9 @@ describe("persistResults", () => {
                             123,
                             false,
                             {
-                                channels: ["test-channel"],
+                                alert: {
+                                    channels: ["test-channel"],
+                                }
                             }
                         );
 
@@ -235,7 +241,9 @@ describe("persistResults", () => {
                     "FAIL",
                     123,
                     false,
-                    new AlertConfiguration({ channels: ["test-channel"], rules: [] })
+                    {
+                        alert: new AlertConfiguration({ channels: ["test-channel"], rules: [] })
+                    }
                 );
                 const result2 = new Result(
                     new Date(),
@@ -246,7 +254,9 @@ describe("persistResults", () => {
                     "FAIL",
                     123,
                     false,
-                    new AlertConfiguration({ channels: ["test-channel"], rules: [] })
+                    {
+                        alert: new AlertConfiguration({ channels: ["test-channel"], rules: [] })
+                    }
                 );
                 await persistResults([result, result2]);
 

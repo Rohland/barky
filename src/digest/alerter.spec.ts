@@ -38,7 +38,9 @@ describe("alerter", () => {
                 0,
                 false,
                 {
-                    channels: ["console"]
+                    alert: {
+                        channels: ["console"]
+                    }
                 }
             );
             context.addSnapshotForResult(result);
@@ -71,7 +73,9 @@ describe("alerter", () => {
                     0,
                     false,
                     {
-                        channels: ["console"]
+                        alert: {
+                            channels: ["console"]
+                        }
                     }
                 );
                 context.addSnapshotForResult(result);
@@ -92,7 +96,9 @@ describe("alerter", () => {
                     0,
                     false,
                     {
-                        channels: ["console"]
+                        alert: {
+                            channels: ["console"]
+                        }
                     }
                 );
                 context.addSnapshotForResult(result2);
@@ -124,7 +130,9 @@ describe("alerter", () => {
                     0,
                     false,
                     {
-                        channels: ["console"]
+                        alert: {
+                            channels: ["console"]
+                        }
                     }
                 );
                 context.addSnapshotForResult(result);

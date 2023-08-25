@@ -34,7 +34,7 @@ export class SMSChannelConfig extends ChannelConfig {
     }
 
     public async sendResolvedAlert(alert: AlertState): Promise<void> {
-        const message = `${ this.prefix } Outage RESOLVED at ${ alert.startTime }. Duration was ${ alert.durationMinutes } ${ pluraliseWithS("minute", alert.durationMinutes)}.\n\n${ this.postfix }`.trim();
+        const message = `${ this.prefix } Outage RESOLVED at ${ alert.endTime }. Duration was ${ alert.durationMinutes } ${ pluraliseWithS("minute", alert.durationMinutes)}.\n\n${ this.postfix }`.trim();
         await this.sendSMSToAllContacts(message);
     }
 

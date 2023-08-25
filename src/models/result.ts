@@ -1,6 +1,6 @@
 import { IUniqueKey, uniqueKey } from "../lib/key";
-import { AlertConfiguration, IAlertConfig } from "./alert_configuration";
-
+import { AlertConfiguration } from "./alert_configuration";
+import { IApp } from "./app";
 
 export class Result implements IUniqueKey {
     public readonly resultMsg: string;
@@ -15,10 +15,10 @@ export class Result implements IUniqueKey {
         resultMsg: string | Array<string>,
         public timeTaken: number,
         public success: boolean,
-        alertConfig: IAlertConfig) {
+        public app: IApp) {
         this.resultMsg = Array.isArray(resultMsg) ? resultMsg.join(";") : resultMsg;
         this.timeTaken = timeTaken;
-        this.alert = alertConfig ? new AlertConfiguration(alertConfig) : null;
+        this.alert = app?.alert ? new AlertConfiguration(app.alert) : null;
     }
 
     get uniqueId(): string {
@@ -48,7 +48,7 @@ export class MonitorFailureResult extends Result {
         type,
         identifier,
         resultMsg,
-        alert: IAlertConfig) {
+        app: IApp = null) {
         super(
             new Date(),
             type,
@@ -58,7 +58,7 @@ export class MonitorFailureResult extends Result {
             resultMsg,
             0,
             false,
-            alert
+            app
         );
     }
 }
@@ -71,7 +71,7 @@ export class MySqlResult extends Result {
         resultMsg,
         timeTaken,
         success,
-        alert: IAlertConfig) {
+        app: IApp) {
         super(
             new Date(),
             "mysql",
@@ -81,7 +81,7 @@ export class MySqlResult extends Result {
             resultMsg?.length > 0 ? resultMsg : (success ? "OK" : "FAIL"),
             timeTaken,
             success,
-            alert);
+            app);
     }
 }
 
@@ -93,7 +93,7 @@ export class SumoResult extends Result {
         resultMsg,
         timeTaken,
         success,
-        alert: IAlertConfig) {
+        app: IApp) {
         super(
             new Date(),
             "sumo",
@@ -103,20 +103,20 @@ export class SumoResult extends Result {
             resultMsg?.length > 0 ? resultMsg : (success ? "OK" : "FAIL"),
             timeTaken,
             success,
-            alert);
+            app);
     }
 }
 
 export class WebResult extends Result {
     constructor(
-        date,
+        date: Date,
         label,
         identifier,
         success,
         result,
         resultMsg,
         timeTaken,
-        alert: IAlertConfig) {
+        app: IApp) {
         super(
             date,
             "web",
@@ -126,6 +126,27 @@ export class WebResult extends Result {
             resultMsg,
             timeTaken,
             success,
-            alert);
+            app);
+    }
+}
+
+export class PingResult extends Result {
+    constructor(
+        date: Date,
+        type: string,
+        time: number,
+        appCount: number
+    ) {
+        super(
+            date,
+            type,
+            "monitor",
+            "ping",
+            appCount,
+            `${ appCount} evaluated`,
+            time,
+            true,
+            null
+        );
     }
 }

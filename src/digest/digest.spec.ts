@@ -56,8 +56,10 @@ describe("digest", () => {
                         "OK",
                         100,
                         false, {
-                            channels: ["test-channel"],
-                            rules: []
+                            alert: {
+                                channels: ["test-channel"],
+                                rules: []
+                            }
                         });
 
                     // act
@@ -94,8 +96,10 @@ describe("digest", () => {
                             "OK",
                             100,
                             false, {
-                                channels: ["test-channel"],
-                                rules: [{ count: 3}]
+                                alert: {
+                                    channels: ["test-channel"],
+                                    rules: [{ count: 3 }]
+                                }
                             });
 
                         // act
@@ -120,8 +124,10 @@ describe("digest", () => {
                             "OK",
                             100,
                             false, {
-                                channels: ["test-channel"],
-                                rules: [{ count: 2}]
+                                alert: {
+                                    channels: ["test-channel"],
+                                    rules: [{ count: 2 }]
+                                }
                             });
 
                         // act
@@ -166,12 +172,14 @@ describe("digest", () => {
                                 "OK",
                                 100,
                                 false, {
-                                    channels: ["test-channel"],
-                                    rules: [
-                                        {
-                                            count: 2
-                                        }
-                                    ]
+                                    alert: {
+                                        channels: ["test-channel"],
+                                        rules: [
+                                            {
+                                                count: 2
+                                            }
+                                        ]
+                                    }
                                 });
 
                             // act
@@ -214,13 +222,15 @@ describe("digest", () => {
                         100,
                         false,
                         {
-                            channels: ["test-channel"],
-                            rules: [
-                                {
-                                    any: 2,
-                                    window: "-10m"
-                                }
-                            ]
+                            alert: {
+                                channels: ["test-channel"],
+                                rules: [
+                                    {
+                                        any: 2,
+                                        window: "-10m"
+                                    }
+                                ]
+                            }
                         });
 
                     // act
@@ -260,13 +270,15 @@ describe("digest", () => {
                         "FAIL",
                         100,
                         false, {
-                            channels: ["test-channel"],
-                            rules: [
-                                {
-                                    any: 1,
-                                    window: "-10m"
-                                }
-                            ]
+                            alert: {
+                                channels: ["test-channel"],
+                                rules: [
+                                    {
+                                        any: 1,
+                                        window: "-10m"
+                                    }
+                                ]
+                            }
                         });
 
                     // act
@@ -306,8 +318,10 @@ describe("digest", () => {
                         100,
                         true,
                         {
-                            channels: ["test-channel"],
-                            rules: []
+                            alert: {
+                                channels: ["test-channel"],
+                                rules: []
+                            }
                         });
 
                     // act
@@ -333,12 +347,14 @@ describe("digest", () => {
                         100,
                         true,
                         {
-                            channels: ["test-channel"],
-                            rules: [
-                                {
-                                    count: 1
-                                }
-                            ]
+                            alert: {
+                                channels: ["test-channel"],
+                                rules: [
+                                    {
+                                        count: 1
+                                    }
+                                ]
+                            }
                         });
 
                     // act
@@ -368,14 +384,15 @@ describe("digest", () => {
                         100,
                         true,
                         {
-
-                            channels: ["test-channel"],
-                            rules: [
-                                {
-                                    any: 2,
-                                    window: "-10m"
-                                }
-                            ]
+                            alert: {
+                                channels: ["test-channel"],
+                                rules: [
+                                    {
+                                        any: 2,
+                                        window: "-10m"
+                                    }
+                                ]
+                            }
                         });
 
                     // act
@@ -416,13 +433,15 @@ describe("digest", () => {
                         100,
                         true,
                         {
-                            channels: ["test-channel"],
-                            rules: [
-                                {
-                                    any: 1,
-                                    window: "-10m"
-                                }
-                            ]
+                            alert: {
+                                channels: ["test-channel"],
+                                rules: [
+                                    {
+                                        any: 1,
+                                        window: "-10m"
+                                    }
+                                ]
+                            }
                         });
 
                     // act
@@ -516,7 +535,7 @@ describe("digest", () => {
                     "OK (inferred)",
                     0,
                     true,
-                    snapshot.alert);
+                    { alert: snapshot.alert });
                 expect(output.length).toEqual(1);
                 expect(output[0]).toEqual(expectedResult);
             });
@@ -605,8 +624,10 @@ describe("digest", () => {
                             100,
                             false,
                             {
-                                channels: ["test-channel"],
-                                rules: [{ count: 1 }]
+                                alert: {
+                                    channels: ["test-channel"],
+                                    rules: [{ count: 1 }]
+                                }
                             });
                         await persistResults([result]);
 
@@ -649,8 +670,10 @@ describe("digest", () => {
                         100,
                         false,
                         {
-                            channels: ["test-channel"],
-                            rules: [{ count: 1 }]
+                            alert: {
+                                channels: ["test-channel"],
+                                rules: [{ count: 1 }]
+                            }
                         });
                     await persistResults([result]);
 
@@ -677,7 +700,7 @@ describe("digest", () => {
                                 success: false,
                                 alert_config: {
                                     channels: ["test-channel"],
-                                    rules: [{ count: 1}]
+                                    rules: [{ count: 1 }]
                                 }
                             })
                         ]);
@@ -720,8 +743,10 @@ describe("digest", () => {
                             100,
                             false,
                             {
-                                channels: ["test-channel"],
-                                rules: [{ count: 1 }]
+                                alert: {
+                                    channels: ["test-channel"],
+                                    rules: [{ count: 1 }]
+                                }
                             });
                         await persistResults([result]);
 

@@ -3,20 +3,24 @@ import { startClock, stopClock } from "../lib/profiler";
 import { renderTemplate } from "../lib/renderer";
 import { MonitorFailureResult, MySqlResult } from "../models/result";
 import { flatten } from "../lib/utility";
+import { log } from "../models/logger";
+import { EvaluatorResult } from "./types";
 
-
-export async function mysqlEvaluator(options, log) {
-    log("evaluating mysql");
+export async function mysqlEvaluator(options): Promise<EvaluatorResult> {
     const apps = getAppsToEvaluate(options.env);
     log(`found ${apps.length} mysql queries to evaluate`);
     try {
-        return await Promise.all(apps.map(app => evaluate(app, log)));
+        const results = await Promise.all(apps.map(app => tryEvaluate(app)));
+        return {
+            results,
+            apps
+        };
     } finally {
         disposeConnections();
     }
 }
 
-async function evaluate(app, log) {
+async function tryEvaluate(app) {
     try {
         const connection = await getConnection(app);
         const timer = startClock();
@@ -28,7 +32,7 @@ async function evaluate(app, log) {
             "mysql",
             app.name,
             err.message,
-            app.alert);
+            app);
     }
 }
 
@@ -76,7 +80,7 @@ function validateRow(app, identifier, row, validator) {
         msgs,
         app.timeTaken,
         !failure,
-        app.alert
+        app
     );
 }
 

@@ -75,7 +75,7 @@ export class SlackChannelConfig extends ChannelConfig {
             this.generateMessage([], alert),
             alert.state);
         await this.postToSlack(
-            `✅ <!channel> Previous outage resolved at ${ alert.startTime }. Duration was ${ alert.durationMinutes } ${ pluraliseWithS("minute", alert.durationMinutes) }.\n_See above for more details about affected services._`,
+            `✅ <!channel> Previous outage resolved at ${ alert.endTime }. Duration was ${ alert.durationMinutes } ${ pluraliseWithS("minute", alert.durationMinutes) }.\n_See above for more details about affected services._`,
         );
     }
 
