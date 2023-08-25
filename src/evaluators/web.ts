@@ -72,6 +72,7 @@ async function evaluate(app, log) {
                 __barky: new Date().valueOf()
             },
             headers,
+            maxRedirects: app["max-redirects"] ?? 5,
             timeout
         });
         statusResult = webResult.status;

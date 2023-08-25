@@ -175,6 +175,7 @@ Additional values that can be configured:
 
 - `method` defaults to `get`
 - `status` defaults to 200
+- `max-redirects` defaults to 5 - set to 0 to disable redirects
 - `timeout` defaults to 5000 (5 seconds)
 - `headers` - a custom set of headers (see example below)
 - `vary-by` - enables variations of a given url, an instance for each variation is monitored
@@ -206,6 +207,7 @@ web:
     url: https://www.codeo.co.za/en-$1 # the vary-by instance value is captured into $1
     status: 200
     timeout: 10000
+    max-redirects: 0 # don't follow redirects
     headers:
     	x-my-custom-value: 123
     validators:
