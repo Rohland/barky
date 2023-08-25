@@ -177,7 +177,7 @@ Additional values that can be configured:
 - `status` defaults to 200
 - `max-redirects` defaults to 5 - set to 0 to disable redirects
 - `timeout` defaults to 5000 (5 seconds)
-- `headers` - a custom set of headers (see example below)
+- `headers` - a custom set of headers (see example below) - these can include environment variables using $ prefix
 - `vary-by` - enables variations of a given url, an instance for each variation is monitored
 - `validators` - enables a set of custom validators that must all be successful
 - `alert` - defines the alert rules, see below
@@ -209,7 +209,8 @@ web:
     timeout: 10000
     max-redirects: 0 # don't follow redirects
     headers:
-    	x-my-custom-value: 123
+      Authorization: $my-auth-token # uses environment variable my-auth-token
+      x-my-custom-value: "123"
     validators:
     	- text: ok
     	  message: Expected to find text "ok" in response but didn't

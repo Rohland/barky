@@ -56,7 +56,7 @@ async function evaluate(app, log) {
         throw new Error(error);
     }
     const method = app.method ?? "get";
-    const headers = app.headers ?? {};
+    const headers = getCustomHeaders(app.headers);
     const expectedStatus = app.status ?? 200;
     const timeout = app.timeout ?? 5000;
     headers["user-agent"] = "barky";
@@ -121,6 +121,22 @@ function evaluateResult(
         success: !failure,
         msg: failure ?? "OK"
     };
+}
+
+export function getCustomHeaders(headers) {
+    headers ??= {};
+    for (const key in headers) {
+        const value = headers[key] ?? "";
+        const match = value.match(/^\$(.*)$/);
+        if (match) {
+            const envVar = process.env[match[1]];
+            if (!envVar) {
+                log(`warning: environment variable used in custom header, '${ match[1] }' not found`)
+            }
+            headers[key] = process.env[match[1]] ?? value;
+        }
+    }
+    return headers;
 }
 
 export function isFailureWebResult(webResult, validator) {

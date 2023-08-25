@@ -1,4 +1,4 @@
-import { isFailureWebResult } from "./web";
+import { getCustomHeaders, isFailureWebResult } from "./web";
 
 describe("web evaluator", () => {
     describe("isFailureWebResult", () => {
@@ -36,6 +36,53 @@ describe("web evaluator", () => {
                         // assert
                         expect(result).toEqual(expected);
                     });
+                });
+            });
+        });
+    });
+    describe("getCustomHeaders", () => {
+        describe("with none", () => {
+            describe.each([
+                [null],
+                [undefined],
+                [{}]
+            ])(`when given %s`, (headers) => {
+                it("should return empty", async () => {
+                    // arrange
+                    // act
+                    const result = getCustomHeaders(headers);
+                    // assert
+                    expect(result).toEqual({});
+                });
+            });
+        });
+        describe("with env var", () => {
+            describe("but is not set", () => {
+                it("should return value", async () => {
+                    // arrange
+                    const headers = {
+                        test: "$123"
+                    };
+                    // act
+                    const result = getCustomHeaders(headers);
+
+                    // assert
+                    expect(result.test).toEqual("$123");
+                });
+            });
+            describe("and is set", () => {
+                it("should return env var", async () => {
+                    // arrange
+                    const headers = {
+                        test: "$my-test-header"
+                    };
+                    process.env["my-test-header"] = "321";
+
+                    // act
+                    const result = getCustomHeaders(headers);
+
+                    // assert
+                    expect(result.test).toEqual("321");
                 });
             });
         });
