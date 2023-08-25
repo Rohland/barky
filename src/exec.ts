@@ -5,6 +5,7 @@ import { digest } from "./digest/digest";
 import { emitResults } from "./result-emitter";
 import { evaluate } from "./evaluation";
 import { AlertConfiguration } from "./models/alert_configuration";
+import { ChannelConfig } from "./models/channels/base";
 
 export async function execute(
     config: any,
@@ -18,9 +19,29 @@ async function runDigest(
     results: Result[]) {
     await initConnection(config.fileName);
     configureMonitorLogsWithAlertConfiguration(results, config.digest);
-    await emitAndPersistResults(results);
     const channelConfigs = getChannelConfigs(config.digest);
+    validateConfiguration(config, channelConfigs, results);
+    await emitAndPersistResults(results);
     await digest(channelConfigs, results);
+}
+
+export function validateConfiguration(
+    config: any,
+    channels: ChannelConfig[],
+    results: Result[]) {
+    if (!config.digest) {
+        return;
+    }
+    const issues = [];
+    const types = channels.map(x => x.name);
+    results.forEach(x => {
+       x.app?.alert?.channels?.forEach(channel => {
+           if (!types.includes(channel)) {
+               issues.push(new MonitorFailureResult(x.type, x.identifier,`Channel '${ channel }' not found in digest config`));
+           }
+       });
+    });
+    issues.forEach(i => results.push(i));
 }
 
 export function configureMonitorLogsWithAlertConfiguration(

@@ -5,6 +5,7 @@ import { MonitorFailureResult, MySqlResult } from "../models/result";
 import { flatten } from "../lib/utility";
 import { log } from "../models/logger";
 import { EvaluatorResult } from "./types";
+import { getAppVariations } from "../models/app";
 
 export async function mysqlEvaluator(options): Promise<EvaluatorResult> {
     const apps = getAppsToEvaluate(options.env);
@@ -130,15 +131,11 @@ function getAppsToEvaluate(options) {
 }
 
 function expandAndConfigureApp(app, name) {
-    const apps = app["vary-by"]?.length > 0
-        ? app["vary-by"]
-        : [app];
-    return apps.map(variant => {
+    return getAppVariations(app, name).map(variant => {
         return {
-            name: name.replaceAll("$1", variant),
             timeout: 15000,
             ...app,
-            query: app.query.replaceAll("$1", variant),
+            ...variant,
         };
     });
 }

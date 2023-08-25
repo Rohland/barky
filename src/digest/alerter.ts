@@ -4,6 +4,7 @@ import { AlertState } from "../models/alerts";
 import { flatten } from "../lib/utility";
 import { Snapshot } from "../models/snapshot";
 import { ChannelConfig } from "../models/channels/base";
+import { log } from "../models/logger";
 
 export async function executeAlerts(
     channelConfigs: ChannelConfig[],
@@ -28,6 +29,10 @@ async function sendNewAlerts(
     context: DigestContext) {
     await Promise.all(newAlerts.map(async alert => {
         const channel = channelLookup.get(alert.channel);
+        if (!channel) {
+            log(`Channel ${alert.channel} not found in digest configuration`);
+            return;
+        }
         const snapshots = context.getSnapshotsForChannel(channel);
         await channel.sendNewAlert(snapshots, alert);
         alert.last_alert_date = new Date();
@@ -41,6 +46,10 @@ async function sendOngoingAlerts(
     context: DigestContext) {
     await Promise.all(alerts.map(async alert => {
         const channel = channelLookup.get(alert.channel);
+        if (!channel) {
+            log(`Channel ${alert.channel} not found in digest configuration`);
+            return;
+        }
         const snapshots = context.getSnapshotsForChannel(channel);
         if (channel.canSendAlert(alert)) {
             await channel.sendOngoingAlert(snapshots, alert);
@@ -58,6 +67,10 @@ async function sendResolvedAlerts(
     await Promise.all(alerts.map(async alert => {
         alert.resolve();
         const channel = channelLookup.get(alert.channel);
+        if (!channel) {
+            log(`Channel ${alert.channel} not found in digest configuration`);
+            return;
+        }
         await channel.sendResolvedAlert(alert);
     }));
 }

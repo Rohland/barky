@@ -7,6 +7,7 @@ import { renderTemplate } from "../lib/renderer";
 import { flatten } from "../lib/utility";
 import { log } from "../models/logger";
 import { EvaluatorResult } from "./types";
+import { getAppVariations } from "../models/app";
 
 const SumoDomain = process.env["sumo-domain"] ?? "api.eu.sumologic.com";
 const SumoUrl = `https://${ SumoDomain }/api/v1/search/jobs`;
@@ -178,15 +179,11 @@ function getAppsToEvaluate(options) {
 }
 
 function expandAndConfigureApp(app, name) {
-    const apps = app["vary-by"]?.length > 0
-        ? app["vary-by"]
-        : [app];
-    return apps.map(variant => {
+    return getAppVariations(app, name).map(variant => {
         return {
-            name: name.replaceAll("$1", variant),
             timeout: 20000,
             ...app,
-            query: app.query.replaceAll("$1", variant),
+            ...variant,
             period: parsePeriodRange(app.period),
         };
     });

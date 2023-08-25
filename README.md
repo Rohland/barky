@@ -70,6 +70,8 @@ The following high level keys are supported (note, it is case sensitive):
 - sumo
 - mysql
 
+##### Evaluator Basics
+
 For each evaluator, a ping is emitted to `stdout` with information about what type was evaluated, and how many were evaluated.
 
 Example:
@@ -78,6 +80,50 @@ Example:
 # date|type|label|identifer|success|result_text|result|time_taken
 2023-08-25T13:17:24.471Z|web|monitor|ping|1|7 evaluated|7|132.78
 ```
+
+In addition, each evaluator app supports the following properties:
+
+- `name` - String - a friendly name for the relevant app
+- `quiet` - Any - if set to a truthy value, will suppress success output
+- `timeout` - Numeric - a value in milliseconds (example: 10000 for 10s)
+- `vary-by` - Array<string|string[]> - enables variations of fields like name, url or query (depending on the type of evaluator)
+
+** Variation **
+
+Examples of vary-by:
+
+```yaml
+web:
+  www.codeo.co.$1:
+    vary-by: [za,us,gb]
+    url: https://www.codeo.co.za/en-$1 
+```
+
+This will generate 3 apps to be evaluated with:
+
+```
+names: [www.codeo.co.za, www.codeo.co.us, www.codeo.co.gb]
+urls: [https://www.codeo.co.za/en-za, https://www.codeo.co.za/en-us, https://www.codeo.co.za/en-gb]
+```
+
+A more complex example:
+
+```
+web:
+  www.codeo.co.$1:
+    vary-by: 
+    	- [za, zar]
+    	- [com, usd]
+    url: https://www.codeo.co.$1/currency=$2 
+```
+
+This would generate 2 apps to be evaluated with:
+
+```
+names: [www.codeo.co.za, www.codeo.com]
+urls: [https://www.codeo.co.za/currency=zar, https://www.codeo.com/currency=usd]
+```
+
 
 ##### Web Configuration
 
@@ -133,7 +179,6 @@ Additional values that can be configured:
 - `headers` - a custom set of headers (see example below)
 - `vary-by` - enables variations of a given url, an instance for each variation is monitored
 - `validators` - enables a set of custom validators that must all be successful
-- `quiet` - if set to a truthy value, will suppress success output  
 - `alert` - defines the alert rules, see below
 
 **Alerts**
@@ -161,7 +206,6 @@ web:
     url: https://www.codeo.co.za/en-$1 # the vary-by instance value is captured into $1
     status: 200
     timeout: 10000
-    quiet: false # success output emitted
     headers:
     	x-my-custom-value: 123
     validators:

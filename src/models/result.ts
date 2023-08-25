@@ -54,7 +54,7 @@ export class MonitorFailureResult extends Result {
             type,
             "monitor",
             identifier,
-            null,
+            "FAIL",
             resultMsg,
             0,
             false,

@@ -4,6 +4,7 @@ import { MonitorFailureResult, WebResult } from "../models/result";
 import { flatten } from "../lib/utility";
 import { log } from "../models/logger";
 import { EvaluatorResult } from "./types";
+import { getAppVariations } from "../models/app";
 
 export async function webEvaluator(options): Promise<EvaluatorResult> {
     const apps = getAppsToEvaluate(options.env);
@@ -26,14 +27,10 @@ function getAppsToEvaluate(options) {
 }
 
 function expandAndConfigureApp(app, name) {
-    const apps = app["vary-by"]?.length > 0
-        ? app["vary-by"]
-        : [app];
-    return apps.map(variant => {
+    return getAppVariations(app, name).map(variant => {
         return {
             ...app,
-            name: (app.name ?? name).replaceAll("$1", variant),
-            url: app.url?.replaceAll("$1", variant)
+            ...variant
         };
     });
 }
@@ -125,9 +122,9 @@ function evaluateResult(
     };
 }
 
-function isFailureWebResult(webResult, validator) {
-    if (validator.text) {
-        if (!webResult.data.toLowerCase().includes(validator.text)) {
+export function isFailureWebResult(webResult, validator) {
+    if (validator?.text) {
+        if (!webResult.data.toLowerCase().includes(validator.text.toString().toLowerCase())) {
             return true;
         }
     }
