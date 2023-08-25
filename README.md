@@ -202,15 +202,15 @@ The example below does not have any alerts configured, see web example above to 
     validators:
       - match: myslowsite\.(com|net) # special rules for myslowsite.com and myslowsite.net
         rules:
-          - expression: response_time < 2
+          - expression: response_time >= 2
             message: "Response time is too high: {{response_time}}s"
-          - expression: error_rate < 1
+          - expression: error_rate > 1
             message: "Error rate is too high: {{error_rate}}%"
       - match: .* # catch all
         rules:
-          - expression: response_time < 0.5
+          - expression: response_time >= 0.5
             message: "Response time is too high: {{response_time}}s"
-          - expression: error_rate < 1
+          - expression: error_rate > 1
             message: "Error rate is too high: {{error_rate}}%"
 ```
 
@@ -242,7 +242,7 @@ mysql:
     validators:
       - match: .* # catch all
         rules:
-          - expression: minutes_to_process < 10
+          - expression: minutes_to_process >= 10
             message: "Queue is backlogged with {{ unprocessed }} msgs & will take {{ minutes_to_process }} minutes to catch up"
 ```
 ---

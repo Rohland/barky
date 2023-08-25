@@ -54,7 +54,7 @@ function validateEntry(app, entry, _log) {
     rules.forEach(rule => {
         const variableDefinitions = variables.map(x => `const ${x} = ${generateValueForVariable(entry[x])}`).join(";");
         const expression = `;${ rule.expression }`;
-        const fail = !eval(variableDefinitions + expression);
+        const fail = eval(variableDefinitions + expression);
         failure ||= fail;
         if (fail) {
             msgs.push(renderTemplate(rule.message, entry));

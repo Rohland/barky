@@ -63,7 +63,7 @@ function validateRow(app, identifier, row, validator) {
     validator.rules.find(rule => {
         const variableDefinitions = variables.map(x => `const ${x} = ${generateValueForVariable(row[x])}`).join(";");
         const expression = `;${ rule.expression }`;
-        const fail = !eval(variableDefinitions + expression);
+        const fail = eval(variableDefinitions + expression);
         failure ||= fail;
         if (fail) {
             msgs.push(renderTemplate(rule.message, row));

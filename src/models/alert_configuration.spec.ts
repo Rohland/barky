@@ -124,6 +124,7 @@ describe("AlertRule", () => {
             describe("with a time that matches now", () => {
                 it("should return true", async () => {
                     // arrange
+                    initLocaleAndTimezone({ timezone: "Africa/Johannesburg"});
                     const config = {
                         time_of_day: "00:00-23:59"
                     } as IAlertRule;
