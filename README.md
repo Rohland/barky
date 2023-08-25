@@ -139,7 +139,7 @@ web:
     url: https://www.codeo.co.za
 ```
 
-This will trigger a check against www.codeo.co.za, and will validate that a 200 status code is returned. It will automatically include a `__ts={timestamp}` querystring parameter to bust any caching and will also submit with user agent `barky`.
+This will trigger a check against www.codeo.co.za, and will validate that a 200 status code is returned. It will automatically include a `__barky={timestamp}` querystring parameter to bust any caching and will also submit with user agent `barky`.
 
 Example successful output:
 

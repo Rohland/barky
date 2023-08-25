@@ -69,7 +69,7 @@ async function evaluate(app, log) {
     try {
         webResult = await exec(url, {
             params: {
-                __ts: new Date().valueOf()
+                __barky: new Date().valueOf()
             },
             headers,
             timeout

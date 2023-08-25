@@ -1,6 +1,6 @@
 {
   "name": "barky",
-  "version": "1.0.12-alpha",
+  "version": "1.0.13-alpha",
   "description": "A simple cloud services watchdog with no external dependencies and digest support",
   "main": "dist/cli.js",
   "scripts": {
