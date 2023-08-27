@@ -35,11 +35,11 @@ export function validateConfiguration(
     const issues = [];
     const types = channels.map(x => x.name);
     results.forEach(x => {
-       x.app?.alert?.channels?.forEach(channel => {
-           if (!types.includes(channel)) {
-               issues.push(new MonitorFailureResult(x.type, x.identifier,`Channel '${ channel }' not found in digest config`));
-           }
-       });
+        x.app?.alert?.channels?.forEach(channel => {
+            if (!types.includes(channel)) {
+                issues.push(new MonitorFailureResult(x.type, x.identifier, `Channel '${ channel }' not found in digest config`));
+            }
+        });
     });
     issues.forEach(i => results.push(i));
 }
@@ -47,14 +47,23 @@ export function validateConfiguration(
 export function configureMonitorLogsWithAlertConfiguration(
     results: Result[],
     digestConfig) {
-    const monitorAlertConfig = digestConfig?.monitor?.alert;
-    if (!monitorAlertConfig){
-        return;
-    }
-    const config = new AlertConfiguration(monitorAlertConfig);
-    results.filter(x => x instanceof MonitorFailureResult).forEach(x => {
-        x.alert ??= config;
-    });
+    const alertPolicies = (digestConfig ?? {})["alert-policies"] ?? {};
+    results
+        .filter(x => x instanceof MonitorFailureResult)
+        .forEach(x => {
+            if (!x.alert) {
+                return;
+            }
+            const monitorPolicy = x.alert.exceptionPolicyName;
+            if (!monitorPolicy) {
+                return;
+            }
+            const policy = alertPolicies[monitorPolicy];
+            if (!policy) {
+                throw new Error(`alert exception policy '${ monitorPolicy }' not found in digest config`);
+            }
+            x.alert = new AlertConfiguration(policy);
+        });
 }
 
 export async function emitAndPersistResults(results: Result[]) {

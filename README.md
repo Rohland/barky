@@ -193,6 +193,7 @@ Fields:
 	* `window` - not required, but useful to constrain `any` operator to the given window, example: `-30m` means last 30 minutes. Maximum window is `24h`. Defaults to 5 minutes if not specified
 	* `days_of_week` - array of days and only required if you want to constrain the trigger to specific days of week (see example)
 	* `time_of_day` - array or single range value, only required if you want to constrain the trigger to specific times of the day (times are in UTC)
+* `exception-policy` - the name of the alert policy (defined in the digest configuration) to use for monitor failures (such as timeouts or exceptions), if not set then the same alert configuration rules defined above will be used when the monitor incurs an unhandled error
 
 Advanced example:
 
@@ -247,7 +248,7 @@ The example below does not have any alerts configured, see web example above to 
     query: >
       # this query gets 90th percentile response time, and error rate for sites with traffic in the last 10 minutes
       _sourceCategory=system/linux/nginx _collector=*mycollector* not(host=*test*)
-      | if(status matches /^(5|499)/, 1, 0) as error
+      | if(status matches "5*", 1, 0) as error
       | if(status matches "5*", 0, 1) as ok
       | where responsetime >= 0
       | pct(responsetime, 90) as _90p, sum(error) as error, sum(ok) as ok, count by host
@@ -310,29 +311,24 @@ mysql:
 
 The digest is the second phase of the tool, and is optional. This controls the execution of alerts.
 
-The digest execution requires configuration of channels and their output. The digest is run as part of the monitor execution, so will only have access to the monitors configured. 
-
-Usually, this means that there will be two digests that are run:
-
-1. Public - services as monitored externally from the environment (example: web and sumo logic queries)
-2. Private - service as monitored internally (example: mysql)
+The digest execution requires configuration of channels and their output. The digest is run as part of the monitor execution, so will only have access to the monitors configured.
 
 Supported channels:
 
-- Console (emits to stdout for debugging)
+- Console (emits to stdout for debugging - no configuration required)
 - SMS
 - Slack
 
 When executed, the digester evaluates and compares last monitor snapshot to the current snapshot and makes decisions as to what to do based on configuration.
 
+In addition to defining the channel configuration, the digest may also optionally configure alert policies that can be used in the alert configuration.
+You may want to define shared configuration for aspects such as exception policies, for when a monitor cannot evaluate due to an unhandled error.
+
 Example configuration:
 
 ```yaml
-# default alert rules for any monitor logs for types: web, mysql, sumo. 
-# global watchdog failures (such as bad yaml) don't support digest and so you need a safety net to monitor for these
-# in your cloud log management system
-monitor:
-  alert:
+alert-policies:
+  monitor-exception:
     channels: [slack]
     rules:
       - description: More than 3 monitor errors in a 10 minute window

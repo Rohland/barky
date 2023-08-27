@@ -183,6 +183,19 @@ describe("AlertRule", () => {
     });
 });
 describe("AlertConfiguration", () => {
+    describe("when instantiated with exception-policy", () => {
+        it("should bind exception policy", async () => {
+            // arrange & act
+            const config = {
+                channels: [],
+                rules: null,
+                "exception-policy": "monitor"
+            };
+            const alert = new AlertConfiguration(config);
+            // assert
+            expect(alert.exceptionPolicyName).toEqual(config["exception-policy"]);
+        });
+    });
     describe("findFirstValidRule", () => {
         describe("when no valid rules", () => {
             it("should return simplest rule of count 1", async () => {

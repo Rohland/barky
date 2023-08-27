@@ -12,8 +12,9 @@ export interface IAlertRule {
 }
 
 export interface IAlertConfig {
-    channels: string[];
+    channels?: string[];
     rules?: IAlertRule[];
+    "exception-policy"?: string;
 }
 
 export enum AlertRuleType {
@@ -98,11 +99,13 @@ export class AlertConfiguration {
     private readonly _config: any;
     public channels: string[];
     public rules: AlertRule[];
+    public exceptionPolicyName?: string;
 
     constructor(config: IAlertConfig) {
         this._config = config;
-        this.channels = config.channels;
-        this.rules = config.rules?.map(x => new AlertRule(x));
+        this.channels = config.channels ?? [];
+        this.rules = config.rules?.map(x => new AlertRule(x)) ?? [];
+        this.exceptionPolicyName = config["exception-policy"];
     }
 
     public getConfig(): IAlertConfig {

@@ -15,11 +15,12 @@ import { AlertConfiguration } from "./models/alert_configuration";
 describe("exec", () => {
 
     describe("configureMonitorLogsWithAlertConfiguration", () => {
-        describe("with no monitor config", () => {
+        describe("with no alert configuration", () => {
             describe.each([
                 [{}],
-                [{ monitor: {} }],
-                [{ monitor: { alert: null } }]
+                [{ "alert-policies": null }],
+                [{ "alert-policies": undefined }],
+                [{ "alert-policies": {} }]
             ])(`with digest config %j`, (digest) => {
                 it("should result in no config for alert", async () => {
                     // arrange
@@ -31,42 +32,21 @@ describe("exec", () => {
                 });
             });
         });
-        describe("with monitor config", () => {
-            it("should set alert for monitor results only", async () => {
-                // arrange
-                const results = [
-                    new WebResult(new Date(), "health-check", "web", 200, 200, 200, 0, null),
-                    new MonitorFailureResult("web", "www.codeo.co.za", "Runtime Error", null)
-                ];
-                const digest = {
-                    monitor: {
-                        alert: {
-                            channels: ["console"],
-                            rules: []
-                        }
-                    }
-                };
-                // act
-                configureMonitorLogsWithAlertConfiguration(results, digest);
-
-                // assert
-                expect(results[0].alert).toEqual(null);
-                expect(results[1].alert).toEqual(new AlertConfiguration(digest.monitor.alert));
-            });
-            describe("but if alert config already set", () => {
-                it("should leave the default specified", async () => {
+        describe("with alert configured", () => {
+            describe("with monitor exception policy", () => {
+                it("should set alert for monitor results only", async () => {
                     // arrange
-                    const appAlertConfig = {
-                        channels: ["sms"],
-                        rules: []
+                    const alert = {
+                        "exception-policy": "monitor",
+                        channels: ["console"]
                     };
                     const results = [
                         new WebResult(new Date(), "health-check", "web", 200, 200, 200, 0, null),
-                        new MonitorFailureResult("web", "www.codeo.co.za", "Runtime Error", { alert: appAlertConfig})
+                        new MonitorFailureResult("web", "www.codeo.co.za", "Runtime Error", { alert })
                     ];
                     const digest = {
-                        monitor: {
-                            alert: {
+                        "alert-policies": {
+                            "monitor": {
                                 channels: ["console"],
                                 rules: []
                             }
@@ -77,7 +57,34 @@ describe("exec", () => {
 
                     // assert
                     expect(results[0].alert).toEqual(null);
-                    expect(results[1].alert).toMatchObject(appAlertConfig);
+                    expect(results[1].alert).toEqual(new AlertConfiguration(digest["alert-policies"].monitor));
+                });
+                describe("with no exception policy defined", () => {
+                    it("should leave the default specified", async () => {
+                        // arrange
+                        const appAlertConfig = {
+                            channels: ["sms"],
+                            rules: []
+                        };
+                        const results = [
+                            new WebResult(new Date(), "health-check", "web", 200, 200, 200, 0, null),
+                            new MonitorFailureResult("web", "www.codeo.co.za", "Runtime Error", { alert: appAlertConfig })
+                        ];
+                        const digest = {
+                            monitor: {
+                                alert: {
+                                    channels: ["console"],
+                                    rules: []
+                                }
+                            }
+                        };
+                        // act
+                        configureMonitorLogsWithAlertConfiguration(results, digest);
+
+                        // assert
+                        expect(results[0].alert).toEqual(null);
+                        expect(results[1].alert).toMatchObject(appAlertConfig);
+                    });
                 });
             });
         });
@@ -123,15 +130,18 @@ describe("exec", () => {
                     const config = {
                         fileName: testDb,
                         digest: {
-                            monitor: {
-                                alert: {
+                            "alert-policies": {
+                                monitor: {
                                     channels: ["console"]
                                 }
                             },
                             channels: []
                         }
                     };
-                    const result = new MonitorFailureResult("web", "www.codeo.co.za", "Runtime Error");
+                    const alert = {
+                        "exception-policy": "monitor"
+                    };
+                    const result = new MonitorFailureResult("web", "www.codeo.co.za", "Runtime Error", { alert });
                     evaluateMock.mockResolvedValue([result]);
 
                     // act
@@ -142,22 +152,49 @@ describe("exec", () => {
                     expect(console.log).toHaveBeenCalledWith(expect.stringContaining("🚨Outage started at "));
                     expect(console.log).toHaveBeenCalledWith(expect.stringContaining("1 health check affected"));
                 });
+                describe("but if configured with policy that does not exist", () => {
+                    it("should throw", async () => {
+                        // arrange
+                        const config = {
+                            fileName: testDb,
+                            digest: {
+                                "alert-policies": {
+                                    monitor: {
+                                        channels: ["console"]
+                                    }
+                                },
+                                channels: []
+                            }
+                        };
+                        const alert = {
+                            "exception-policy": "abc"
+                        };
+                        const result = new MonitorFailureResult("web", "www.codeo.co.za", "Runtime Error", { alert });
+                        evaluateMock.mockResolvedValue([result]);
+
+                        // act and assert
+                        await expect(async () => await execute(config, "test")).rejects.toThrow("alert exception policy 'abc' not found in digest config");
+                    });
+                });
                 describe("and with consecutive count specified and not reached", () => {
                     it("should not trigger outage", async () => {
                         // arrange
                         const config = {
                             fileName: testDb,
                             digest: {
-                                monitor: {
-                                    alert: {
+                                "alert-policies": {
+                                    monitor: {
                                         channels: ["console"],
-                                        rules: [{ count: 2}]
+                                        rules: [{ count: 2 }]
                                     }
                                 },
                                 channels: []
                             }
                         };
-                        const result = new MonitorFailureResult("web", "www.codeo.co.za", "Runtime Error");
+                        const alert = {
+                            "exception-policy": "monitor"
+                        };
+                        const result = new MonitorFailureResult("web", "www.codeo.co.za", "Runtime Error", { alert });
                         evaluateMock.mockResolvedValue([result]);
 
                         // act
@@ -174,8 +211,8 @@ describe("exec", () => {
                         const config = {
                             fileName: testDb,
                             digest: {
-                                monitor: {
-                                    alert: {
+                                "alert-policies": {
+                                    monitor: {
                                         channels: ["console"]
                                     }
                                 },
@@ -183,9 +220,10 @@ describe("exec", () => {
                             }
                         };
                         const alert = {
-                            channels: ["console"]
+                            channels: ["console"],
+                            "exception-policy": "monitor"
                         };
-                        const fail = new MonitorFailureResult("web", "www.codeo.co.za", "Runtime Error");
+                        const fail = new MonitorFailureResult("web", "www.codeo.co.za", "Runtime Error", { alert });
                         evaluateMock.mockResolvedValue([fail]);
                         await execute(config, "test");
                         const ok = new WebResult(new Date(), "health-check", "www.codeo.co.za", true, "200", "OK", 0, { alert });
