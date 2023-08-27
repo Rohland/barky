@@ -327,6 +327,11 @@ You may want to define shared configuration for aspects such as exception polici
 Example configuration:
 
 ```yaml
+quiet-windows: # alerts are silenced if generated in these window periods
+	- date: 2023-08-27 
+	  time: 14:00 - 16:00 # 2PM to 4PM for a specific date
+	- time: 00:00 - 06:00 # every day midnight to 6AM
+	  
 alert-policies:
   monitor-exception:
     channels: [slack]
@@ -336,7 +341,6 @@ alert-policies:
         window: 10m
 
 channels:
-
   sms:
     type: sms
     provider: clickatell_legacy # currently only supported provider
@@ -347,7 +351,6 @@ channels:
     contacts: # list of people to contact
       - name: Rohland
         mobile: +2782...
-
   slack:
     type: slack
     template:

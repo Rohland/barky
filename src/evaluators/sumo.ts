@@ -151,7 +151,6 @@ async function isJobComplete(app, log) {
             throw err;
         }
     }
-    throw new Error("timeout");
 }
 
 async function getSearchResult(app, _log) {
@@ -181,7 +180,7 @@ function getAppsToEvaluate(options) {
 function expandAndConfigureApp(app, name) {
     return getAppVariations(app, name).map(variant => {
         return {
-            timeout: 20000,
+            timeout: 10000,
             ...app,
             ...variant,
             period: parsePeriodRange(app.period),
