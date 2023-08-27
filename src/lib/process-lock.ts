@@ -1,4 +1,4 @@
-import { hash } from "./utility";
+import { shortHash } from "./utility";
 import fs from "fs";
 
 function getPidForLock(lock: string) {
@@ -20,7 +20,7 @@ function isInstanceRunning(pid) {
 }
 
 export function canLockProcessFor(key): boolean {
-    const lock = `.barky.${ hash(key) }.lock`;
+    const lock = `.barky.${ shortHash(key) }.lock`;
     const pid = getPidForLock(lock);
     if (pid) {
         if (isInstanceRunning(pid)) {

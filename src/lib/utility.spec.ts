@@ -1,4 +1,4 @@
-import { flatten, hash, initLocaleAndTimezone, Time, toLocalTime, toLocalTimeString } from "./utility";
+import { flatten, hash, initLocaleAndTimezone, shortHash, Time, toLocalTime, toLocalTimeString } from "./utility";
 
 describe("utility functions", () => {
     describe("flatten", () => {
@@ -196,6 +196,81 @@ describe("utility functions", () => {
 
                 // assert
                 expect(h.length).toEqual(32);
+            });
+        });
+        describe("with same key", () => {
+            it("should generate same hash", async () => {
+                // arrange
+                const key = "test 123";
+
+                // act
+                const one = hash(key);
+                const two = hash(key);
+
+                // assert
+                expect(one).toEqual(two);
+            });
+        });
+        describe("with different keys", () => {
+            it("should generate different hashes", async () => {
+                // arrange
+                // act
+                const one = hash("test 1");
+                const two = hash("test 2");
+
+                // assert
+                expect(one).not.toEqual(two);
+            });
+        });
+        describe("with null, empty, undefined", () => {
+            it("should generate same hash", async () => {
+                // arrange
+                const values = [null, undefined, ""];
+
+                // act
+                const hashes = values.map(hash);
+
+                // assert
+                expect(hashes[0]).toEqual(hashes[1]);
+                expect(hashes[0]).toEqual(hashes[2]);
+            });
+        });
+    });
+    describe("shortHash", () => {
+        describe("with key", () => {
+            it("should hash", async () => {
+                // arrange
+                const key = "test 123";
+
+                // act
+                const h = shortHash(key);
+
+                // assert
+                expect(h.length).toEqual(8);
+            });
+        });
+        describe("with same key", () => {
+            it("should generate same hash", async () => {
+                // arrange
+                const key = "test 123";
+
+                // act
+                const one = shortHash(key);
+                const two = shortHash(key);
+
+                // assert
+                expect(one).toEqual(two);
+            });
+        });
+        describe("with different keys", () => {
+            it("should generate different hashes", async () => {
+                // arrange
+                // act
+                const one = shortHash("test 1");
+                const two = shortHash("test 2");
+
+                // assert
+                expect(one).not.toEqual(two);
             });
         });
         describe("with null, empty, undefined", () => {

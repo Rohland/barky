@@ -29,7 +29,7 @@ In addition to this, the results are evaluated and alerts emitted in a digest fo
 - SMS
 - Slack
 
-So, the pipeline is `Evaluate > Digest` where the evaluation emitss status of things monitored and the digest step emits any alerts (triggered, ongoing or resolution) via the configured channels. The digest step is optional.
+So, the pipeline is `Evaluate > Digest` where the evaluation emits status of things monitored and the digest step emits any alerts (triggered, ongoing or resolution) via the configured channels. The digest step is optional.
 
 ## Usage
 

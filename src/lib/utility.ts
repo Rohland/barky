@@ -117,5 +117,17 @@ export function initLocaleAndTimezone(config) {
 }
 
 export function hash(key: string) {
-    return crypto.createHash('md5').update(key ?? "").digest('hex');
+    return crypto
+        .createHash('md5')
+        .update(key ?? "")
+        .digest("hex");
+}
+
+export function shortHash(key: string) {
+    return crypto
+        .createHash('shake256', {
+            outputLength: 4
+        })
+        .update(key ?? "")
+        .digest("hex");
 }
