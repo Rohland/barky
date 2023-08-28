@@ -33,21 +33,27 @@ So, the pipeline is `Evaluate > Digest` where the evaluation emits status of thi
 
 ## Usage
 
+Commands:
+
+- `run` - runs the evaluator
+- `loop` - runs the evaluator in a loop (every 30s) until terminated
+- `killall` - kills all running barky processes based on lock files in the current directory
+
 ```bash
 # run the evaluator without digest
-npx barky@latest --env=configs/my.yaml
+npx barky@latest run configs/my.yaml
 
 # run the evaluator with specific evaluator (comma separate for more)
-npx barky@latest --env=configs/my.yaml --eval=web
+npx barky@latest run configs/my.yaml --eval=web
 
 # run the evaluator and digest step
-npx barky@latest --env=configs/my.yaml --digest=configs/digest/my-team.yaml --title="ACME Public"
+npx barky@latest run configs/my.yaml --digest=configs/digest/my-team.yaml --title="ACME Public"
 
 # run in a loop (every 30s) until exit
-npx barky@latest --env=configs/my.yaml --digest=configs/digest/my-team.yaml --title="ACME Public" --loop
+npx barky@latest loop configs/my.yaml --digest=configs/digest/my-team.yaml --title="ACME Public"
 
-# bypass prompt for installation
-npx --yes barky@latest --env=configs/my.yaml --eval=web --digest=configs/digest/my-team.yaml --title="ACME Public"
+# bypass prompt for package installation
+npx --yes barky@latest run configs/my.yaml --eval=web --digest=configs/digest/my-team.yaml --title="ACME Public"
 ```
 
 ## Evaluation
@@ -327,10 +333,10 @@ You may want to define shared configuration for aspects such as exception polici
 Example configuration:
 
 ```yaml
-quiet-windows: # alerts are silenced if generated in these window periods
-	- date: 2023-08-27 
-	  time: 14:00 - 16:00 # 2PM to 4PM for a specific date
-	- time: 00:00 - 06:00 # every day midnight to 6AM
+mute-windows: # alerts are silenced if generated in these window periods
+  - date: 2023-08-27 
+    time: 14:00 - 16:00 # 2PM to 4PM for a specific date
+  - time: 00:00 - 06:00 # every day midnight to 6AM
 	  
 alert-policies:
   monitor-exception:

@@ -34,10 +34,22 @@ async function sendNewAlerts(
             return;
         }
         const snapshots = context.getSnapshotsForChannel(channel);
-        await channel.sendNewAlert(snapshots, alert);
+        alert.start_date = earliestDateFor(snapshots);
+        await channel.sendNewAlert(
+            snapshots,
+            alert);
         alert.last_alert_date = new Date();
         alert.track(snapshots);
     }));
+}
+
+function earliestDateFor(snapshots: Snapshot[]): Date {
+    if (!snapshots || snapshots.length === 0) {
+        return new Date();
+    }
+    return snapshots.reduce((prev, curr) => {
+        return prev.date < curr.date ? prev : curr;
+    }, snapshots[0]).date;
 }
 
 async function sendOngoingAlerts(
@@ -91,17 +103,23 @@ function getChannelsAffected(snapshots: Snapshot[]): string [] {
     return Array.from(new Map(channels.map(x => [x, true])).keys());
 }
 
-function detectNewAlerts(alerts: AlertState[], channels: string[]) {
+function detectNewAlerts(
+    alerts: AlertState[],
+    channels: string[]) {
     const missing = channels.filter(x => !alerts.some(y => y.channel === x));
     return missing.map(x => AlertState.New(x));
 }
 
-function detectExistingAlerts(alerts: AlertState[], channels: string[]) {
+function detectExistingAlerts(
+    alerts: AlertState[],
+    channels: string[]) {
     const matched = alerts.filter(x => channels.some(y => y === x.channel));
     return matched;
 }
 
-function detectResolvedAlerts(alerts: AlertState[], channels: string[]) {
+function detectResolvedAlerts(
+    alerts: AlertState[],
+    channels: string[]) {
     const missing = alerts.filter(x => !channels.some(y => y === x.channel));
     return missing;
 }

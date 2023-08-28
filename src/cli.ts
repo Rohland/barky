@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import * as Dotenv from "dotenv";
+
 Dotenv.config();
 import yargs from "yargs/yargs";
 import { hideBin } from "yargs/helpers";
@@ -12,6 +13,7 @@ import { emitAndPersistResults, execute } from "./exec";
 import { initLocaleAndTimezone } from "./lib/utility";
 import { loop } from "./loop";
 import { initLogger, log } from "./models/logger";
+import { Argv } from "yargs";
 
 (async () => {
     const args = await getArgs();
@@ -19,7 +21,7 @@ import { initLogger, log } from "./models/logger";
     process.exit(exitCode);
 })();
 
-async function run(args){
+async function run(args) {
     initLogger(args);
     try {
         const config = getConfig(args);
@@ -87,7 +89,7 @@ function getConfigurationFromFile(file, fileInfo: { fileName: string; filePath: 
 }
 
 function getConfig(args) {
-    const { file, fileInfo } = getAndValidateConfigFileInfo(args.env);
+    const { file, fileInfo } = getAndValidateConfigFileInfo(args.rules);
     const env = getConfigurationFromFile(file, fileInfo);
     if (env.config) {
         initLocaleAndTimezone(env.config);
@@ -112,41 +114,77 @@ function getDigestConfiguration(args) {
 }
 
 async function getArgs() {
-    const args = await yargs(hideBin(process.argv))
-        .usage("$0 [options]")
-        .option("debug", {
-            description: "If set, debug messages are printed to the console",
-            type: "boolean"
-        })
-        .option("eval", {
-            description: "Comma separated list of evaluators to run",
-            type: "string",
-        })
-        .option("env", {
-            description: "The path to the yaml configuration file to use",
-            type: "string"
-        })
-        .option("digest", {
-            description: "If set, the results will be processed with configured digest file",
-            type: "string"
-        })
-        .option("loop", {
-            description: "If set, the app runs in a loop (every 30 seconds) until exit",
-            type: "boolean"
-        })
+    function cmdBuilder(yargs: Argv) {
+        yargs
+            .positional("rules", {
+                type: "string",
+                description: "path to the evaluator configuration yaml file",
+                required: true
+            })
+            .option("eval", {
+                description: "Comma separated list of evaluators to run - if not provided, all are evaluated",
+                type: "string",
+            })
+            .option("digest", {
+                description: "Run the digest step using the configuration file set with this argument",
+                type: "string"
+            })
+            .option("title", {
+                description: "When set, is used in notifications using variable {{ title }}",
+                type: "string",
 
-        .option("title", {
-            description: "When set, is used in notifications using variable {{ title }}",
-            type: "string"
-        })
-        .example("$0 --env=client", "run all evaluators using ./client.yaml")
-        .example("$0 --eval=mysql --env=client", "runs the mysql evaluator only")
-        .example("$0 --eval=web,mysql --env=client", "only runs mysql & web evaluators")
-        .example("$0 --env=client --digest=my-team --title='ACME'", "runs all evaluators and uses my-team config for digest")
-        .example("$0 --env=client --loop", "runs in a loop (every 30 seconds) until exit")
-        .demandOption("env")
-        .help("h")
-        .alias("h", "help")
+            })
+            .implies('title', 'digest')
+            .option("debug", {
+                description: "If set, debug messages are printed to the console",
+                type: "boolean"
+            });
+    }
+
+    const args = await yargs(hideBin(process.argv))
+        .usage("$0 <cmd> [options]")
+        .command("run <rules> [options]", "run the watchdog", cmdBuilder)
+        .command("loop <rules> [options]", "run the watchdog in a loop until terminated", cmdBuilder, configureLoop)
+        .command("killall", "kills all running barky processes", killAll)
+        .demandCommand()
+        .example("$0 run client", "run all evaluators using ./client.yaml")
+        .example("$0 run client --eval=mysql", "runs the mysql evaluator only")
+        .example("$0 run client --eval=web,mysql", "only runs mysql & web evaluators")
+        .example("$0 run client --digest=my-team --title='ACME'", "runs all evaluators and uses my-team config for digest")
+        .example("$0 loop client", "runs in a loop (every 30 seconds) until exit")
+        .help()
         .argv;
     return args;
+}
+
+function killAll() {
+    console.log("killing all barky processes");
+    const candidates = fs.readdirSync(path.join(path.dirname('')), { withFileTypes: true })
+        .filter(x => /^\.barky.*\.lock$/.test(x.name))
+        .map(x => ({ file: x, contents: fs.readFileSync(x.name, 'utf8') }))
+        .map(data => {
+            const fileParts = data.contents.split(' ');
+            return {
+                ...data,
+                pid: parseInt(fileParts[0]),
+                details: fileParts[1].trim()
+            };
+        })
+        .filter(data => Number.isInteger(data.pid));
+    console.log(`found ${ candidates.length } local barky processes`);
+    candidates
+        .forEach(data => {
+            console.log(`killing barky pid ${ data.pid } (${ data.details }) - ${ data.file.name }`);
+            try {
+                process.kill(data.pid, -9);
+            } catch(err) {
+                // no-op
+            }
+            fs.unlinkSync(data.file.name);
+        });
+    process.exit(0);
+}
+
+function configureLoop(yargs: any) {
+    yargs.loop = true;
 }

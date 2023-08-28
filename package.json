@@ -1,7 +1,7 @@
 {
   "name": "barky",
-  "version": "1.0.17-alpha",
-  "description": "A simple cloud services watchdog with no external dependencies and digest support",
+  "version": "1.0.18-alpha",
+  "description": "A simple cloud services watchdog with digest notification support & no external dependencies",
   "main": "dist/cli.js",
   "scripts": {
     "prebuild": "rm -rf ./dist && mkdir dist",

@@ -23,38 +23,60 @@ describe("alerter", () => {
         deleteDbIfExists(testDb);
     });
 
-    describe("when there are alerts configured with console", () => {
-        it("should emit alert via console, save alert state and track affected ids", async () => {
-            // arrange
-            const config = [new ConsoleChannelConfig("console", {})];
-            const context = new DigestContext([], []);
-            const result = new Result(
-                new Date(),
-                "web",
-                "health",
-                "www.codeo.co.za",
-                false,
-                "FAIL",
-                0,
-                false,
-                {
-                    alert: {
-                        channels: ["console"]
+    describe("new alerts", () => {
+        describe("when there are alerts configured with console", () => {
+            it("should emit alert via console, save alert state and track affected ids", async () => {
+                // arrange
+                const config = [new ConsoleChannelConfig("console", {})];
+                const context = new DigestContext([], []);
+                const result1 = new Result(
+                    new Date(),
+                    "web",
+                    "health",
+                    "www.codeo.co.za",
+                    false,
+                    "FAIL",
+                    0,
+                    false,
+                    {
+                        alert: {
+                            channels: ["console"]
+                        }
                     }
-                }
-            );
-            context.addSnapshotForResult(result);
+                );
+                const oneDayAgo = new Date(new Date().setDate(new Date().getDate() - 1));
+                const result2 = new Result(
+                    oneDayAgo,
+                    "web",
+                    "health",
+                    "www.codeo2.co.za",
+                    false,
+                    "FAIL",
+                    0,
+                    false,
+                    {
+                        alert: {
+                            channels: ["console"]
+                        }
+                    }
+                );
+                context.addSnapshotForResult(result1);
+                context.addSnapshotForResult(result2);
 
-            // act
-            await executeAlerts(config, context);
+                // act
+                await executeAlerts(config, context);
 
-            // assert
-            expect(console.log).toHaveBeenCalledWith(expect.stringMatching(/Outage started at \d\d:\d\d:\d\d. 1 health check affected./));
-            const alerts = await getAlerts();
-            expect(alerts.length).toEqual(1);
-            const diff = Math.abs(+new Date() - +alerts[0].last_alert_date);
-            expect(diff).toBeLessThanOrEqual(100);
-            expect(Array.from(alerts[0].affectedUniqueIds.values())).toEqual([result.uniqueId]);
+                // assert
+                expect(console.log).toHaveBeenCalledWith(expect.stringMatching(/Outage started at \d\d:\d\d:\d\d. 2 health checks affected./));
+                const alerts = await getAlerts();
+                expect(alerts.length).toEqual(1);
+                const alert = alerts[0];
+                const diff = Math.abs(+new Date() - +alert.last_alert_date);
+                expect(diff).toBeLessThanOrEqual(100);
+                expect(Array.from(alert.affectedUniqueIds.values())).toEqual([result1.uniqueId, result2.uniqueId]);
+                // check the start date is the min date of the snapshots
+                expect(alert.start_date).toEqual(oneDayAgo);
+            });
         });
     });
     describe("with existing alert", () => {
