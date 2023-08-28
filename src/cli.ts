@@ -163,10 +163,10 @@ function killAll() {
         .filter(x => /^\.barky.*\.lock$/.test(x.name))
         .map(x => ({ file: x, contents: fs.readFileSync(x.name, 'utf8') }))
         .map(data => {
-            const fileParts = data.contents.split(' ');
+            const fileParts = data.contents.split('#');
             return {
                 ...data,
-                pid: parseInt(fileParts[0]),
+                pid: parseInt(fileParts[0].trim()),
                 details: fileParts[1].trim()
             };
         })
@@ -176,7 +176,7 @@ function killAll() {
         .forEach(data => {
             console.log(`killing barky pid ${ data.pid } (${ data.details }) - ${ data.file.name }`);
             try {
-                process.kill(data.pid, -9);
+                process.kill(data.pid, 'SIGKILL');
             } catch(err) {
                 // no-op
             }
