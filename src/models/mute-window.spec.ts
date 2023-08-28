@@ -25,7 +25,12 @@ describe("mute-windows", () => {
             ["00:00-1:00", "00:30", true],
             ["0:00-01:00", "00:00", true],
             ["00:00-1:00", "01:00", true],
-            ["00:00-1:00", "01:30", false]
+            ["00:00-1:00", "01:30", false],
+            ["21:00-24:00", "20:59", false],
+            ["21:00-24:00", "21:00", true],
+            ["21:00-24:00", "22:00", true],
+            ["21:00-24:00", "00:00", true],
+            ["21:00-24:00", "00:01", false],
         ])("when time is %p and date is %p", (time, date, expected) => {
             it("should evaluate appropriate", async () => {
                 // arrange
