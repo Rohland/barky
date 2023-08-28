@@ -1,11 +1,9 @@
 import { MonitorFailureResult, Result } from "./models/result";
 import { initConnection, persistResults } from "./models/db";
-import { getChannelConfigs } from "./models/channel";
 import { digest } from "./digest/digest";
 import { emitResults } from "./result-emitter";
 import { evaluate } from "./evaluation";
-import { AlertConfiguration } from "./models/alert_configuration";
-import { ChannelConfig } from "./models/channels/base";
+import { DigestConfiguration } from "./models/digest";
 
 export async function execute(
     config: any,
@@ -15,39 +13,19 @@ export async function execute(
 }
 
 async function runDigest(
-    config,
+    config: any,
     results: Result[]) {
     await initConnection(config.fileName);
-    configureMonitorLogsWithAlertConfiguration(results, config.digest);
-    const channelConfigs = getChannelConfigs(config.digest);
-    validateConfiguration(config, channelConfigs, results);
+    const digestConfig = new DigestConfiguration(config.digest);
+    configureMonitorLogsWithAlertConfiguration(results, digestConfig);
+    digestConfig.trackChannelConfigIssues(results);
     await emitAndPersistResults(results);
-    await digest(channelConfigs, results);
-}
-
-export function validateConfiguration(
-    config: any,
-    channels: ChannelConfig[],
-    results: Result[]) {
-    if (!config.digest) {
-        return;
-    }
-    const issues = [];
-    const types = channels.map(x => x.name);
-    results.forEach(x => {
-        x.app?.alert?.channels?.forEach(channel => {
-            if (!types.includes(channel)) {
-                issues.push(new MonitorFailureResult(x.type, x.identifier, `Channel '${ channel }' not found in digest config`));
-            }
-        });
-    });
-    issues.forEach(i => results.push(i));
+    await digest(digestConfig, results);
 }
 
 export function configureMonitorLogsWithAlertConfiguration(
     results: Result[],
-    digestConfig) {
-    const alertPolicies = (digestConfig ?? {})["alert-policies"] ?? {};
+    digestConfig: DigestConfiguration) {
     results
         .filter(x => x instanceof MonitorFailureResult)
         .forEach(x => {
@@ -58,11 +36,7 @@ export function configureMonitorLogsWithAlertConfiguration(
             if (!monitorPolicy) {
                 return;
             }
-            const policy = alertPolicies[monitorPolicy];
-            if (!policy) {
-                throw new Error(`alert exception policy '${ monitorPolicy }' not found in digest config`);
-            }
-            x.alert = new AlertConfiguration(policy);
+            x.alert = digestConfig.getAlertPolicy(monitorPolicy);
         });
 }
 

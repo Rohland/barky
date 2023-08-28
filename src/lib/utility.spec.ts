@@ -1,4 +1,4 @@
-import { flatten, hash, initLocaleAndTimezone, shortHash, Time, toLocalTime, toLocalTimeString } from "./utility";
+import { flatten, hash, initLocaleAndTimezone, isToday, shortHash, toLocalTimeString } from "./utility";
 
 describe("utility functions", () => {
     describe("flatten", () => {
@@ -14,6 +14,25 @@ describe("utility functions", () => {
                 // @ts-ignore
                 const result = flatten(input);
                 expect(result).toEqual(expected);
+            });
+        });
+    });
+    describe("isToday", () => {
+        describe.each([
+            ["2023-01-02", "2023-01-01T21:59:00.000Z", "Africa/Johannesburg", false],
+            ["2023-01-02", "2023-01-01T22:00:00.000Z", "Africa/Johannesburg", true],
+            ["2023-01-02", "2023-01-02T12:00:00.000Z", "Africa/Johannesburg", true],
+            ["2023-01-02", "2023-01-02T22:00:00.000Z", "Africa/Johannesburg", false],
+        ])(`when given %s`, (input, date, timezone, expected) => {
+            it("should return expected", async () => {
+                // arrange
+                initLocaleAndTimezone({ timezone: timezone});
+                const on = new Date(date);
+                // act
+                const is = isToday(input, on);
+
+                // assert
+                expect(is).toEqual(expected);
             });
         });
     });
@@ -73,115 +92,6 @@ describe("utility functions", () => {
                 date = new Date(date);
                 const time = date.toLocaleTimeString("en-ZA", { hour12: false, timeZone: "America/New_York"});
                 expect(result).toEqual(time);
-            });
-        });
-    });
-    describe("toLocalTime", () => {
-        describe("with no config", () => {
-            it("should use current locale", async () => {
-                // arrange
-                initLocaleAndTimezone(null);
-                const date = new Date("2020-01-01T02:33:44.555Z");
-
-                // act
-                const result = toLocalTime(date);
-
-                // assert
-                expect(result.time).toEqual("04:33:44");
-                expect(result.hours).toEqual(4);
-                expect(result.minutes).toEqual(33);
-                expect(result.seconds).toEqual(44);
-                expect(result.millis).toEqual(555);
-            });
-        });
-        describe("with specified locale", () => {
-            it("should use current locale", async () => {
-                // arrange
-                initLocaleAndTimezone({
-                    locale: "en-ZA",
-                    timezone: "America/New_York"
-                });
-                const date = new Date("2020-01-01T02:33:44.555Z")
-
-                // act
-                const result = toLocalTime(date);
-
-                // assert
-                expect(result.time).toEqual("21:33:44");
-                expect(result.hours).toEqual(21);
-                expect(result.minutes).toEqual(33);
-                expect(result.seconds).toEqual(44);
-                expect(result.millis).toEqual(555);
-            });
-        });
-    });
-    describe("Time", () => {
-        describe("when instantiated with date", () => {
-            it("should parse", async () => {
-                // arrange
-                initLocaleAndTimezone({
-                    locale: "en-ZA",
-                    timezone: "America/New_York"
-                });
-
-                // act
-                const time = new Time(new Date("2020-01-01T02:33:44.555Z"));
-
-                // assert
-                expect(time.time).toEqual("21:33:44");
-                expect(time.hours).toEqual(21);
-                expect(time.minutes).toEqual(33);
-                expect(time.seconds).toEqual(44);
-                expect(time.millis).toEqual(555);
-            });
-        });
-        describe("with time", () => {
-            describe.each([
-                ["11:12",11, 12, 0, 0],
-                ["13:15:30", 13, 15, 30, 0],
-                ["1:02:03", 1, 2, 3, 0],
-                ["01:02:03.456", 1, 2, 3, 456],
-            ])(`when given %s`, (input, hours, minutes, seconds, millis) => {
-                it("should parse", async () => {
-                    // arrange
-                    // act
-                    const time = new Time(input);
-
-                    // assert
-                    expect(time.time).toEqual(input.startsWith("1:") ? `0${input}` : input);
-                    expect(time.hours).toEqual(hours);
-                    expect(time.minutes).toEqual(minutes);
-                    expect(time.seconds).toEqual(seconds);
-                    expect(time.millis).toEqual(millis);
-                });
-            });
-        });
-        describe("isBetween", () => {
-            describe("when time is in range", () => {
-                it("should return true", async () => {
-                    // arrange
-                    initLocaleAndTimezone({
-                        locale: "en-ZA",
-                        timezone: "America/New_York"
-                    });
-                    const time = new Time(new Date("2020-01-01T02:33:44.555Z"));
-
-                    // act & assert
-                    expect(time.isBetween(new Time("20:00"), new Time("23:00"))).toEqual(true);
-                });
-            });
-            describe("when time is not in range", () => {
-                it("should return false", async () => {
-                    // arrange
-                    initLocaleAndTimezone({
-                        locale: "en-ZA",
-                        timezone: "America/New_York"
-                    });
-                    const time = new Time(new Date("2020-01-01T02:33:44.555Z"));
-
-                    // act & assert
-                    expect(time.isBetween(new Time("21:34"), new Time("23:00"))).toEqual(false);
-                });
             });
         });
     });

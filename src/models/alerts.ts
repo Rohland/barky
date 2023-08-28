@@ -1,6 +1,7 @@
 import { Snapshot } from "./snapshot";
 import { explodeUniqueKey } from "../lib/key";
 import { toLocalTimeString } from "../lib/utility";
+import { MuteWindow } from "./mute-window";
 
 export class AlertState {
     public channel: string;
@@ -66,5 +67,11 @@ export class AlertState {
     public getResolvedSnapshotList(uniqueIds: string[]) {
         const all = Array.from(this.affectedUniqueIds);
         return all.filter(x => !uniqueIds.includes(x)).map(explodeUniqueKey);
+    }
+
+    removeMuted(muteWindows: MuteWindow[]) {
+        const affected = Array.from(this.affectedUniqueIds);
+        const remaining = affected.filter(x => !muteWindows.some(y => y.isMuted(x)));
+        this.affectedUniqueIds = new Set(remaining);
     }
 }

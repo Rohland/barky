@@ -1,16 +1,56 @@
 import { ConsoleChannelConfig } from "./channels/console";
 import { ChannelType } from "./channels/base";
-import { getChannelConfigs } from "./channel";
 import { SlackChannelConfig } from "./channels/slack";
 import { SMSChannelConfig } from "./channels/sms";
+import { DigestConfiguration } from "./digest";
+import { MuteWindow } from "./mute-window";
 
-describe("channels", () => {
-    describe("getChannelConfigs", () => {
+describe("digest", () => {
+    describe("mute windows", () => {
+        describe("with none", () => {
+            describe.each([
+                [null],
+                [undefined],
+                [{}],
+                [{ "mute-windows": [] }]
+            ])(`when config is %p`, (config) => {
+                it("should instantiate with none", async () => {
+                    // arrange
+                    // act
+                    const digest = new DigestConfiguration(config);
+
+                    // assert
+                    expect(digest.muteWindows).toEqual([]);
+                });
+            });
+        });
+        describe("with valid mute windows", () => {
+            it("should configure them", async () => {
+                // arrange
+                const config = {
+                    "mute-windows": [
+                        {
+                            "match": "\\dtest\\d",
+                            "time": "00:00-1:00"
+                        }
+                    ]
+                };
+
+                // act
+                const digest = new DigestConfiguration(config);
+
+                // assert
+                expect(digest.muteWindows.length).toEqual(1);
+                expect(digest.muteWindows[0]).toBeInstanceOf(MuteWindow);
+            });
+        });
+    });
+    describe("channel configuration", () => {
 
         function assertConsoleConfig(config: ConsoleChannelConfig) {
             expect(config.type).toEqual(ChannelType.Console);
             expect(config.name).toEqual("console");
-            expect(config.notification_interval).toEqual("0m");
+            expect(config.interval).toEqual("0m");
             expect(config.prefix).toEqual("");
             expect(config.postfix).toEqual("");
         }
@@ -21,11 +61,11 @@ describe("channels", () => {
                 const digestConfig = {};
 
                 // act
-                const configs = getChannelConfigs(digestConfig);
+                const config = new DigestConfiguration(digestConfig);
 
                 // assert
-                expect(configs.length).toEqual(1);
-                assertConsoleConfig(configs[0])
+                expect(config.channelConfigs.length).toEqual(1);
+                assertConsoleConfig(config.getChannelConfig("console"))
             });
         });
         describe("with channels", () => {
@@ -35,11 +75,11 @@ describe("channels", () => {
                     const digestConfig = { channels: {} };
 
                     // act
-                    const configs = getChannelConfigs(digestConfig);
+                    const config = new DigestConfiguration(digestConfig);
 
                     // assert
-                    expect(configs.length).toEqual(1);
-                    assertConsoleConfig(configs[0])
+                    expect(config.channelConfigs.length).toEqual(1);
+                    assertConsoleConfig(config.getChannelConfig("console"))
                 });
             });
             describe("with unknown type", () => {
@@ -49,7 +89,7 @@ describe("channels", () => {
 
                     // act
                     // assert
-                    expect(() => getChannelConfigs(digestConfig)).toThrowError("Unsupported channel type: 'bar'");
+                    expect(() => new DigestConfiguration(digestConfig)).toThrowError("Unsupported channel type: 'bar'");
                 });
             });
             describe("with prefix and postfix including vars", () => {
@@ -64,13 +104,14 @@ describe("channels", () => {
                                     postfix: "end {{title}}"
                                 },
                                 type: "console",
-                                notification_interval: "30m"
+                                interval: "30m"
                             }
                         }
                     };
+                    const digest = new DigestConfiguration(digestConfig);
 
                     // act
-                    const config: ConsoleChannelConfig = getChannelConfigs(digestConfig)[0] as ConsoleChannelConfig;
+                    const config: ConsoleChannelConfig = digest.getChannelConfig("foo") as ConsoleChannelConfig;
 
                     // assert
                     expect(config.prefix).toEqual("custom_title start");
@@ -88,19 +129,20 @@ describe("channels", () => {
                                     postfix: "end"
                                 },
                                 type: "console",
-                                notification_interval: "30m"
+                                interval: "30m"
                             }
                         }
                     };
+                    const digest = new DigestConfiguration(digestConfig);
 
                     // act
-                    const config: ConsoleChannelConfig = getChannelConfigs(digestConfig)[0] as ConsoleChannelConfig;
+                    const config: ConsoleChannelConfig = digest.getChannelConfig("foo") as ConsoleChannelConfig;
 
                     // assert
                     expect(config.title).toEqual("title");
                     expect(config.type).toEqual(ChannelType.Console);
                     expect(config.name).toEqual("foo");
-                    expect(config.notification_interval).toEqual("30m");
+                    expect(config.interval).toEqual("30m");
                     expect(config.prefix).toEqual("start");
                     expect(config.postfix).toEqual("end");
                 });
@@ -120,13 +162,14 @@ describe("channels", () => {
                                 type: "slack",
                                 token: "slack_token",
                                 channel: "123",
-                                notification_interval: "30m"
+                                interval: "30m"
                             }
                         }
                     };
+                    const digest = new DigestConfiguration(digestConfig);
 
                     // act
-                    const config: SlackChannelConfig = getChannelConfigs(digestConfig)[0] as SlackChannelConfig;
+                    const config = digest.getChannelConfig("foo") as SlackChannelConfig;
 
                     // assert
                     expect(config.type).toEqual(ChannelType.Slack);
@@ -135,7 +178,7 @@ describe("channels", () => {
                     expect(config.prefix).toEqual("start");
                     expect(config.postfix).toEqual("end");
                     expect(config.channel).toEqual("123");
-                    expect(config.notification_interval).toEqual("30m");
+                    expect(config.interval).toEqual("30m");
                     expect(config.token).toEqual("secret_slack_token");
                 });
             });
@@ -157,23 +200,23 @@ describe("channels", () => {
                                         mobile: "1234567890"
                                     }
                                 ],
-                                notification_interval: "30m"
+                                interval: "30m"
                             }
                         }
                     };
+                    const digest = new DigestConfiguration(digestConfig);
 
                     // act
-                    const configs = getChannelConfigs(digestConfig);
-                    const config: SMSChannelConfig = configs[0] as SMSChannelConfig;
+                    const config = digest.getChannelConfig("foo") as SMSChannelConfig;
 
                     // assert
-                    expect(configs.length).toEqual(2);
+                    expect(digest.channelConfigs.length).toEqual(2);
                     expect(config.type).toEqual(ChannelType.SMS);
                     expect(config.name).toEqual("foo");
                     expect(config.title).toEqual("title");
                     expect(config.prefix).toEqual("start");
                     expect(config.postfix).toEqual("end");
-                    expect(config.notification_interval).toEqual("30m");
+                    expect(config.interval).toEqual("30m");
                     expect(config.contacts).toEqual(digestConfig.channels.foo.contacts);
                 });
             });

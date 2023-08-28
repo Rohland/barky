@@ -3,34 +3,34 @@ import { getAlerts, persistAlerts } from "../models/db";
 import { AlertState } from "../models/alerts";
 import { flatten } from "../lib/utility";
 import { Snapshot } from "../models/snapshot";
-import { ChannelConfig } from "../models/channels/base";
-import { log } from "../models/logger";
+import { DigestConfiguration } from "../models/digest";
 
 export async function executeAlerts(
-    channelConfigs: ChannelConfig[],
+    config: DigestConfiguration,
     context: DigestContext) {
     const alerts = await getAlerts();
-    const distinctChannels = getChannelsAffected(context.snapshots);
+    const distinctChannels = getChannelsAffected(context.alertableSnapshots(config));
     const newAlerts = detectNewAlerts(alerts, distinctChannels);
     const existingAlerts = detectExistingAlerts(alerts, distinctChannels);
     const resolvedAlerts = detectResolvedAlerts(alerts, distinctChannels);
     await triggerAlerts(
-        new Map(channelConfigs.map(x => [x.name, x])),
+        config,
         context,
         newAlerts,
         existingAlerts,
         resolvedAlerts);
-    await persistAlerts([...newAlerts, ...existingAlerts.filter(x => !x.isResolved)]);
+    await persistAlerts([
+        ...newAlerts,
+        ...existingAlerts.filter(x => !x.isResolved)]);
 }
 
 async function sendNewAlerts(
     newAlerts: AlertState[],
-    channelLookup: Map<string, ChannelConfig>,
+    config: DigestConfiguration,
     context: DigestContext) {
     await Promise.all(newAlerts.map(async alert => {
-        const channel = channelLookup.get(alert.channel);
+        const channel = config.getChannelConfig(alert.channel);
         if (!channel) {
-            log(`Channel ${alert.channel} not found in digest configuration`);
             return;
         }
         const snapshots = context.getSnapshotsForChannel(channel);
@@ -54,12 +54,11 @@ function earliestDateFor(snapshots: Snapshot[]): Date {
 
 async function sendOngoingAlerts(
     alerts: AlertState[],
-    channelLookup: Map<string, ChannelConfig>,
+    config: DigestConfiguration,
     context: DigestContext) {
     await Promise.all(alerts.map(async alert => {
-        const channel = channelLookup.get(alert.channel);
+        const channel = config.getChannelConfig(alert.channel);
         if (!channel) {
-            log(`Channel ${alert.channel} not found in digest configuration`);
             return;
         }
         const snapshots = context.getSnapshotsForChannel(channel);
@@ -75,12 +74,15 @@ async function sendOngoingAlerts(
 
 async function sendResolvedAlerts(
     alerts: AlertState[],
-    channelLookup: Map<string, ChannelConfig>) {
+    config: DigestConfiguration) {
     await Promise.all(alerts.map(async alert => {
+        alert.removeMuted(config.muteWindows);
         alert.resolve();
-        const channel = channelLookup.get(alert.channel);
+        if (alert.affectedUniqueIds.size === 0) {
+            return;
+        }
+        const channel = config.getChannelConfig(alert.channel);
         if (!channel) {
-            log(`Channel ${alert.channel} not found in digest configuration`);
             return;
         }
         await channel.sendResolvedAlert(alert);
@@ -88,14 +90,14 @@ async function sendResolvedAlerts(
 }
 
 async function triggerAlerts(
-    channelLookup: Map<string, ChannelConfig>,
+    config: DigestConfiguration,
     context: DigestContext,
     newAlerts: AlertState[],
     existingAlerts: AlertState[],
     resolvedAlerts: AlertState[]) {
-    await sendNewAlerts(newAlerts, channelLookup, context);
-    await sendOngoingAlerts(existingAlerts, channelLookup, context);
-    await sendResolvedAlerts(resolvedAlerts, channelLookup);
+    await sendNewAlerts(newAlerts, config, context);
+    await sendOngoingAlerts(existingAlerts, config, context);
+    await sendResolvedAlerts(resolvedAlerts, config);
 }
 
 function getChannelsAffected(snapshots: Snapshot[]): string [] {
@@ -123,4 +125,3 @@ function detectResolvedAlerts(
     const missing = alerts.filter(x => !channels.some(y => y === x.channel));
     return missing;
 }
-

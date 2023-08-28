@@ -1,14 +1,15 @@
 import { parseDaysOfWeek, parsePeriod, parseTimeRange } from "../lib/period-parser";
-import { dayOfWeek, flatten, Time } from "../lib/utility";
+import { dayOfWeek, flatten } from "../lib/utility";
 import { MonitorLog } from "./log";
+import { Time } from "../lib/time";
 
 export interface IAlertRule {
     description?: string;
     count?: number;
     any?: number;
     window?: string;
-    days_of_week?: string[];
-    time_of_day?: string | string[];
+    days?: string[];
+    time?: string | string[];
 }
 
 export interface IAlertConfig {
@@ -40,8 +41,8 @@ export class AlertRule {
         }
         const window = rule.window ? rule.window : "-5m";
         this.fromDate = parsePeriod(window.startsWith("-") ? window : `-${ window }`)
-        this._daysOfWeek = parseDaysOfWeek(rule.days_of_week);
-        this._timesOfDay = rule.time_of_day ? flatten([rule.time_of_day]) : [];
+        this._daysOfWeek = parseDaysOfWeek(rule.days);
+        this._timesOfDay = rule.time ? flatten([rule.time]) : [];
     }
 
     get type(): AlertRuleType {

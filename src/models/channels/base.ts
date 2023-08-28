@@ -18,9 +18,9 @@ export abstract class ChannelConfig {
     public name: string;
     public type: ChannelType;
     private template: IChannelTemplate;
-    public notification_interval: string;
+    public interval: string;
     public title: string;
-    private notification_window_minutes: number;
+    private notificationIntervalMinutes: number;
 
     protected constructor(name: string, data: any) {
         this.title = data?.title ?? "";
@@ -28,8 +28,8 @@ export abstract class ChannelConfig {
         this.template = data.template ?? {};
         this.template.prefix ??= "";
         this.template.postfix ??= "";
-        this.notification_interval = data.notification_interval ?? "15m";
-        this.notification_window_minutes = parsePeriodToMinutes(this.notification_interval);
+        this.interval = data.interval ?? "15m";
+        this.notificationIntervalMinutes = parsePeriodToMinutes(this.interval);
     }
 
     public isMatchFor(channelName: string): boolean {
@@ -45,7 +45,7 @@ export abstract class ChannelConfig {
         if (!alert.last_alert_date) {
             return true;
         }
-        return alert.last_alert_date.getTime() + (this.notification_window_minutes * 60 * 1000) < Date.now();
+        return alert.last_alert_date.getTime() + (this.notificationIntervalMinutes * 60 * 1000) < Date.now();
     }
 
     get prefix(): string {
@@ -55,6 +55,4 @@ export abstract class ChannelConfig {
     get postfix(): string {
         return renderTemplate(this.template?.postfix, this);
     }
-
-
 }

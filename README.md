@@ -197,8 +197,8 @@ Fields:
 	* `description` - not required
 	* `count|any` - count means trigger after defined consecutive count of errors, any means trigger after `any` count of errors in the window period defined
 	* `window` - not required, but useful to constrain `any` operator to the given window, example: `-30m` means last 30 minutes. Maximum window is `24h`. Defaults to 5 minutes if not specified
-	* `days_of_week` - array of days and only required if you want to constrain the trigger to specific days of week (see example)
-	* `time_of_day` - array or single range value, only required if you want to constrain the trigger to specific times of the day (times are in UTC)
+	* `days` - array of days and only required if you want to constrain the trigger to specific days of week (see example)
+	* `time` - array or single range value, only required if you want to constrain the trigger to specific times of the day (times are in UTC)
 * `exception-policy` - the name of the alert policy (defined in the digest configuration) to use for monitor failures (such as timeouts or exceptions), if not set then the same alert configuration rules defined above will be used when the monitor incurs an unhandled error
 
 Advanced example:
@@ -231,8 +231,8 @@ web:
             - description: Weekends
               window: -5m
               any: 3
-              days_of_week: [sat, sun]
-              time_of_day: 04:00 - 17:00 # UTC
+              days: [sat, sun]
+              time: 04:00 - 17:00 # UTC
 ```
 
 ##### Sumo Logic Configuration
@@ -334,9 +334,14 @@ Example configuration:
 
 ```yaml
 mute-windows: # alerts are silenced if generated in these window periods
-  - date: 2023-08-27 
-    time: 14:00 - 16:00 # 2PM to 4PM for a specific date
-  - time: 00:00 - 06:00 # every day midnight to 6AM
+  - match: mysql:performance # only for monitors matching this regex
+    time: 00:00 - 06:00
+	
+  - date: 2023-08-27  # only matches for this specific date
+    time: 22:00 - 24:00 # 2PM to 4PM for a specific date
+	
+  - time: 00:00 - 06:00 # every weekday midnight to 6AM
+    days: [mon, tue, wed, thu, fri]
 	  
 alert-policies:
   monitor-exception:
@@ -353,7 +358,7 @@ channels:
     template:
       prefix: '{{ title }}' # this is a global variable passed in via the CLI "title" param
       postfix: Please see Ops Slack channel for any updates.
-    notification_interval: 5m # how often to send alert updates
+    interval: 5m # how often to send alert updates
     contacts: # list of people to contact
       - name: Rohland
         mobile: +2782...
@@ -362,10 +367,20 @@ channels:
     template:
       prefix: '<!channel> {{ title }}' # <!channel> alerts everyone in the given channel
       postfix:
-    notification_interval: 15m # how often to post updates
+    interval: 1h # how often to post updates as a new message
     token: slack-token # we expect an environment variable with this name
     channel: "#ops"
 ```
+
+**Mute Windows**
+
+Any number of windows can be defined where alerts will be silenced. This is useful for maintenence windows, or when you know that a monitor will be failing for a period of time.
+
+Fields:
+
+- `match`: regex to match monitor names (not required)
+- `date`: specific date to match (not required)
+- `time`: time range to match (required)
 
 ### SMS
 

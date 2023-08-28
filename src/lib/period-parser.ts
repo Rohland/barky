@@ -1,4 +1,4 @@
-import { Time } from "./utility";
+import { Time } from "./time";
 
 const InvalidPeriodRangeError = "invalid period - expected format: -fromInteger{s|m|h|d} to -toInteger{s|m|h|d}";
 const InvalidPeriodError = "invalid period - expected format: -Integer{s|m|h|d}";

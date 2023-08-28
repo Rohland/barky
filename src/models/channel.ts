@@ -20,20 +20,3 @@ export function getChannelConfigFor(
             throw new Error(`Unsupported channel type: '${ config.type }'`);
     }
 }
-
-export function getChannelConfigs(digestConfig: any): ChannelConfig[] {
-    const config = digestConfig ?? { };
-    config.channels ??= {};
-    config.channels.console ??= {
-        type: "console",
-        name: "console",
-        notification_interval: "0m"
-    };
-    const title = config.title ?? "";
-    const keys = Object.keys(config.channels);
-    return keys.map(name => {
-        const channelConfig = config.channels[name];
-        channelConfig.title ??= title;
-       return getChannelConfigFor(name, channelConfig);
-    });
-}

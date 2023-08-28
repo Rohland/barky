@@ -106,7 +106,7 @@ describe("AlertRule", () => {
                 it("should return expected result", async () => {
                     // arrange
                     const rule = new AlertRule({
-                        days_of_week: [day]
+                        days: [day]
                     });
                     initLocaleAndTimezone({
                         timezone,
@@ -126,7 +126,7 @@ describe("AlertRule", () => {
                     // arrange
                     initLocaleAndTimezone({ timezone: "Africa/Johannesburg"});
                     const config = {
-                        time_of_day: "00:00-23:59"
+                        time: "00:00-23:59"
                     } as IAlertRule;
 
                     // act
@@ -143,7 +143,7 @@ describe("AlertRule", () => {
                     let hours = (now.getHours() + 1).toString();
                     hours = hours.length < 2 ? "0" + hours : hours;
                     const config = {
-                        time_of_day: `${ hours }:00-${ hours }:59`
+                        time: `${ hours }:00-${ hours }:59`
                     } as IAlertRule;
 
                     // act
@@ -162,7 +162,7 @@ describe("AlertRule", () => {
                             locale: "en-ZA"
                         });
                         const config = {
-                            time_of_day: [
+                            time: [
                                 `00:00-4:00`,
                                 "6:00-19:00"
                             ]

@@ -10,6 +10,7 @@ import { configureMonitorLogsWithAlertConfiguration, execute } from "./exec";
 import { MonitorFailureResult, WebResult } from "./models/result";
 import { deleteDbIfExists, destroy, initConnection } from "./models/db";
 import { AlertConfiguration } from "./models/alert_configuration";
+import { DigestConfiguration } from "./models/digest";
 
 
 describe("exec", () => {
@@ -26,7 +27,7 @@ describe("exec", () => {
                     // arrange
                     const results = [new MonitorFailureResult("web", "www.codeo.co.za", "Runtime Error", null)];
                     // act
-                    configureMonitorLogsWithAlertConfiguration(results, digest);
+                    configureMonitorLogsWithAlertConfiguration(results, new DigestConfiguration(digest));
                     // assert
                     expect(results[0].alert).toEqual(null);
                 });
@@ -53,7 +54,7 @@ describe("exec", () => {
                         }
                     };
                     // act
-                    configureMonitorLogsWithAlertConfiguration(results, digest);
+                    configureMonitorLogsWithAlertConfiguration(results, new DigestConfiguration(digest));
 
                     // assert
                     expect(results[0].alert).toEqual(null);
@@ -79,7 +80,7 @@ describe("exec", () => {
                             }
                         };
                         // act
-                        configureMonitorLogsWithAlertConfiguration(results, digest);
+                        configureMonitorLogsWithAlertConfiguration(results, new DigestConfiguration(digest));
 
                         // assert
                         expect(results[0].alert).toEqual(null);

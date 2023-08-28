@@ -32,59 +32,21 @@ export function toLocalTimeString(date: Date) {
     }
 }
 
-export class Time {
-    time: string;
-    hours: number;
-    minutes: number;
-    seconds: number;
-    millis: number;
-
-    constructor(time: Date | string) {
-        if (time instanceof Date){
-            this.parseDate(time);
-        } else {
-            this.parseTime(time);
-        }
+export function toLocalDateString(date: Date) {
+    try {
+        return date.toLocaleDateString(locale, { timeZone });
+    } catch (e) {
+        throw new Error(`Invalid locale or timezone (locale: '${ locale }', timezone: '${ timeZone }')`);
     }
-
-    private parseDate(date: Date) {
-        this.time = toLocalTimeString(date);
-        const [hours, minutes, seconds] = this.time.split(":").map(Number);
-        this.hours = hours;
-        this.minutes = minutes;
-        this.seconds = seconds;
-        this.millis = date.getMilliseconds();
-    }
-
-    private parseTime(time: string) {
-        const match = /^(\d{1,2}):(\d{2})(:(\d{2})(\.(\d{3}))?)?$/.exec(time);
-        if (!match) {
-            throw new Error(`Invalid time string: '${time }'`);
-        }
-        this.time = time.match(/^\d:/) ? `0${time}` : time;
-        this.hours = parseInt(match[1]);
-        this.minutes = parseInt(match[2]);
-        this.seconds = match[4] ? parseInt(match[4]) : 0;
-        this.millis = match[6] ? parseInt(match[6]) : 0;
-    }
-
-    public static isNowBetween(start: Time, end: Time) {
-        const now = new Time(new Date());
-        return now.isBetween(start, end);
-    }
-
-    public isBetween(start: Time, end: Time): boolean {
-        return this.millisSinceStartOfDay >= start.millisSinceStartOfDay && this.millisSinceStartOfDay <= end.millisSinceStartOfDay;
-    }
-
-    get millisSinceStartOfDay() : number {
-        return this.millis + this.seconds * 1000 + this.minutes * 60 * 1000 + this.hours * 60 * 60 * 1000;
-    }
-
 }
 
-export function toLocalTime(date: Date): Time {
-    return new Time(date);
+export function isToday(date: string, on?: Date): boolean {
+    const inputDate = new Date(date + "T00:00:00");
+    const currentDate = (on ?? new Date()).toLocaleString("en-US", { timeZone });
+    const today = new Date(currentDate);
+    inputDate.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
+    return inputDate.getTime() === today.getTime();
 }
 
 export function dayOfWeek(date: Date): number {

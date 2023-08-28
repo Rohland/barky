@@ -5,15 +5,18 @@ import { Snapshot } from "../models/snapshot";
 import { executeAlerts } from "./alerter";
 import { ChannelConfig } from "../models/channels/base";
 import { AlertRule, AlertRuleType } from "../models/alert_configuration";
+import { DigestConfiguration } from "../models/digest";
 
 export async function digest(
-    channelConfigs: ChannelConfig[],
+    config: DigestConfiguration,
     results: Result[]) {
     const context = await generateDigest(results);
     if (context.state === DigestState.OK) {
         return;
     }
-    await executeAlerts(channelConfigs, context);
+    await executeAlerts(
+        config,
+        context);
 }
 
 export async function generateDigest(results: Result[]): Promise<DigestContext> {
@@ -162,6 +165,11 @@ export class DigestContext {
     public getLogsFor(uniqueId: string) {
         return this._logMap.get(uniqueId) ?? [];
     }
+
+    public alertableSnapshots(config: DigestConfiguration): Snapshot[] {
+        return this.snapshots
+            .filter(x => !config.muteWindows.some(m => m.isMuted(x.uniqueId)));
+    }
 }
 
 export function evaluateNewResult(
@@ -174,9 +182,17 @@ export function evaluateNewResult(
         return;
     }
     if (result.success) {
-        evaluateNewSuccessResult(result, rule, previousLogs, context);
+        evaluateNewSuccessResult(
+            result,
+            rule,
+            previousLogs,
+            context);
     } else {
-        evaluateNewFailureResult(result, rule, previousLogs, context);
+        evaluateNewFailureResult(
+            result,
+            rule,
+            previousLogs,
+            context);
     }
 }
 
