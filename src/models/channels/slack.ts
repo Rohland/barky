@@ -26,7 +26,7 @@ export class SlackChannelConfig extends ChannelConfig {
 
         parts.push(`*Started at:* \`${ alert.startTime }\``);
         if (alert.durationMinutes > 0) {
-            parts.push(`*Duration:* \`${ alert.durationMinutes } ${ pluraliseWithS("minute", alert.durationMinutes) }\``);
+            parts.push(`*Duration:* \`${ alert.durationHuman } }\``);
         }
         parts.push("");
         if (snapshots.length > 0) {
@@ -75,7 +75,7 @@ export class SlackChannelConfig extends ChannelConfig {
             this.generateMessage([], alert),
             alert.state);
         await this.postToSlack(
-            `✅ <!channel> Previous outage resolved at ${ alert.endTime }. Duration was ${ alert.durationMinutes } ${ pluraliseWithS("minute", alert.durationMinutes) }.\n_See above for more details about affected services._`,
+            `✅ <!channel> Previous outage resolved at ${ alert.endTime }. Duration was ${ alert.durationHuman } }.\n_See above for more details about affected services._`,
         );
     }
 

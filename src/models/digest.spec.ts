@@ -6,6 +6,18 @@ import { DigestConfiguration } from "./digest";
 import { MuteWindow } from "./mute-window";
 
 describe("digest", () => {
+    describe("with no digest", () => {
+        it("should return false for configured", async () => {
+            // arrange
+            const cases = [null, undefined];
+
+            // act
+            const digests = cases.map(x => new DigestConfiguration(x));
+
+            // assert
+            expect(digests.map(x => x.configured)).toEqual([false, false]);
+        });
+    });
     describe("mute windows", () => {
         describe("with none", () => {
             describe.each([

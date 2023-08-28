@@ -47,6 +47,18 @@ export class AlertState {
             return Math.floor((new Date().valueOf() - this.start_date.valueOf()) / 1000 / 60);
     }
 
+    public get durationHuman() {
+        // todo: support hours, days, etc
+        const minutes = this.durationMinutes;
+        if (minutes < 1) {
+            return "less than a minute";
+        } else if (minutes === 1) {
+            return "1 minute";
+        } else {
+            return `${ minutes } minutes`;
+        }
+    }
+
     public get isResolved() {
         return this._resolved;
     }

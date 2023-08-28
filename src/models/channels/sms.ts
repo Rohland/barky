@@ -29,12 +29,12 @@ export class SMSChannelConfig extends ChannelConfig {
     public async sendOngoingAlert(
         snapshots: Snapshot[],
         alert: AlertState): Promise<void> {
-        const message = `${ this.prefix } Outage ONGOING for ${ alert.durationMinutes } ${ pluraliseWithS("minute", alert.durationMinutes)} (since ${ alert.startTime }).\n\n${ snapshots.length } health ${ pluraliseWithS("check", snapshots.length) } affected.\n\n${ this.postfix }`.trim();
+        const message = `${ this.prefix } Outage ONGOING for ${ alert.durationHuman } (since ${ alert.startTime }).\n\n${ snapshots.length } health ${ pluraliseWithS("check", snapshots.length) } affected.\n\n${ this.postfix }`.trim();
         await this.sendSMSToAllContacts(message);
     }
 
     public async sendResolvedAlert(alert: AlertState): Promise<void> {
-        const message = `${ this.prefix } Outage RESOLVED at ${ alert.endTime }. Duration was ${ alert.durationMinutes } ${ pluraliseWithS("minute", alert.durationMinutes)}.\n\n${ this.postfix }`.trim();
+        const message = `${ this.prefix } Outage RESOLVED at ${ alert.endTime }. Duration was ${ alert.durationHuman }.\n\n${ this.postfix }`.trim();
         await this.sendSMSToAllContacts(message);
     }
 

@@ -9,8 +9,10 @@ export class DigestConfiguration {
     public channelConfigs: ChannelConfig[];
     public alertPolicies: Map<string, AlertConfiguration>;
     public muteWindows: MuteWindow[];
+    private _noDigest: boolean;
 
     constructor(config: any) {
+        this._noDigest = !config;
         this.extractChannelConfig(config);
         this.extractAlertPolicies(config);
         this.extractMuteWindows(config);
@@ -47,6 +49,9 @@ export class DigestConfiguration {
     }
 
     public trackChannelConfigIssues(results: Result[]) {
+        if (!this.configured) {
+            return;
+        }
         const issues = [];
         const types = this.channelConfigs.map(x => x.name);
         results.forEach(x => {
@@ -79,5 +84,9 @@ export class DigestConfiguration {
             throw new Error(`alert exception policy '${ name }' not found in digest config`);
         }
         return policy;
+    }
+
+    get configured(): boolean {
+        return !this._noDigest;
     }
 }

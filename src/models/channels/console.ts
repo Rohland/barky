@@ -16,13 +16,13 @@ export class ConsoleChannelConfig extends ChannelConfig {
     }
 
     sendOngoingAlert(snapshots: Snapshot[], alert: AlertState): Promise<void> {
-        const message = `${ this.prefix } 🔥Outage ongoing for ${ alert.durationMinutes } minutes (since ${ alert.startTime }). ${ snapshots.length } health ${ pluraliseWithS("check", snapshots.length) } affected. ${ this.postfix }`.trim();
+        const message = `${ this.prefix } 🔥Outage ongoing for ${ alert.durationHuman } (since ${ alert.startTime }). ${ snapshots.length } health ${ pluraliseWithS("check", snapshots.length) } affected. ${ this.postfix }`.trim();
         console.log(message);
         return Promise.resolve();
     }
 
     sendResolvedAlert(alert: AlertState): Promise<void> {
-        const message = `${ this.prefix } ✅ Outage ended at ${ alert.endTime }. Duration was ${ alert.durationMinutes } minutes. ${ this.postfix }`.trim();
+        const message = `${ this.prefix } ✅ Outage ended at ${ alert.endTime }. Duration was ${ alert.durationHuman }. ${ this.postfix }`.trim();
         console.log(message);
         return Promise  .resolve();
     }
