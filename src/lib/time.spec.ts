@@ -1,5 +1,6 @@
 import { initLocaleAndTimezone } from "./utility";
-import { Time, toLocalTime } from "./time";
+import { humanizeDuration, Time, toLocalTime } from "./time";
+import exp = require("constants");
 
 describe("Time", () => {
     describe("when instantiated with date", () => {
@@ -137,6 +138,28 @@ describe("toLocalTime", () => {
             expect(result.minutes).toEqual(33);
             expect(result.seconds).toEqual(44);
             expect(result.millis).toEqual(555);
+        });
+    });
+});
+
+
+describe("humanizeDuration", () => {
+    describe.each([
+        [0, "a few seconds"],
+        [1, "1 min"],
+        [59, "59 mins"],
+        [60, "1 hr"],
+        [61, "1 hr and 1 min"],
+        [120, "2 hrs"],
+        [340, "5 hrs and 40 mins"],
+    ])(`when given %s`, (input, expected) => {
+        it("should return expected", async () => {
+            // arrange
+            // act
+            const result = humanizeDuration(input);
+
+            // assert
+            expect(result).toEqual(expected);
         });
     });
 });

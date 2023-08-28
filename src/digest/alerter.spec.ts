@@ -165,7 +165,7 @@ describe("alerter", () => {
                 await executeAlerts(config, context);
 
                 // assert
-                expect(console.log).toHaveBeenCalledWith(expect.stringMatching(/Outage ongoing for \d minutes \(since \d\d:\d\d:\d\d\). 2 health checks affected./));
+                expect(console.log).toHaveBeenCalledWith(expect.stringMatching(/Outage ongoing for \d mins \(since \d\d:\d\d:\d\d\). 2 health checks affected./));
                 const alerts = await getAlerts();
                 expect(alerts.length).toEqual(1);
                 const diff = Math.abs(+new Date() - +alerts[0].last_alert_date);
@@ -298,7 +298,7 @@ describe("alerter", () => {
             await executeAlerts(config, context);
 
             // assert
-            expect(console.log).toHaveBeenCalledWith(expect.stringMatching(/Outage ended at \d\d:\d\d:\d\d\. Duration was 2 minutes./));
+            expect(console.log).toHaveBeenCalledWith(expect.stringMatching(/Outage ended at \d\d:\d\d:\d\d\. Duration was 2 mins./));
             const alerts = await getAlerts();
             expect(alerts.length).toEqual(0);
         });
@@ -349,7 +349,7 @@ describe("alerter", () => {
                     await executeAlerts(config, context);
 
                     // assert
-                    expect(console.log).toHaveBeenCalledWith(expect.stringMatching(/Outage ended at \d\d:\d\d:\d\d\. Duration was 2 minutes./));
+                    expect(console.log).toHaveBeenCalledWith(expect.stringMatching(/Outage ended at \d\d:\d\d:\d\d\. Duration was 2 mins./));
                     const alerts = await getAlerts();
                     expect(alerts.length).toEqual(0);
                 });

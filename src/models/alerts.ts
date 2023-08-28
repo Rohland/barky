@@ -2,6 +2,7 @@ import { Snapshot } from "./snapshot";
 import { explodeUniqueKey } from "../lib/key";
 import { toLocalTimeString } from "../lib/utility";
 import { MuteWindow } from "./mute-window";
+import { humanizeDuration } from "../lib/time";
 
 export class AlertState {
     public channel: string;
@@ -48,15 +49,8 @@ export class AlertState {
     }
 
     public get durationHuman() {
-        // todo: support hours, days, etc
         const minutes = this.durationMinutes;
-        if (minutes < 1) {
-            return "less than a minute";
-        } else if (minutes === 1) {
-            return "1 minute";
-        } else {
-            return `${ minutes } minutes`;
-        }
+        return humanizeDuration(minutes);
     }
 
     public get isResolved() {
