@@ -194,6 +194,7 @@ Additional values that can be configured:
 Fields:
 
 * `channels` - an array of channels to use (example: `[sms, slack]`)
+* `links` - optional array of links to include when alerts trigger
 * `rules` - an array of rules
 	* `description` - not required
 	* `count|any` - count means trigger after defined consecutive count of errors, any means trigger after `any` count of errors in the window period defined
@@ -224,6 +225,9 @@ web:
     	  message: Expected to find text "ok" in response but didn't
     alert: 
         channels: [sms, slack]
+        links:
+          - label: Playbook
+            url: https://notion.so/... 
         rules:
             - description: Weekdays
               count: 2 # any consecutive 2 failures trigger alert
@@ -337,10 +341,8 @@ Example configuration:
 mute-windows: # alerts are silenced if generated in these window periods
   - match: mysql:performance # only for monitors matching this regex
     time: 00:00 - 06:00
-	
   - date: 2023-08-27  # only matches for this specific date
     time: 22:00 - 24:00 # 2PM to 4PM for a specific date
-	
   - time: 00:00 - 06:00 # every weekday midnight to 6AM
     days: [mon, tue, wed, thu, fri]
 	  

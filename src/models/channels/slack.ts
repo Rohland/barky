@@ -16,9 +16,9 @@ export class SlackChannelConfig extends ChannelConfig {
     }
 
     public generateMessage(snapshots: Snapshot[], alert: AlertState): string {
-        const parts =  [];
+        const parts = [];
 
-        if (alert.isResolved){
+        if (alert.isResolved) {
             parts.push(`${ this.prefix } ✅ Outage Resolved!`);
         } else {
             parts.push(`${ this.prefix } 🔥 Ongoing Outage!`);
@@ -30,23 +30,32 @@ export class SlackChannelConfig extends ChannelConfig {
         }
         parts.push("");
         if (snapshots.length > 0) {
-            parts.push(`*🚨 ${ snapshots.length } failing ${ pluraliseWithS("check", snapshots.length)}:*`);
+            parts.push(`*🚨 ${ snapshots.length } failing ${ pluraliseWithS("check", snapshots.length) }:*`);
             snapshots.forEach(x => {
-                parts.push(`    • ${ x.type }:${ x.label } → ${ x.identifier } (_${ x.last_result }_)`);
+                parts.push(`    • ${ x.type }:${ x.label } → ${ x.identifier } \`${ x.last_result }\` ${ this.generateLinks(x) }`);
             });
             parts.push("");
         }
         const resolved = alert.getResolvedSnapshotList(snapshots.map(x => x.uniqueId));
         if (resolved.length > 0) {
-            parts.push(`*☑️ ${ resolved.length } resolved ${ pluraliseWithS("check", resolved.length)}:*`);
+            parts.push(`*☑️ ${ resolved.length } resolved ${ pluraliseWithS("check", resolved.length) }:*`);
             resolved.forEach(x => {
-                parts.push(`    • ${ x.type }:${ x.label } → ${ x.identifier }`);
+                const lastResult = x.lastSnapshot?.last_result ? `(last result before resolution: _${ x.lastSnapshot?.last_result }_)` : "";
+                parts.push(`    • ${ x.key.type }:${ x.key.label } → ${ x.key.identifier } ${ lastResult } ${ this.generateLinks(x.lastSnapshot) }`);
             });
             parts.push("");
         }
         parts.push(`_Last Updated: ${ toLocalTimeString(new Date()) }_`);
         parts.push(this.postfix);
         return parts.join("\n");
+    }
+
+    private generateLinks(snapshot: Snapshot): string {
+        const links = snapshot?.alert?.links;
+        if (!links || links.length === 0) {
+            return "";
+        }
+        return "📙 " + links.map(x => `<${ x.url }|${ x.label }>`).join(" | ");
     }
 
     public async sendNewAlert(snapshots: Snapshot[], alert: AlertState): Promise<void> {
@@ -82,17 +91,11 @@ export class SlackChannelConfig extends ChannelConfig {
     async postToSlack(message: string, state?: any): Promise<any> {
         const body = {
             channel: state?.channel ?? this.channel,
-            blocks: [{
-                type: "section",
-                text: {
-                    type: "mrkdwn",
-                    text: message
-                }
-            }],
+            text: message,
             ts: state?.ts
         };
         const url = state
-        ? "https://slack.com/api/chat.update"
+            ? "https://slack.com/api/chat.update"
             : "https://slack.com/api/chat.postMessage";
         const config = {
             method: 'post',
@@ -107,7 +110,7 @@ export class SlackChannelConfig extends ChannelConfig {
         try {
             const result = await axios.request(config);
             if (result.data?.error) {
-               throw new Error(result.data.error);
+                throw new Error(result.data.error);
             }
             return {
                 channel: result.data.channel,

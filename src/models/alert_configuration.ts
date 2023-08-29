@@ -12,9 +12,15 @@ export interface IAlertRule {
     time?: string | string[];
 }
 
+export interface IAlertLink {
+    label: string;
+    url: string;
+}
+
 export interface IAlertConfig {
     channels?: string[];
     rules?: IAlertRule[];
+    links?: IAlertLink[];
     "exception-policy"?: string;
 }
 
@@ -101,12 +107,14 @@ export class AlertConfiguration {
     public channels: string[];
     public rules: AlertRule[];
     public exceptionPolicyName?: string;
+    public links: IAlertLink[];
 
     constructor(config: IAlertConfig) {
         this._config = config;
         this.channels = config.channels ?? [];
         this.rules = config.rules?.map(x => new AlertRule(x)) ?? [];
         this.exceptionPolicyName = config["exception-policy"];
+        this.links = (config.links ?? []).filter(x => !!x.label && !!x.url);
     }
 
     public getConfig(): IAlertConfig {

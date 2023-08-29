@@ -82,6 +82,49 @@ describe("AlertRule", () => {
             expect(rule.type).toEqual(AlertRuleType.ConsecutiveCount);
         });
     });
+    describe("when constructed with links", () => {
+        it("should bind them", async () => {
+            // arrange
+            const config = {
+                channels: [],
+                links: [
+                    {
+                        label: "test",
+                        url: "http://test.com"
+                    }
+                ]
+            };
+
+            // act
+            const instance = new AlertConfiguration(config);
+
+            // assert
+            expect(instance.links).toEqual(config.links);
+        });
+        describe("if link missing url or label", () => {
+            it("should not bind", async () => {
+                // arrange
+                const config = {
+                    channels: [],
+                    links: [
+                        {
+                            url: "http://test.com"
+                        },
+                        {
+                            label: "test",
+                        }
+                    ]
+                };
+
+                // act
+                // @ts-ignore
+                const instance = new AlertConfiguration(config);
+
+                // assert
+                expect(instance.links).toEqual([]);
+            });
+        });
+    });
     describe("isValidNow", () => {
         describe("with no time or day config", () => {
             it("should return true", async () => {
@@ -124,7 +167,7 @@ describe("AlertRule", () => {
             describe("with a time that matches now", () => {
                 it("should return true", async () => {
                     // arrange
-                    initLocaleAndTimezone({ timezone: "Africa/Johannesburg"});
+                    initLocaleAndTimezone({ timezone: "Africa/Johannesburg" });
                     const config = {
                         time: "00:00-23:59"
                     } as IAlertRule;

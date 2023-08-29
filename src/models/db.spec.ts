@@ -204,7 +204,8 @@ describe("persistResults", () => {
                             last_result: "test 123",
                             alert_config: {
                                 channels: ["test-channel"],
-                                rules: []
+                                rules: [],
+                                links: []
                             }
                         }
                     );
@@ -302,7 +303,8 @@ describe("persistResults", () => {
                         last_result: "test 123",
                         alert_config: {
                             channels: ["test-channel"],
-                            rules: []
+                            rules: [],
+                            links: []
                         }
                     }
                 );

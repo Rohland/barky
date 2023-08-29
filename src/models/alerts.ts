@@ -1,5 +1,5 @@
 import { Snapshot } from "./snapshot";
-import { explodeUniqueKey } from "../lib/key";
+import { explodeUniqueKey, IUniqueKey } from "../lib/key";
 import { toLocalTimeString } from "../lib/utility";
 import { MuteWindow } from "./mute-window";
 import { humanizeDuration } from "../lib/time";
@@ -11,6 +11,7 @@ export class AlertState {
     public affectedUniqueIds: Set<string> = new Set();
     public state?: any;
     private _resolved: boolean;
+    private _previousSnapshots: Map<string, Snapshot> = new Map<string, Snapshot>();
 
     constructor(data: any) {
         for(const key in data) {
@@ -70,14 +71,29 @@ export class AlertState {
         return items.map(explodeUniqueKey);
     }
 
-    public getResolvedSnapshotList(uniqueIds: string[]) {
+    public getResolvedSnapshotList(uniqueIds: string[]): { key: IUniqueKey, lastSnapshot: Snapshot}[] {
         const all = Array.from(this.affectedUniqueIds);
-        return all.filter(x => !uniqueIds.includes(x)).map(explodeUniqueKey);
+        const keys = all.filter(x => !uniqueIds.includes(x));
+        return keys.map(x => {
+            return {
+                key: explodeUniqueKey(x),
+                lastSnapshot: this.getLastSnapshotFor(x)
+            };
+        });
     }
 
     removeMuted(muteWindows: MuteWindow[]) {
         const affected = Array.from(this.affectedUniqueIds);
         const remaining = affected.filter(x => !muteWindows.some(y => y.isMuted(x)));
         this.affectedUniqueIds = new Set(remaining);
+    }
+
+    getLastSnapshotFor(uniqueId: string) {
+        return this._previousSnapshots.get(uniqueId);
+    }
+
+    setPreviousSnapshots(previous: Snapshot[]) {
+        this._previousSnapshots = new Map<string, Snapshot>();
+        previous.forEach(x => this._previousSnapshots.set(x.uniqueId, x));
     }
 }

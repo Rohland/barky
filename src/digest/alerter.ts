@@ -9,6 +9,7 @@ export async function executeAlerts(
     config: DigestConfiguration,
     context: DigestContext) {
     const alerts = await getAlerts();
+    setPreviousSnapshotContextForAlerts(alerts, context);
     const distinctChannels = getChannelsAffected(context.alertableSnapshots(config));
     const newAlerts = detectNewAlerts(alerts, distinctChannels);
     const existingAlerts = detectExistingAlerts(alerts, distinctChannels);
@@ -124,4 +125,14 @@ function detectResolvedAlerts(
     channels: string[]) {
     const missing = alerts.filter(x => !channels.some(y => y === x.channel));
     return missing;
+}
+
+function setPreviousSnapshotContextForAlerts(alerts: AlertState[], context: DigestContext) {
+    alerts.forEach(alert => {
+        const previous = Array
+            .from(alert.affectedUniqueIds)
+            .map(x => context.getLastSnapshotFor(x))
+            .filter(x => !!x);
+        alert.setPreviousSnapshots(previous);
+    });
 }

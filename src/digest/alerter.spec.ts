@@ -5,6 +5,7 @@ import { Result } from "../models/result";
 import { deleteDbIfExists, destroy, getAlerts, initConnection, persistAlerts } from "../models/db";
 import { AlertState } from "../models/alerts";
 import { DigestConfiguration } from "../models/digest";
+import { Snapshot } from "../models/snapshot";
 
 describe("alerter", () => {
 
@@ -120,7 +121,13 @@ describe("alerter", () => {
             it("should emit ongoing alert via console and save alert state", async () => {
                 // arrange
                 const config = new DigestConfiguration({});
-                const context = new DigestContext([], []);
+                // @ts-ignore
+                const previousSnapshot = new Snapshot({
+                    type: "web",
+                    label: "health",
+                    identifier: "www.codeo.co.za",
+                });
+                const context = new DigestContext([previousSnapshot], []);
                 const result = new Result(
                     new Date(),
                     "web",
@@ -175,6 +182,7 @@ describe("alerter", () => {
             describe("but if muted", () => {
                 it("should not alert", async () => {
                     // arrange
+
                     const config = new DigestConfiguration({
                         "mute-windows": [
                             {
@@ -183,7 +191,13 @@ describe("alerter", () => {
                             }
                         ]
                     });
-                    const context = new DigestContext([], []);
+                    // @ts-ignore
+                    const previousSnapshot = new Snapshot({
+                        type: "web",
+                        label: "health",
+                        identifier: "www.codeo.co.za",
+                    });
+                    const context = new DigestContext([previousSnapshot], []);
                     const result = new Result(
                         new Date(),
                         "web",
@@ -243,7 +257,13 @@ describe("alerter", () => {
                         }
                     }
                 });
-                const context = new DigestContext([], []);
+                // @ts-ignore
+                const previousSnapshot = new Snapshot({
+                    type: "web",
+                    label: "health",
+                    identifier: "www.codeo.co.za",
+                });
+                const context = new DigestContext([previousSnapshot], []);
                 const result = new Result(
                     new Date(),
                     "web",
@@ -285,12 +305,18 @@ describe("alerter", () => {
         it("should send notification and be left with no alerts", async () => {
             // arrange
             const config = new DigestConfiguration({});
-            const context = new DigestContext([], []);
+            // @ts-ignore
+            const previousSnapshot = new Snapshot({
+                type: "web",
+                label: "health",
+                identifier: "www.codeo.co.za",
+            });
+            const context = new DigestContext([previousSnapshot], []);
             const alert = new AlertState({
                 channel: "console",
                 start_date: new Date(new Date().getTime() - 1000 * 60 * 2),
                 last_alert_date: new Date(new Date().getTime() - 1000 * 60 * 2),
-                affectedUniqueIds: new Set<string>(["web:health:www.codeo.co.za"])
+                affectedUniqueIds: new Set<string>(["web|health|www.codeo.co.za"])
             });
             await persistAlerts([alert]);
 
@@ -314,12 +340,18 @@ describe("alerter", () => {
                             }
                         ]
                     });
-                    const context = new DigestContext([], []);
+                    // @ts-ignore
+                    const previousSnapshot = new Snapshot({
+                        type: "web",
+                        label: "health",
+                        identifier: "www.codeo.co.za",
+                    });
+                    const context = new DigestContext([previousSnapshot], []);
                     const alert = new AlertState({
                         channel: "console",
                         start_date: new Date(new Date().getTime() - 1000 * 60 * 2),
                         last_alert_date: new Date(new Date().getTime() - 1000 * 60 * 2),
-                        affectedUniqueIds: new Set<string>(["web:health:www.codeo.co.za"])
+                        affectedUniqueIds: new Set<string>(["web|health|www.codeo.co.za"])
                     });
                     await persistAlerts([alert]);
 
@@ -336,12 +368,18 @@ describe("alerter", () => {
                 it("should send notification", async () => {
                     // arrange
                     const config = new DigestConfiguration({});
-                    const context = new DigestContext([], []);
+                    // @ts-ignore
+                    const previousSnapshot = new Snapshot({
+                        type: "web",
+                        label: "health",
+                        identifier: "www.codeo.co.za",
+                    });
+                    const context = new DigestContext([previousSnapshot], []);
                     const alert = new AlertState({
                         channel: "console",
                         start_date: new Date(new Date().getTime() - 1000 * 60 * 2),
                         last_alert_date: new Date(new Date().getTime() - 1000 * 60 * 2),
-                        affectedUniqueIds: new Set<string>(["web:health:www.codeo.co.za", "mysql:query"])
+                        affectedUniqueIds: new Set<string>(["web|health|www.codeo.co.za", "mysql|query"])
                     });
                     await persistAlerts([alert]);
 
