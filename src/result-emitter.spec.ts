@@ -68,7 +68,7 @@ describe("result-emitter", () => {
     describe("with skipped result", () => {
         it("should not emit it", async () => {
             // arrange
-            const result = new SkippedResult(new Date(), "test", "test", null);
+            const result = new SkippedResult(new Date(), "test", "test", "test", null);
 
             // act
             emitResults([result]);

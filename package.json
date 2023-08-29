@@ -8,6 +8,7 @@
     "build": "tsc --build",
     "postbuild": "cp package.json dist/package.json",
     "start": "ts-node src/cli.ts",
+    "pretest": "tsc",
     "test": "jest --coverage"
   },
   "keywords": [],
