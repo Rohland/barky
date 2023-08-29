@@ -3,7 +3,7 @@ import {
     evaluateNewResult, generateDigest,
     generateResultsToEvaluate
 } from "./digest";
-import { Result } from "../models/result";
+import { Result, SkippedResult } from "../models/result";
 import { MonitorLog } from "../models/log";
 import { Snapshot } from "../models/snapshot";
 import {
@@ -503,7 +503,7 @@ describe("digest", () => {
             });
         });
         describe("when no match in result set with last snapshot", () => {
-            it("should generate new result with success => true", async () => {
+            it("should generate new inferred result with success => true", async () => {
                 // arrange
                 const snapshot = new Snapshot({
                     id: 1,
@@ -538,6 +538,34 @@ describe("digest", () => {
                     { alert: snapshot.alert });
                 expect(output.length).toEqual(1);
                 expect(output[0]).toEqual(expectedResult);
+            });
+        });
+        describe("when app is skipped", () => {
+            it("should not generate inferred result with success, and include skipped", async () => {
+                // arrange
+                const snapshot = new Snapshot({
+                    id: 1,
+                    type: "web",
+                    label: "health",
+                    identifier: "www.codeo.co.za",
+                    last_result: "last_failure",
+                    success: false,
+                    date: new Date(),
+                    alert_config: new AlertConfiguration({
+                        channels: ["test-channel"],
+                        rules: []
+                    })
+                });
+                const skippedResult = new SkippedResult(new Date(), "web", "*", "www.codeo.co.za", {});
+
+                // act
+                const output = generateResultsToEvaluate(
+                    [skippedResult],
+                    [snapshot]
+                );
+
+                // assert
+                expect(output.length).toEqual(1);
             });
         });
     });
@@ -714,6 +742,36 @@ describe("digest", () => {
                         const logs = await getLogs();
                         expect(snapshots.length).toEqual(0);
                         expect(logs.length).toEqual(0);
+                    });
+                    describe("however if result is skipped", () => {
+                        it("should keep previous snapshot and infer ongoing", async () => {
+                            // arrange
+                            const alert =  {
+                                channels: ["test-channel"],
+                                rules: [{ count: 1 }]
+                            };
+                            const app = { alert };
+                            await persistSnapshots([
+                                new Snapshot({
+                                    date: new Date(),
+                                    type: "web",
+                                    label: "health",
+                                    identifier: "www.codeo.co.za",
+                                    last_result: "last_failure",
+                                    success: false,
+                                    alert_config: alert
+                                })
+                            ]);
+                            const result = new SkippedResult(new Date(), "web", "*", "www.codeo.co.za", app);
+
+                            // act
+                            const context = await generateDigest([result]);
+
+                            // assert
+                            expect(context.state).toEqual(DigestState.OutageOngoing);
+                            const snapshots = await getSnapshots();
+                            expect(snapshots.length).toEqual(1);
+                        });
                     });
                 });
                 describe("even if one alert resolved and a new one appears", () => {

@@ -1,8 +1,11 @@
-import { Result } from "./models/result";
+import { Result, SkippedResult } from "./models/result";
 
 export function emitResults(results: Result[]) {
     results.forEach(x => {
         if (x.success && x.app?.quiet) {
+            return;
+        }
+        if (x instanceof SkippedResult) {
             return;
         }
         const sValue = x.toString()?.replace(/[\r\n]+/g, " ");

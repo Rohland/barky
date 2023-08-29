@@ -4,23 +4,52 @@ import { sleepMs } from "../lib/sleep";
 import { MonitorFailureResult, SumoResult } from "../models/result";
 import { startClock, stopClock } from "../lib/profiler";
 import { renderTemplate } from "../lib/renderer";
-import { flatten } from "../lib/utility";
 import { log } from "../models/logger";
 import { EvaluatorResult } from "./types";
-import { getAppVariations } from "../models/app";
+import { getAppVariations, IApp } from "../models/app";
+import { BaseEvaluator } from "./base";
+import { IUniqueKey } from "../lib/key";
 
 const SumoDomain = process.env["sumo-domain"] ?? "api.eu.sumologic.com";
 const SumoUrl = `https://${ SumoDomain }/api/v1/search/jobs`;
 const JobPollMillis = 1000;
 
-export async function sumoEvaluator(options): Promise<EvaluatorResult> {
-    const apps = getAppsToEvaluate(options.env);
-    log(`found ${ apps.length } sumo queries to evaluate`);
-    const results = await Promise.all(apps.map(app => tryEvaluate(app)));
-    return {
-        results,
-        apps
-    };
+export class SumoEvaluator extends BaseEvaluator {
+    constructor(config: any) {
+        super(config);
+    }
+
+    get type(): string {
+        return "sumo";
+    }
+
+    configureAndExpandApp(app: IApp, name: string): IApp[] {
+        return getAppVariations(app, name).map(variant => {
+            return {
+                timeout: 10000,
+                ...app,
+                ...variant,
+                period: parsePeriodRange(app.period ?? "-5m to 0m"),
+            };
+        });
+    }
+
+    async evaluate(): Promise<EvaluatorResult> {
+        const apps = this.getAppsToEvaluate();
+        const results = await Promise.all(apps.map(app => tryEvaluate(app)));
+        return {
+            results,
+            apps
+        };
+    }
+
+    protected generateSkippedAppUniqueKey(name: string): IUniqueKey {
+        return {
+            type: this.type,
+            label: name,
+            identifier: "*" // when skipped, we want to match all identifiers under the type:label
+        };
+    }
 }
 
 async function tryEvaluate(app) {
@@ -165,27 +194,6 @@ async function deleteJob(app, log) {
         log("error: could not delete job", { app, error });
         // no-op
     }
-}
-
-function getAppsToEvaluate(options) {
-    const appNames = Object.keys(options.sumo);
-    const apps = [];
-    for (let name of appNames) {
-        const app = options.sumo[name];
-        apps.push(expandAndConfigureApp(app, name));
-    }
-    return flatten(apps);
-}
-
-function expandAndConfigureApp(app, name) {
-    return getAppVariations(app, name).map(variant => {
-        return {
-            timeout: 10000,
-            ...app,
-            ...variant,
-            period: parsePeriodRange(app.period),
-        };
-    });
 }
 
 function getHeaders(tokenName) {

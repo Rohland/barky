@@ -34,7 +34,7 @@ describe("loop", () => {
                 // arrange
                 const args = {
                     loop: "1",
-                    env: "test-env",
+                    rules: "test-env",
                     eval: "test-eval",
                     digest: "test-digest",
                 }

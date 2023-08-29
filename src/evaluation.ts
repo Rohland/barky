@@ -1,38 +1,37 @@
-import { PingResult, Result } from "./models/result";
+import { PingResult, Result, SkippedResult } from "./models/result";
 import { flatten } from "./lib/utility";
-import { webEvaluator } from "./evaluators/web";
-import { mysqlEvaluator } from "./evaluators/mysql";
-import { sumoEvaluator } from "./evaluators/sumo";
-import { Evaluator, EvaluatorWithType } from "./evaluators/types";
+import { WebEvaluator } from "./evaluators/web";
+import { MySqlEvaluator } from "./evaluators/mysql";
+import { SumoEvaluator } from "./evaluators/sumo";
 import { startClock, stopClock } from "./lib/profiler";
+import { BaseEvaluator } from "./evaluators/base";
 
 export async function evaluate(
     config: any,
     evals: string): Promise<Result[]> {
     const types = getEvaluators(config, evals);
-    const results = await Promise.all(types.map(type => evaluateType(type, config)));
+    const results = await Promise.all(types.map(evaluateType));
     return flatten(results);
 }
 
-const evaluators = new Map<string, Evaluator>();
-evaluators.set("web", webEvaluator);
-evaluators.set("sumo", sumoEvaluator);
-evaluators.set("mysql", mysqlEvaluator);
+const evaluators = new Map<string, typeof BaseEvaluator>();
+evaluators.set("web", WebEvaluator);
+evaluators.set("sumo", SumoEvaluator);
+evaluators.set("mysql", MySqlEvaluator);
 
-export async function evaluateType(
-    type: EvaluatorWithType,
-    config: any): Promise<Result[]> {
+export async function evaluateType(type: BaseEvaluator): Promise<Result[]> {
     const timer = startClock();
     const now = new Date();
-    const { apps, results } = await type.evaluator(config);
+    const { apps, results, skippedApps } = await type.evaluateApps();
     const elapsed = stopClock(timer);
-    return [
+    return flatten([
         new PingResult(now, type.type, elapsed, apps.length),
-        ...results
-    ];
+        ...results,
+        skippedApps.map(x => new SkippedResult(now, type.type, x.label, x.identifier, x)),
+    ]);
 }
 
-export function getEvaluators(config, evalName): EvaluatorWithType[] {
+export function getEvaluators(config, evalName): BaseEvaluator[] {
     const evaluatorsToConfigure =
         evalName?.trim()?.toLowerCase()?.split(",")
         || Object.keys(config.env ?? {});
@@ -40,14 +39,12 @@ export function getEvaluators(config, evalName): EvaluatorWithType[] {
         .map(x => x?.trim())
         .filter(x => !!x && x !== "config")
         .map(e => {
-            const evaluator = evaluators.get(e);
-            if (!evaluator) {
+            const constructor = evaluators.get(e);
+            if (!constructor) {
                 const error = `no evaluator found for '${ e }'`;
                 throw new Error(error);
             }
-            return {
-                type: e,
-                evaluator
-            };
+            // @ts-ignore
+            return new constructor(config.env);
         });
 }

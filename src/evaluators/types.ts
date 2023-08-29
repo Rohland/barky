@@ -1,9 +1,9 @@
 import { Result } from "../models/result";
+import { IApp } from "../models/app";
 
 export type Evaluator = (config: any) => Promise<EvaluatorResult>;
 export type EvaluatorResult = {
     results: Result[],
-    apps: any[]
+    apps: IApp[],
+    skippedApps?: IApp[]
 };
-
-export type EvaluatorWithType = { type: string, evaluator: Evaluator };

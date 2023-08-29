@@ -1,38 +1,46 @@
 import axios from "axios";
 import { startClock, stopClock } from "../lib/profiler";
 import { MonitorFailureResult, WebResult } from "../models/result";
-import { flatten } from "../lib/utility";
 import { log } from "../models/logger";
 import { EvaluatorResult } from "./types";
-import { getAppVariations } from "../models/app";
+import { getAppVariations, IApp } from "../models/app";
+import { BaseEvaluator } from "./base";
+import { IUniqueKey } from "../lib/key";
 
-export async function webEvaluator(options): Promise<EvaluatorResult> {
-    const apps = getAppsToEvaluate(options.env);
-    log(`found ${ apps.length } web apps to evaluate`);
-    const results = await Promise.all(apps.map(app => tryEvaluate(app)));
-    return {
-        results,
-        apps
-    };
-}
-
-function getAppsToEvaluate(options) {
-    const appNames = Object.keys(options.web);
-    const apps = [];
-    for (let name of appNames) {
-        const app = options.web[name];
-        apps.push(expandAndConfigureApp(app, name));
+export class WebEvaluator extends BaseEvaluator {
+    constructor(config: any) {
+        super(config);
     }
-    return flatten(apps);
-}
 
-function expandAndConfigureApp(app, name) {
-    return getAppVariations(app, name).map(variant => {
+    get type(): string {
+        return "web";
+    }
+
+    async evaluate(): Promise<EvaluatorResult> {
+        const apps = this.getAppsToEvaluate();
+        const results = await Promise.all(apps.map(app => tryEvaluate(app)));
         return {
-            ...app,
-            ...variant
+            results,
+            apps
         };
-    });
+    }
+
+    configureAndExpandApp(app: IApp, name: string): IApp[] {
+        return getAppVariations(app, name).map(variant => {
+            return {
+                ...app,
+                ...variant
+            };
+        });
+    }
+
+    protected generateSkippedAppUniqueKey(name: string): IUniqueKey {
+        return {
+            type: this.type,
+            label: "*", // when skipped, we match on type:*:identifier (label is always set to health in any case)
+            identifier: name
+        };
+    }
 }
 
 async function tryEvaluate(app) {

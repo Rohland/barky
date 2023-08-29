@@ -150,3 +150,19 @@ export class PingResult extends Result {
         );
     }
 }
+
+export class SkippedResult extends Result {
+    constructor(date, type: string, label: string, identifer: string, app: IApp) {
+        super(
+            date,
+            type,
+            label,
+            identifer,
+            1,
+            "Skipped",
+            0,
+            true,
+            app
+        );
+    }
+}

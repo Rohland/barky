@@ -16,3 +16,13 @@ export function explodeUniqueKey(key: string): IUniqueKey {
         identifier: parts[2]
     };
 }
+
+export function findMatchingKeyFor<T extends IUniqueKey>(
+    keyToFind: IUniqueKey,
+    results: T[]): T {
+    return results.find(x => {
+        return x.type === keyToFind.type
+            && (x.label === keyToFind.label || x.label === "*" || keyToFind.label === "*")
+            && (x.identifier === keyToFind.identifier || x.identifier === "*" || keyToFind.identifier === "*");
+    });
+}

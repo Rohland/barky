@@ -1,5 +1,6 @@
 import { emitResults, prepareResults } from "./result-emitter";
 import mockConsole from "jest-mock-console";
+import { SkippedResult } from "./models/result";
 
 describe("result-emitter", () => {
     let _restoreConsole;
@@ -62,6 +63,18 @@ describe("result-emitter", () => {
                     expect(result.length).toBeLessThanOrEqual(100);
                 });
             });
+        });
+    });
+    describe("with skipped result", () => {
+        it("should not emit it", async () => {
+            // arrange
+            const result = new SkippedResult(new Date(), "test", "test", null);
+
+            // act
+            emitResults([result]);
+
+            // assert
+            expect(console.log).not.toHaveBeenCalled();
         });
     });
     describe("emitResults", () => {

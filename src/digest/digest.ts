@@ -1,4 +1,4 @@
-import { Result } from "../models/result";
+import { Result, SkippedResult } from "../models/result";
 import { getLogs, getSnapshots, mutateAndPersistSnapshotState } from "../models/db";
 import { MonitorLog } from "../models/log";
 import { Snapshot } from "../models/snapshot";
@@ -6,6 +6,7 @@ import { executeAlerts } from "./alerter";
 import { ChannelConfig } from "../models/channels/base";
 import { AlertRule, AlertRuleType } from "../models/alert_configuration";
 import { DigestConfiguration } from "../models/digest";
+import { findMatchingKeyFor } from "../lib/key";
 
 export async function digest(
     config: DigestConfiguration,
@@ -37,9 +38,8 @@ export async function generateDigest(results: Result[]): Promise<DigestContext> 
 export function generateResultsToEvaluate(
     results: Result[],
     snapshots: Snapshot[]): Result[] {
-    const resultLookup = new Map(results.map(x => [x.uniqueId, x]));
     snapshots.forEach(snapshot => {
-        const matchedResult = resultLookup.get(snapshot.uniqueId);
+        const matchedResult = findMatchingKeyFor(snapshot, results);
         if (matchedResult) {
             return;
         }
@@ -89,7 +89,7 @@ export class DigestContext {
         if (wasInOKState) {
             if (hasIssues) {
                 return DigestState.OutageTriggered;
-            } else{
+            } else {
                 return DigestState.OK;
             }
         } else {
@@ -125,6 +125,10 @@ export class DigestContext {
     }
 
     public addSnapshotForResult(result: Result) {
+        if (result instanceof SkippedResult) {
+            this.tryFindAndAddExistingSnapshotForSkippedResult(result);
+            return;
+        }
         const data = {
             type: result.type,
             label: result.label,
@@ -147,6 +151,14 @@ export class DigestContext {
             data.date = existingSnapshot?.date ?? data.date;
         }
         this.snapshots.push(new Snapshot(data));
+    }
+
+    private tryFindAndAddExistingSnapshotForSkippedResult(result: SkippedResult) {
+        const found = findMatchingKeyFor(result, Array.from(this._previousSnapshotLookup.values()));
+        if (!found) {
+            return;
+        }
+        this.snapshots.push(found);
     }
 
     private generateLogLookup(logs: MonitorLog[]): Map<string, MonitorLog[]> {
@@ -179,6 +191,10 @@ export function evaluateNewResult(
     const rule = result.alert.findFirstValidRule();
     if (!rule) {
         context.deleteLogs(previousLogs);
+        return;
+    }
+    if (result instanceof SkippedResult) {
+        context.addSnapshotForResult(result);
         return;
     }
     if (result.success) {

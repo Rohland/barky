@@ -2,22 +2,50 @@ import mysql from "mysql2/promise";
 import { startClock, stopClock } from "../lib/profiler";
 import { renderTemplate } from "../lib/renderer";
 import { MonitorFailureResult, MySqlResult } from "../models/result";
-import { flatten } from "../lib/utility";
 import { log } from "../models/logger";
 import { EvaluatorResult } from "./types";
-import { getAppVariations } from "../models/app";
+import { getAppVariations, IApp } from "../models/app";
+import { BaseEvaluator } from "./base";
+import { IUniqueKey } from "../lib/key";
 
-export async function mysqlEvaluator(options): Promise<EvaluatorResult> {
-    const apps = getAppsToEvaluate(options.env);
-    log(`found ${apps.length} mysql queries to evaluate`);
-    try {
-        const results = await Promise.all(apps.map(app => tryEvaluate(app)));
+export class MySqlEvaluator extends BaseEvaluator {
+    constructor(config: any) {
+        super(config);
+    }
+
+    public get type(): string {
+        return "mysql";
+    }
+
+    configureAndExpandApp(app: IApp, name: string): IApp[] {
+        return getAppVariations(app, name).map(variant => {
+            return {
+                timeout: 15000,
+                ...app,
+                ...variant,
+            };
+        });
+    }
+
+    public async evaluate(): Promise<EvaluatorResult> {
+        const apps = this.getAppsToEvaluate();
+        try {
+            const results = await Promise.all(apps.map(app => tryEvaluate(app)));
+            return {
+                results,
+                apps
+            };
+        } finally {
+            disposeConnections();
+        }
+    }
+
+    protected generateSkippedAppUniqueKey(name: string): IUniqueKey {
         return {
-            results,
-            apps
+            type: this.type,
+            label: name,
+            identifier: "*" // when skipped, we want to match all identifiers under the type:label
         };
-    } finally {
-        disposeConnections();
     }
 }
 
@@ -39,9 +67,9 @@ async function tryEvaluate(app) {
 
 function validateResults(app, results, _log) {
     return results.map(row => {
-       const identifier = row[app.identifier] ?? "unknown";
-       const validator = findValidatorForRow(identifier, row, app.validators);
-       return validateRow(app, identifier, row, validator);
+        const identifier = row[app.identifier] ?? "unknown";
+        const validator = findValidatorForRow(identifier, row, app.validators);
+        return validateRow(app, identifier, row, validator);
     });
 }
 
@@ -66,7 +94,7 @@ function validateRow(app, identifier, row, validator) {
     variables.forEach(x => values[x] = row[x]);
     const msgs = [];
     validator.rules.find(rule => {
-        const variableDefinitions = variables.map(x => `const ${x} = ${generateValueForVariable(row[x])}`).join(";");
+        const variableDefinitions = variables.map(x => `const ${ x } = ${ generateValueForVariable(row[x]) }`).join(";");
         const expression = `;${ rule.expression }`;
         const fail = eval(variableDefinitions + expression);
         failure ||= fail;
@@ -75,7 +103,7 @@ function validateRow(app, identifier, row, validator) {
         }
     });
     return new MySqlResult(
-        `${app.name}`,
+        `${ app.name }`,
         identifier,
         values,
         msgs,
@@ -100,11 +128,12 @@ function convertRowValuesToInferredType(entry) {
 
 function generateValueForVariable(value) {
     const valueAsNumber = parseFloat(value);
-    const isNumber = !Number.isNaN(valueAsNumber);;
+    const isNumber = !Number.isNaN(valueAsNumber);
+    ;
     if (isNumber) {
         return valueAsNumber.toFixed(3);
     } else {
-        return `'${value}'`;
+        return `'${ value }'`;
     }
 }
 
@@ -120,36 +149,16 @@ async function runQuery(connection, app) {
     return results[0][resultIndex > 0 ? resultIndex - 1 : 0];
 }
 
-function getAppsToEvaluate(options) {
-    const appNames = Object.keys(options.mysql);
-    const apps = [];
-    for (let name of appNames) {
-        const app = options.mysql[name];
-        apps.push(expandAndConfigureApp(app, name));
-    }
-    return flatten(apps);
-}
-
-function expandAndConfigureApp(app, name) {
-    return getAppVariations(app, name).map(variant => {
-        return {
-            timeout: 15000,
-            ...app,
-            ...variant,
-        };
-    });
-}
-
 const connections = [];
 
 async function getConnection(app) {
     // @ts-ignore
     const connection = await mysql.createConnection({
-        host: process.env[`mysql-${ app.connection}-host`],
-        user: process.env[`mysql-${ app.connection}-user`],
-        password: process.env[`mysql-${ app.connection}-password`],
-        port: process.env[`mysql-${ app.connection}-port`],
-        database: process.env[`mysql-${ app.connection}-database`],
+        host: process.env[`mysql-${ app.connection }-host`],
+        user: process.env[`mysql-${ app.connection }-user`],
+        password: process.env[`mysql-${ app.connection }-password`],
+        port: process.env[`mysql-${ app.connection }-port`],
+        database: process.env[`mysql-${ app.connection }-database`],
         timezone: 'Z',
         multipleStatements: true
     });
@@ -158,6 +167,6 @@ async function getConnection(app) {
 }
 
 function disposeConnections() {
-   connections.map(x => x.destroy())
+    connections.map(x => x.destroy())
 }
 

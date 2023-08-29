@@ -93,6 +93,7 @@ In addition, each evaluator app supports the following properties:
 - `quiet` - Any - if set to a truthy value, will suppress success output
 - `timeout` - Numeric - a value in milliseconds (example: 10000 for 10s)
 - `vary-by` - Array<string|string[]> - enables variations of fields like name, url or query (depending on the type of evaluator)
+- `every` - String value representing how often to evaluate the rule, defaults to "30s" - value must be multiples of 30s, examples: 60s, 90s, 10m, 1h (only applicable in loop mode)
 
 ** Variation **
 

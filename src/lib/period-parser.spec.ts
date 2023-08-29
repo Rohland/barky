@@ -123,23 +123,41 @@ describe("period parsing", () => {
             it("should throw an error", async () => {
                 // arrange
                 // act
-                expect(() => parsePeriod(input)).toThrowError("invalid period - expected format: -Integer{s|m|h|d}");
+                expect(() => parsePeriod(input)).toThrowError("invalid period - expected format: Integer{s|m|h|d} (example: -10s or 5m)");
             });
         });
         describe("when period defined in seconds", () => {
-            it("should return valid from date and null to date", async () => {
-                // arrange
-                const period = "-10s";
-                const now = new Date();
+            describe("when negative", () => {
+                it("should return time in the past", async () => {
+                    // arrange
+                    const period = "-10s";
+                    const now = new Date();
 
-                // act
-                const result = parsePeriod(period);
+                    // act
+                    const result = parsePeriod(period);
 
-                // assert
-                const diff = +now - +result;
-                expect(diff).toBeGreaterThanOrEqual(9950);
-                expect(diff).toBeLessThanOrEqual(10050);
+                    // assert
+                    const diff = +now - +result;
+                    expect(diff).toBeGreaterThanOrEqual(9950);
+                    expect(diff).toBeLessThanOrEqual(10050);
+                });
             });
+            describe("when positive", () => {
+                it("should return time in the future", async () => {
+                    // arrange
+                    const period = "10s";
+                    const now = new Date();
+
+                    // act
+                    const result = parsePeriod(period);
+
+                    // assert
+                    const diff = +now - +result;
+                    expect(diff).toBeLessThanOrEqual(-9950);
+                    expect(diff).toBeGreaterThanOrEqual(-10050);
+                });
+            });
+
         });
         describe("when period defined in minutes", () => {
             it("should return valid from and to dates", async () => {

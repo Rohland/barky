@@ -2,10 +2,13 @@ import { IAlertConfig } from "./alert_configuration";
 import { flatten } from "../lib/utility";
 
 export interface IApp {
+    [key: string]: any;
     name?: string;
     quiet?: boolean;
     timeout?: number;
     alert?: IAlertConfig;
+    every?: string;
+    type?: string;
 }
 
 export class AppVariant {

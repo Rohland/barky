@@ -1,9 +1,9 @@
 import { Time } from "./time";
 
 const InvalidPeriodRangeError = "invalid period - expected format: -fromInteger{s|m|h|d} to -toInteger{s|m|h|d}";
-const InvalidPeriodError = "invalid period - expected format: -Integer{s|m|h|d}";
-const ValidPeriodRangeRegex = /^-(\d+)(s|m|h|d)\s+to\s+-(\d+)(s|m|h|d)$/i;
-const ValidPeriodRegex = /^-(\d+)(s|m|h|d)$/i;
+const InvalidPeriodError = "invalid period - expected format: Integer{s|m|h|d} (example: -10s or 5m)";
+const ValidPeriodRangeRegex = /^-(\d+)(s|m|h|d)\s+to\s+-?(\d+)(s|m|h|d)$/i;
+const ValidPeriodRegex = /^(-?)(\d+)(s|m|h|d)$/i;
 
 export interface IPeriod {
     from: Date,
@@ -15,21 +15,19 @@ export function parsePeriod(input): Date {
         throw new Error(InvalidPeriodError);
     }
     const match = ValidPeriodRegex.exec(input.trim());
-    const value = parseFloat(match[1]);
-    const unit = match[2];
+    const sign = match[1] === "-" ? 1 : -1;
+    const value = parseFloat(match[2]) * sign;
+    const unit = match[3];
     return applyDurationToDate(new Date(), value, unit);
 }
 
-export function parsePeriodToMinutes(input): number {
-    const negative = input.startsWith("-");
-    if (!negative) {
-        input = `-${ input }`;
-    }
+export function parsePeriodToSeconds(input): number {
     const millis = +parsePeriod(input) - +new Date();
-    const minutes = millis / 1000 / 60;
-    return negative
-        ? minutes
-        : -minutes;
+    return millis / 1000;
+}
+
+export function parsePeriodToMinutes(input): number {
+    return parsePeriodToSeconds(input) / 60;
 }
 
 export function parsePeriodRange(input): IPeriod {

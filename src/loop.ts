@@ -2,7 +2,7 @@ import { sleepMs } from "./lib/sleep";
 import { startClock, stopClock } from "./lib/profiler";
 import { canLockProcessFor } from "./lib/process-lock";
 
-const LoopMs = 30000;
+export const LoopMs = 30000;
 
 export async function loop(
     args,
@@ -24,7 +24,7 @@ export async function loop(
 
 function validateNoOtherInstancesRunningFor(args) {
     const key = [
-        args.env,
+        args.rules,
         args.eval,
         args.digest].join(";").toLowerCase();
     return canLockProcessFor(key);
