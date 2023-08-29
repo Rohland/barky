@@ -26,7 +26,7 @@ export class SlackChannelConfig extends ChannelConfig {
 
         parts.push(`*Started at:* \`${ alert.startTime }\``);
         if (alert.durationMinutes > 0) {
-            parts.push(`*Duration:* \`${ alert.durationHuman } }\``);
+            parts.push(`*Duration:* \`${ alert.durationHuman }\``);
         }
         parts.push("");
         if (snapshots.length > 0) {
