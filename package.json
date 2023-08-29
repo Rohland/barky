@@ -1,6 +1,6 @@
 {
   "name": "barky",
-  "version": "1.0.27-alpha",
+  "version": "1.0.27",
   "description": "A simple cloud services watchdog with digest notification support & no external dependencies",
   "homepage": "https://github.com/Rohland/barky#readme",
   "main": "dist/cli.js",
@@ -14,7 +14,7 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "axios": "^1.4.0",
     "dotenv": "^16.3.1",
@@ -43,7 +43,6 @@
   "files": [
     "dist/**/*"
   ],
-  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/rohland/barky.git"
