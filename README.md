@@ -115,12 +115,12 @@ urls: [https://www.codeo.co.za/en-za, https://www.codeo.co.za/en-us, https://www
 
 A more complex example:
 
-```
+```yaml
 web:
   www.codeo.co.$1:
     vary-by: 
-    	- [za, zar]
-    	- [com, usd]
+      - [za, zar]
+      - [com, usd]
     url: https://www.codeo.co.$1/currency=$2 
 ```
 
@@ -221,13 +221,13 @@ web:
       Authorization: $my-auth-token # uses environment variable my-auth-token
       x-my-custom-value: "123"
     validators:
-    	- text: ok
-    	  message: Expected to find text "ok" in response but didn't
+      - text: ok
+        message: Expected to find text "ok" in response but didn't
     alert: 
         channels: [sms, slack]
         links:
           - label: Playbook
-            url: https://notion.so/... 
+            url: "https://notion.so"
         rules:
             - description: Weekdays
               count: 2 # any consecutive 2 failures trigger alert
@@ -345,7 +345,7 @@ mute-windows: # alerts are silenced if generated in these window periods
     time: 22:00 - 24:00 # 2PM to 4PM for a specific date
   - time: 00:00 - 06:00 # every weekday midnight to 6AM
     days: [mon, tue, wed, thu, fri]
-	  
+
 alert-policies:
   monitor-exception:
     channels: [slack]
