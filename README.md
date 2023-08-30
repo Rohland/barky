@@ -311,6 +311,7 @@ mysql:
       set transaction isolation level read uncommitted;
       select queue, unprocessed, minutes_to_process from some_view;
     identifier: queue
+    emit: [unprocessed, minutes_to_process] # optional, if not set, all fields are emitted in log
     validators:
       - match: .* # catch all
         rules:

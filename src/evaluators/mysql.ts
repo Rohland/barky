@@ -57,6 +57,7 @@ async function tryEvaluate(app) {
         app.timeTaken = stopClock(timer);
         return validateResults(app, results, log);
     } catch (err) {
+        log(`Error evaluating app ${ app.name }: ${ err.message }`, err);
         return new MonitorFailureResult(
             "mysql",
             app.name,
@@ -81,17 +82,35 @@ function findValidatorForRow(identifier, row, validators) {
         }
     });
     if (!validator) {
-        throw new Error(`Could not find validator for row with idenfier: ${ identifier }`);
+        throw new Error(`Could not find validator for row with identifier: ${ identifier }`);
     }
     return validator;
 }
 
-function validateRow(app, identifier, row, validator) {
+function generateVariablesAndValues(row, app) {
+    const variables = Object.keys(row).filter(x => x !== app.identifier);
+    const values = {};
+    const emit: Array<string> = app.emit ?? [];
+    const shouldEmitAll = emit.length === 0;
+    variables.forEach(x => {
+        if (shouldEmitAll || emit.includes(x)) {
+            values[x] = row[x];
+        }
+    });
+    return { variables, values };
+}
+
+export function validateRow(
+    app,
+    identifier,
+    row,
+    validator) {
+    if (!validator.rules || validator.rules.length === 0) {
+        throw new Error(`validator for app '${ app.name }' has no rules`);
+    }
     convertRowValuesToInferredType(row);
     let failure = false;
-    const values = {};
-    const variables = Object.keys(row).filter(x => x !== app.identifier);
-    variables.forEach(x => values[x] = row[x]);
+    const { variables, values } = generateVariablesAndValues(row, app);
     const msgs = [];
     validator.rules.find(rule => {
         const variableDefinitions = variables.map(x => `const ${ x } = ${ generateValueForVariable(row[x]) }`).join(";");
@@ -129,7 +148,6 @@ function convertRowValuesToInferredType(entry) {
 function generateValueForVariable(value) {
     const valueAsNumber = parseFloat(value);
     const isNumber = !Number.isNaN(valueAsNumber);
-    ;
     if (isNumber) {
         return valueAsNumber.toFixed(3);
     } else {
@@ -146,7 +164,8 @@ async function runQuery(connection, app) {
     if (Number.isNaN(resultIndex)) {
         resultIndex = results[0].length;
     }
-    return results[0][resultIndex > 0 ? resultIndex - 1 : 0];
+    const rows = results[0][resultIndex > 0 ? resultIndex - 1 : 0];
+    return Array.isArray(rows) ? rows : [rows];
 }
 
 const connections = [];
