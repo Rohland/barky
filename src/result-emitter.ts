@@ -1,6 +1,7 @@
 import { Result, SkippedResult } from "./models/result";
 
 export function emitResults(results: Result[]) {
+    const rules = process.argv[3];
     results.forEach(x => {
         if (x.success && x.app?.quiet) {
             return;
@@ -8,8 +9,11 @@ export function emitResults(results: Result[]) {
         if (x instanceof SkippedResult) {
             return;
         }
-        const sValue = x.toString()?.replace(/[\r\n]+/g, " ");
-        console.log(sValue);
+        const fields = [
+            x.toString()?.replace(/[\r\n]+/g, " "),
+            rules
+        ];
+        console.log(fields.join("|"));
     });
 }
 

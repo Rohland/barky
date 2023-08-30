@@ -149,7 +149,7 @@ describe("exec", () => {
                     await execute(config, "test");
 
                     // assert
-                    expect(console.log).toHaveBeenCalledWith(result.toString());
+                    expect(console.log).toHaveBeenCalledWith(expect.stringContaining(result.toString()));
                     expect(console.log).toHaveBeenCalledWith(expect.stringContaining("🚨Outage started at "));
                     expect(console.log).toHaveBeenCalledWith(expect.stringContaining("1 health check affected"));
                 });
@@ -202,7 +202,7 @@ describe("exec", () => {
                         await execute(config, "test");
 
                         // assert
-                        expect(console.log).toHaveBeenCalledWith(result.toString());
+                        expect(console.log).toHaveBeenCalledWith(expect.stringContaining(result.toString()));
                         expect(console.log).not.toHaveBeenCalledWith(expect.stringContaining("🚨Outage started at "));
                         expect(console.log).not.toHaveBeenCalledWith(expect.stringContaining("1 health check affected"));
                     });
@@ -257,7 +257,7 @@ describe("exec", () => {
                     await execute(config, "test");
 
                     // assert
-                    expect(console.log).toHaveBeenCalledWith(result.toString());
+                    expect(console.log).toHaveBeenCalledWith(expect.stringContaining(result.toString()));
                     expect(console.log).toHaveBeenCalledWith(expect.stringContaining("🚨Outage started at "));
                     expect(console.log).toHaveBeenCalledWith(expect.stringContaining("1 health check affected"));
                 });

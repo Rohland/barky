@@ -91,7 +91,7 @@ describe("result-emitter", () => {
 
             // assert
             expect(item.toString).toHaveBeenCalledTimes(1);
-            expect(console.log).toHaveBeenCalledWith("test");
+            expect(console.log).toHaveBeenCalledWith(expect.stringMatching(/^test\|/));
         });
         describe("when quiet enabled", () => {
             it("should not emit success", async () => {
@@ -130,7 +130,7 @@ describe("result-emitter", () => {
 
                 // assert
                 expect(item.toString).toHaveBeenCalledTimes(1);
-                expect(console.log).toHaveBeenCalledWith("test");
+                expect(console.log).toHaveBeenCalledWith(expect.stringMatching(/^test\|/));
             });
         });
         describe("when item strings have line breaks", () => {
@@ -147,7 +147,7 @@ describe("result-emitter", () => {
 
                 // assert
                 expect(item.toString).toHaveBeenCalledTimes(1);
-                expect(console.log).toHaveBeenCalledWith("test 1 2");
+                expect(console.log).toHaveBeenCalledWith(expect.stringMatching(/^test 1 2\|/));
             });
         });
     });
