@@ -60,6 +60,47 @@ describe("exec", () => {
                     expect(results[0].alert).toEqual(null);
                     expect(results[1].alert).toEqual(new AlertConfiguration(digest["alert-policies"].monitor));
                 });
+                describe("but if not provided", () => {
+                    describe("and digest configured", () => {
+                        it("should throw", async () => {
+                            // arrange
+                            const alert = {
+                                "exception-policy": "monitor",
+                                channels: ["console"]
+                            };
+                            const results = [
+                                new WebResult(new Date(), "health-check", "web", 200, 200, 200, 0, null),
+                                new MonitorFailureResult("web", "www.codeo.co.za", "Runtime Error", { alert })
+                            ];
+                            const digest = {
+                                "alert-policies": {
+                                }
+                            };
+                            // act
+                            expect(() => configureMonitorLogsWithAlertConfiguration(results, new DigestConfiguration(digest)))
+                                .toThrow("alert exception policy 'monitor' not found in digest config");
+                        });
+                    });
+                    describe("and digest not configured", () => {
+                        it("should not configure", async () => {
+                            // arrange
+                            const alert = {
+                                "exception-policy": "monitor",
+                                channels: ["console"]
+                            };
+                            const results = [
+                                new WebResult(new Date(), "health-check", "web", 200, 200, 200, 0, null),
+                                new MonitorFailureResult("web", "www.codeo.co.za", "Runtime Error", { alert })
+                            ];
+
+                            // act
+                            configureMonitorLogsWithAlertConfiguration(results, new DigestConfiguration(null));
+
+                            // assert
+                            expect(results[0].alert).toEqual(null);
+                        });
+                    });
+                });
                 describe("with no exception policy defined", () => {
                     it("should leave the default specified", async () => {
                         // arrange

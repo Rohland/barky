@@ -26,6 +26,9 @@ async function runDigest(
 export function configureMonitorLogsWithAlertConfiguration(
     results: Result[],
     digestConfig: DigestConfiguration) {
+    if (!digestConfig.configured) {
+        return;
+    }
     results
         .filter(x => x instanceof MonitorFailureResult)
         .forEach(x => {
