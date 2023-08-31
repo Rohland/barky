@@ -68,23 +68,23 @@ async function tryEvaluate(app) {
 
 function validateResults(app, results, _log) {
     return results.map(row => {
-        const identifier = row[app.identifier] ?? "unknown";
-        const validator = findValidatorForRow(identifier, row, app.validators);
-        return validateRow(app, identifier, row, validator);
+        const identifier = row[app.identifier] ?? app.identifier;
+        const trigger = findTriggerForRow(identifier, row, app.triggers);
+        return validateRow(app, identifier, row, trigger);
     });
 }
 
-function findValidatorForRow(identifier, row, validators) {
-    const validator = (validators ?? []).find(validator => {
+function findTriggerForRow(identifier, row, triggers) {
+    const trigger = (triggers ?? []).find(validator => {
         const regex = new RegExp(validator.match, "gi");
         if (regex.test(row[identifier])) {
             return validator;
         }
     });
-    if (!validator) {
-        throw new Error(`Could not find validator for row with identifier: ${ identifier }`);
+    if (!trigger) {
+        throw new Error(`Could not find trigger for row with identifier: ${ identifier }`);
     }
-    return validator;
+    return trigger;
 }
 
 function generateVariablesAndValues(row, app) {
@@ -104,15 +104,15 @@ export function validateRow(
     app,
     identifier,
     row,
-    validator) {
-    if (!validator.rules || validator.rules.length === 0) {
-        throw new Error(`validator for app '${ app.name }' has no rules`);
+    trigger) {
+    if (!trigger.rules || trigger.rules.length === 0) {
+        throw new Error(`trigger for app '${ app.name }' has no rules`);
     }
     convertRowValuesToInferredType(row);
     let failure = false;
     const { variables, values } = generateVariablesAndValues(row, app);
     const msgs = [];
-    validator.rules.find(rule => {
+    trigger.rules.find(rule => {
         const variableDefinitions = variables.map(x => `const ${ x } = ${ generateValueForVariable(row[x]) }`).join(";");
         const expression = `;${ rule.expression }`;
         const fail = eval(variableDefinitions + expression);

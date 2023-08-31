@@ -186,7 +186,7 @@ Additional values that can be configured:
 - `timeout` defaults to 5000 (5 seconds)
 - `headers` - a custom set of headers (see example below) - these can include environment variables using $ prefix
 - `vary-by` - enables variations of a given url, an instance for each variation is monitored
-- `validators` - enables a set of custom validators that must all be successful
+- `validators` - enables a set of custom validators (expect values to be truthy to pass)
 - `alert` - defines the alert rules, see below
 
 **Alerts**
@@ -243,7 +243,10 @@ web:
 ##### Sumo Logic Configuration
 
 The example below will search Sumo Logic using the given query, and iterate over the result set. The time window
-searched is specified by `period`. The validators evaluate each row (the expression is evaluated as JavaScript).
+searched is specified by `period`. 
+
+The `triggers` define the set of rules that will trigger alerts. The first trigger that matches the value for the identifier will be selected and evaluated.
+The trigger's rule expression is evaluated as JavaScript.
 
 For Sumo Logic queries, the default domain is `api.eu.sumologic.com` - however, this can be overridden using an 
 environment variable called `sumo-domain`.
@@ -270,7 +273,7 @@ The example below does not have any alerts configured, see web example above to 
       | fields site, response_time, error_rate
       | order by response_time desc, error_rate desc
     identifier: site # this specifies what field in the result set is the identifier to iterate over
-    validators:
+    triggers:
       - match: myslowsite\.(com|net) # special rules for myslowsite.com and myslowsite.net
         rules:
           - expression: response_time >= 2
@@ -287,7 +290,10 @@ The example below does not have any alerts configured, see web example above to 
 
 ##### MySQL Configuration
 
-The example below will execute the given mysql query, and iterate over the result set. The validators evaluate each row (the expression is evaluated as JavaScript).
+The example below will execute the given mysql query, and iterate over the result set.
+
+The `triggers` define the set of rules that will trigger alerts. The first trigger that matches the value for the identifier will be selected and evaluated.
+The trigger's rule expression is evaluated as JavaScript.
 
 The example below does not have any alerts configured, see web example above to see what you can do with alerts.
 
@@ -310,9 +316,9 @@ mysql:
     query: >
       set transaction isolation level read uncommitted;
       select queue, unprocessed, minutes_to_process from some_view;
-    identifier: queue
+    identifier: queue # specifies what field to use to match against the validator and emit as identifier (if field not in result set, is set to value set here)
     emit: [unprocessed, minutes_to_process] # optional, if not set, all fields are emitted in log
-    validators:
+    triggers:
       - match: .* # catch all
         rules:
           - expression: minutes_to_process >= 10

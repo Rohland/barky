@@ -13,7 +13,7 @@ describe("mysql", () => {
                     const app = {
                         name: "app",
                         identifier: "id",
-                        validators: [
+                        triggers: [
                             {
                                 match: ".*",
                                 rules
@@ -23,9 +23,9 @@ describe("mysql", () => {
                     const row = {
                         id: "123"
                     };
-                    const validator = app.validators[0];
+                    const trigger = app.triggers[0];
                     // act and assert
-                    expect(() => validateRow(app, "id", row, validator)).toThrowError("validator for app 'app' has no rules");
+                    expect(() => validateRow(app, "id", row, trigger)).toThrowError("trigger for app 'app' has no rules");
                 });
 
             });
@@ -37,7 +37,7 @@ describe("mysql", () => {
                     const app = {
                         name: "app",
                         identifier: "id",
-                        validators: [
+                        triggers: [
                             {
                                 match: ".*",
                                 rules: [
@@ -55,7 +55,7 @@ describe("mysql", () => {
                     };
 
                     // act
-                    const result = validateRow(app, "id", row, app.validators[0]);
+                    const result = validateRow(app, "id", row, app.triggers[0]);
 
                     // assert
                     expect(result.success).toEqual(true);
@@ -69,7 +69,7 @@ describe("mysql", () => {
                             name: "app",
                             identifier: "id",
                             emit: ["value"],
-                            validators: [
+                            triggers: [
                                 {
                                     match: ".*",
                                     rules: [
@@ -88,7 +88,7 @@ describe("mysql", () => {
                         };
 
                         // act
-                        const result = validateRow(app, "id", row, app.validators[0]);
+                        const result = validateRow(app, "id", row, app.triggers[0]);
 
                         // assert
                         expect(result.success).toEqual(true);

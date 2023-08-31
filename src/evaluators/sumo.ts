@@ -81,7 +81,7 @@ function validateEntry(app, entry, _log) {
         throw new Error(`expected to find identifier field in result set named: ${ app.identifier }`);
     }
     convertEntryValuesToInferredType(entry);
-    const rules = findValidatorFor(identifier, app);
+    const rules = findTriggerRulesFor(identifier, app);
     let failure = false;
     const variables = Object.keys(entry).filter(x => x !== app.identifier);
     const values = {};
@@ -136,19 +136,19 @@ interface IRule {
     message: string;
 }
 
-export function findValidatorFor(identifier, app): IRule[] {
-    const validators = app.validators;
-    if (!validators || validators.length === 0) {
-        throw new Error("expected sumo app configuration to have validators, but did not");
+export function findTriggerRulesFor(identifier, app): IRule[] {
+    const triggers = app.triggers;
+    if (!triggers || triggers.length === 0) {
+        throw new Error("expected sumo app configuration to have triggers, but did not");
     }
-    const validator = validators.find(x => new RegExp(x.match, "gi").test(identifier));
-    if (!validator) {
-        throw new Error(`expected to find one validator that matched ${ identifier } but did not`);
+    const trigger = triggers.find(x => new RegExp(x.match, "gi").test(identifier));
+    if (!trigger) {
+        throw new Error(`expected to find one trigger that matched ${ identifier } but did not`);
     }
-    if (!validator.rules || validator.rules.length === 0) {
-        throw new Error(`expected to find one or more rules for validator but did not`);
+    if (!trigger.rules || trigger.rules.length === 0) {
+        throw new Error(`expected to find one or more rules for trigger but did not`);
     }
-    return validator.rules;
+    return trigger.rules;
 }
 
 async function startSearch(app, _log) {

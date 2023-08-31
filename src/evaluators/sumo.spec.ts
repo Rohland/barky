@@ -1,28 +1,28 @@
-import { findValidatorFor } from "./sumo";
+import { findTriggerRulesFor } from "./sumo";
 
 describe("sumo", () => {
-    describe("findValidatorFor", () => {
+    describe("findTriggerRulesFor", () => {
         describe.each([
             null,
             undefined,
             []
-        ])(`when validators is %s`,
+        ])(`when trigger is %s`,
             // @ts-ignore
-            (validators) => {
+            (triggers) => {
             it("should throw", () => {
                 const app = {
-                    validators
+                    triggers
                 };
-                expect(() => findValidatorFor("test", app)).toThrowError("expected sumo app configuration to have validators, but did not");
+                expect(() => findTriggerRulesFor("test", app)).toThrowError("expected sumo app configuration to have triggers, but did not");
             });
         });
     });
-    describe("when has validators", () => {
+    describe("when has triggers", () => {
         describe("but none match", () => {
             it("should throw", async () => {
                 // arrange
                 const app = {
-                    validators: [
+                    triggers: [
                         {
                             match: "test"
                         }
@@ -31,7 +31,7 @@ describe("sumo", () => {
 
                 // act
                 // assert
-                expect(() => findValidatorFor("abc", app)).toThrowError("expected to find one validator that matched abc but did not");
+                expect(() => findTriggerRulesFor("abc", app)).toThrowError("expected to find one trigger that matched abc but did not");
             });
         });
         describe("and one matches", () => {
@@ -46,7 +46,7 @@ describe("sumo", () => {
                     it("should throw", async () => {
                         // arrange
                         const app = {
-                            validators: [
+                            triggers: [
                                 {
                                     match: "test",
                                     rules
@@ -56,7 +56,7 @@ describe("sumo", () => {
 
                         // act
                         // assert
-                        expect(() => findValidatorFor("test", app)).toThrowError("expected to find one or more rules for validator but did not");
+                        expect(() => findTriggerRulesFor("test", app)).toThrowError("expected to find one or more rules for trigger but did not");
                     });
                 });
             });
@@ -64,7 +64,7 @@ describe("sumo", () => {
                 it("should return rules", async () => {
                     // arrange
                     const app = {
-                        validators: [
+                        triggers: [
                             {
                                 match: "test",
                                 rules: [
@@ -77,10 +77,10 @@ describe("sumo", () => {
                     };
 
                     // act
-                    const result = findValidatorFor("test", app);
+                    const result = findTriggerRulesFor("test", app);
 
                     // assert
-                    expect(result).toEqual(app.validators[0].rules);
+                    expect(result).toEqual(app.triggers[0].rules);
                 });
             });
         });
