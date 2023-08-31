@@ -4,6 +4,7 @@ import { ChannelConfig, ChannelType } from "./base";
 import axios from "axios";
 import { pluraliseWithS, toLocalTimeString } from "../../lib/utility";
 import { AlertConfiguration } from "../alert_configuration";
+import { log } from "../logger";
 
 export class SlackChannelConfig extends ChannelConfig {
     public channel: string;
@@ -16,9 +17,58 @@ export class SlackChannelConfig extends ChannelConfig {
         this.token = process.env[config.token];
     }
 
-    public generateMessage(snapshots: Snapshot[], alert: AlertState): string {
-        const parts = [];
+    public generateMessage(
+        snapshots: Snapshot[],
+        alert: AlertState): string {
+        const msg = this._generateFull(snapshots, alert);
+        if (msg.length < 3800) {
+            return msg;
+        }
+        return this._generateSummary(snapshots, alert);
+    }
 
+    private _generateSummary(
+        snapshots: Snapshot[],
+        alert: AlertState) {
+        const parts = this._generateHeader(alert);
+        if (snapshots.length > 0) {
+            parts.push(`*🚨 ${ snapshots.length } failing ${ pluraliseWithS("check", snapshots.length) }:*`);
+            const types = snapshots.reduce((acc: Map<string, number>, x) => {
+                const count = acc.get(x.type) ?? 0;
+                acc.set(x.type, count + 1);
+                return acc;
+            }, new Map<string, number>());
+            Array.from(types.keys()).forEach(type => {
+                const count = types.get(type);
+                parts.push(`    • ${ count } failing ${ type } ${ pluraliseWithS("check", count) }`);
+            });
+            parts.push("");
+        }
+        const resolved = alert.getResolvedSnapshotList(snapshots.map(x => x.uniqueId));
+        if (resolved.length > 0) {
+            parts.push(`*☑️ ${ resolved.length } resolved ${ pluraliseWithS("check", resolved.length) }:*`);
+            const types = resolved.reduce((acc: Map<string, number>, x) => {
+                const count = acc.get(x.key.type) ?? 0;
+                acc.set(x.key.type, count + 1);
+                return acc;
+            }, new Map<string, number>());
+            Array.from(types.keys()).forEach(type => {
+                const count = types.get(type);
+                parts.push(`    • ${ count } resolved ${ type } ${ pluraliseWithS("check", count) }`);
+            });
+            parts.push("");
+        }
+        if (this.summary) {
+            parts.push(this.summary);
+            parts.push("");
+        }
+        parts.push(`_Last Updated: ${ toLocalTimeString(new Date()) }_`);
+        parts.push(this.postfix);
+        return parts.join("\n");
+    }
+
+    private _generateHeader(alert: AlertState) {
+        const parts = [];
         if (alert.isResolved) {
             parts.push(`${ this.prefix } ✅ Outage Resolved!`);
         } else {
@@ -30,6 +80,13 @@ export class SlackChannelConfig extends ChannelConfig {
             parts.push(`*Duration:* \`${ alert.durationHuman }\``);
         }
         parts.push("");
+        return parts;
+    }
+
+    private _generateFull(
+        snapshots: Snapshot[],
+        alert: AlertState) {
+        const parts = this._generateHeader(alert);
         if (snapshots.length > 0) {
             parts.push(`*🚨 ${ snapshots.length } failing ${ pluraliseWithS("check", snapshots.length) }:*`);
             snapshots.forEach(x => {
@@ -51,7 +108,7 @@ export class SlackChannelConfig extends ChannelConfig {
         return parts.join("\n");
     }
 
-    private generateLinks(info: { alert?: AlertConfiguration}): string {
+    private generateLinks(info: { alert?: AlertConfiguration }): string {
         const links = info?.alert?.links;
         if (!links || links.length === 0) {
             return "";
@@ -119,7 +176,9 @@ export class SlackChannelConfig extends ChannelConfig {
                 ts: result.data.ts
             };
         } catch (err) {
-            throw new Error(`Error posting to Slack: ${ err.message }`);
+            const msg = `Error posting to Slack: ${ err.message }`;
+            log(msg, err);
+            throw new Error(msg);
         }
     }
 }

@@ -377,10 +377,14 @@ channels:
     template:
       prefix: '<!channel> {{ title }}' # <!channel> alerts everyone in the given channel
       postfix:
+      summary: "<https://acme.com/dashboard|Please see dashboard here:>"
     interval: 1h # how often to post updates as a new message
     token: slack-token # we expect an environment variable with this name
     channel: "#ops"
 ```
+
+A note on templates: Slack prevents message updates from exceeding 4k characters, so if the Slack notification exceeds this, a
+summary message is posted instead with high level stats of what's going on. In this context, the summary template is included.
 
 **Mute Windows**
 

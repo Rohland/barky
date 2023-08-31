@@ -12,6 +12,7 @@ export enum ChannelType {
 export interface IChannelTemplate {
     prefix: string;
     postfix: string;
+    summary: string;
 }
 
 export abstract class ChannelConfig {
@@ -25,10 +26,11 @@ export abstract class ChannelConfig {
     protected constructor(name: string, data: any) {
         this.title = data?.title ?? "";
         this.name = name?.toLowerCase();
-        this.template = data.template ?? {};
+        this.template = data?.template ?? {};
         this.template.prefix ??= "";
         this.template.postfix ??= "";
-        this.interval = data.interval ?? "15m";
+        this.template.summary ??= "";
+        this.interval = data?.interval ?? "15m";
         this.notificationIntervalMinutes = parsePeriodToMinutes(this.interval);
     }
 
@@ -54,5 +56,9 @@ export abstract class ChannelConfig {
 
     get postfix(): string {
         return renderTemplate(this.template?.postfix, this);
+    }
+
+    get summary(): string {
+        return renderTemplate(this.template?.summary, this);
     }
 }
