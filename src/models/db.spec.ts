@@ -348,6 +348,35 @@ describe("persistResults", () => {
                 // assert
                 expect(alerts[0].state).toEqual(alert.state);
             });
+            describe("with affected", () => {
+                it("should be able to retrieve state", async () => {
+                    // arrange
+                    const alert = AlertState.New("test");
+                    alert.state = { test: 123 };
+                    alert.track([new Snapshot({
+                        date: new Date(),
+                        type: "web",
+                        label: "health",
+                        identifier: "www.codeo.co.za",
+                        last_result: "test 123",
+                        success: false,
+                        alert_config: {
+                            channels: ["test-channel"],
+                            rules: [],
+                            links: []
+                        }
+                    })])
+                    await persistAlerts([alert]);
+
+                    // act
+                    const alerts = await getAlerts();
+
+                    // assert
+                    const a = alerts[0];
+                    expect(a.state).toEqual(alert.state);
+                    expect(Array.from(a.affected)).toEqual(Array.from(alert.affected));
+                });
+            });
         });
     });
 });

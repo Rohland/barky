@@ -70,7 +70,7 @@ export async function persistAlerts(alerts: AlertState[]) {
                 channel: x.channel,
                 start_date: x.start_date.toISOString(),
                 last_alert_date: x.last_alert_date?.toISOString() ?? null,
-                affected: JSON.stringify(Array.from(x.affectedUniqueIds.values())),
+                affected: JSON.stringify(Array.from(x.affected?.entries() ?? []), ignorePrivateFieldsWhenSerialising),
                 state: JSON.stringify(x.state)
             }
         }));

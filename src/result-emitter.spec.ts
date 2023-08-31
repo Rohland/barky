@@ -93,6 +93,34 @@ describe("result-emitter", () => {
             expect(item.toString).toHaveBeenCalledTimes(1);
             expect(console.log).toHaveBeenCalledWith(expect.stringMatching(/^test\|/));
         });
+        describe.each([
+            ["", ""],
+            ["my-config", "my-config"],
+            ["my-config.yaml", "my-config"],
+            ["./my-config.yaml", "my-config"],
+            ["../my-config.yaml", "my-config"],
+            ["/etc/barky/my-config.yaml", "my-config"],
+            ["/etc/barky/my-config.1.yaml", "my-config.1"],
+        ])(`when config is %s`, (config, expected) => {
+            it("should include the main process argument as a name", async () => {
+                // arrange
+                const item = {
+                    toString: jest.fn().mockReturnValueOnce("")
+                };
+                const items = [item];
+                process.argv[3] = config;
+
+                // act
+                // @ts-ignore
+                emitResults(items);
+
+                // assert
+                expect(item.toString).toHaveBeenCalledTimes(1);
+                const regex = new RegExp("\\|" + expected + "$", "i");
+                expect(console.log).toHaveBeenCalledWith(expect.stringMatching(regex));
+            });
+
+        });
         describe("when quiet enabled", () => {
             it("should not emit success", async () => {
                 // arrange

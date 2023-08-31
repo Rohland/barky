@@ -1,7 +1,21 @@
 import { Result, SkippedResult } from "./models/result";
+import path from "path";
+
+function tryGetRuleName() {
+    try {
+        const rules = path.basename(process.argv[3]);
+        const parts = rules.split(".");
+        if (parts.length === 1) {
+            return parts[0];
+        }
+        return parts.slice(0, parts.length - 1).join(".");
+    } catch(err) {
+        return "";
+    }
+}
 
 export function emitResults(results: Result[]) {
-    const rules = process.argv[3];
+    const rule = tryGetRuleName();
     results.forEach(x => {
         if (x.success && x.app?.quiet) {
             return;
@@ -11,7 +25,7 @@ export function emitResults(results: Result[]) {
         }
         const fields = [
             x.toString()?.replace(/[\r\n]+/g, " "),
-            rules
+            rule
         ];
         console.log(fields.join("|"));
     });

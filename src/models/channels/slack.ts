@@ -3,6 +3,7 @@ import { AlertState } from "../alerts";
 import { ChannelConfig, ChannelType } from "./base";
 import axios from "axios";
 import { pluraliseWithS, toLocalTimeString } from "../../lib/utility";
+import { AlertConfiguration } from "../alert_configuration";
 
 export class SlackChannelConfig extends ChannelConfig {
     public channel: string;
@@ -40,7 +41,7 @@ export class SlackChannelConfig extends ChannelConfig {
         if (resolved.length > 0) {
             parts.push(`*☑️ ${ resolved.length } resolved ${ pluraliseWithS("check", resolved.length) }:*`);
             resolved.forEach(x => {
-                const lastResult = x.lastSnapshot?.last_result ? `(last result before resolution: _${ x.lastSnapshot?.last_result }_)` : "";
+                const lastResult = x.lastSnapshot ? `(last result before resolution: _${ x.lastSnapshot.result }_)` : "";
                 parts.push(`    • ${ x.key.type }:${ x.key.label } → ${ x.key.identifier } ${ lastResult } ${ this.generateLinks(x.lastSnapshot) }`);
             });
             parts.push("");
@@ -50,8 +51,8 @@ export class SlackChannelConfig extends ChannelConfig {
         return parts.join("\n");
     }
 
-    private generateLinks(snapshot: Snapshot): string {
-        const links = snapshot?.alert?.links;
+    private generateLinks(info: { alert?: AlertConfiguration}): string {
+        const links = info?.alert?.links;
         if (!links || links.length === 0) {
             return "";
         }
@@ -92,7 +93,8 @@ export class SlackChannelConfig extends ChannelConfig {
         const body = {
             channel: state?.channel ?? this.channel,
             text: message,
-            ts: state?.ts
+            ts: state?.ts,
+            unfurl_links: false
         };
         const url = state
             ? "https://slack.com/api/chat.update"

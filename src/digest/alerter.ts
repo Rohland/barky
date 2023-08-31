@@ -79,7 +79,7 @@ async function sendResolvedAlerts(
     await Promise.all(alerts.map(async alert => {
         alert.removeMuted(config.muteWindows);
         alert.resolve();
-        if (alert.affectedUniqueIds.size === 0) {
+        if (alert.affected.size === 0) {
             return;
         }
         const channel = config.getChannelConfig(alert.channel);
@@ -130,7 +130,7 @@ function detectResolvedAlerts(
 function setPreviousSnapshotContextForAlerts(alerts: AlertState[], context: DigestContext) {
     alerts.forEach(alert => {
         const previous = Array
-            .from(alert.affectedUniqueIds)
+            .from(alert.affectedKeys)
             .map(x => context.getLastSnapshotFor(x))
             .filter(x => !!x);
         alert.setPreviousSnapshots(previous);

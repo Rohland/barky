@@ -74,7 +74,7 @@ describe("alerter", () => {
                 const alert = alerts[0];
                 const diff = Math.abs(+new Date() - +alert.last_alert_date);
                 expect(diff).toBeLessThanOrEqual(100);
-                expect(Array.from(alert.affectedUniqueIds.values())).toEqual([result1.uniqueId, result2.uniqueId]);
+                expect(Array.from(alert.affectedKeys)).toEqual([result1.uniqueId, result2.uniqueId]);
                 // check the start date is the min date of the snapshots
                 expect(alert.start_date).toEqual(oneDayAgo);
             });
@@ -148,7 +148,7 @@ describe("alerter", () => {
                     channel: "console",
                     start_date: new Date(new Date().getTime() - 1000 * 60 * 2),
                     last_alert_date: new Date(new Date().getTime() - 1000 * 60 * 60 * 24),
-                    affectedUniqueIds: new Set<string>([result.uniqueId])
+                    affected: JSON.stringify([[result.uniqueId, previousSnapshot]])
                 });
                 await persistAlerts([alert]);
                 const result2 = new Result(
@@ -177,7 +177,7 @@ describe("alerter", () => {
                 expect(alerts.length).toEqual(1);
                 const diff = Math.abs(+new Date() - +alerts[0].last_alert_date);
                 expect(diff).toBeLessThanOrEqual(100);
-                expect(Array.from(alerts[0].affectedUniqueIds.values())).toEqual([result.uniqueId, result2.uniqueId]);
+                expect(Array.from(alerts[0].affectedKeys)).toEqual([result.uniqueId, result2.uniqueId]);
             });
             describe("but if muted", () => {
                 it("should not alert", async () => {
@@ -218,7 +218,7 @@ describe("alerter", () => {
                         channel: "console",
                         start_date: new Date(new Date().getTime() - 1000 * 60 * 2),
                         last_alert_date: new Date(new Date().getTime() - 1000 * 60 * 60 * 24),
-                        affectedUniqueIds: new Set<string>([result.uniqueId])
+                        affected: JSON.stringify([[result.uniqueId, previousSnapshot]])
                     });
                     await persistAlerts([alert]);
                     const result2 = new Result(
@@ -284,7 +284,7 @@ describe("alerter", () => {
                     channel: "console",
                     start_date: new Date(new Date().getTime() - 1000 * 60 * 2),
                     last_alert_date: new Date(new Date().getTime() - 1000 * 60 * 2),
-                    affectedUniqueIds: new Set<string>([result.uniqueId])
+                    affected: JSON.stringify([[result.uniqueId, previousSnapshot]])
                 });
                 await persistAlerts([alert]);
 
@@ -297,7 +297,7 @@ describe("alerter", () => {
                 expect(alerts.length).toEqual(1);
                 const diff = Math.abs(+new Date() - +alerts[0].last_alert_date);
                 expect(diff).toBeGreaterThanOrEqual(1000 * 60 * 2);
-                expect(Array.from(alerts[0].affectedUniqueIds.values())).toEqual([result.uniqueId]);
+                expect(Array.from(alerts[0].affectedKeys)).toEqual([result.uniqueId]);
             });
         });
     });
@@ -316,7 +316,7 @@ describe("alerter", () => {
                 channel: "console",
                 start_date: new Date(new Date().getTime() - 1000 * 60 * 2),
                 last_alert_date: new Date(new Date().getTime() - 1000 * 60 * 2),
-                affectedUniqueIds: new Set<string>(["web|health|www.codeo.co.za"])
+                affected: JSON.stringify([["web|health|www.codeo.co.za", previousSnapshot]])
             });
             await persistAlerts([alert]);
 
@@ -351,7 +351,7 @@ describe("alerter", () => {
                         channel: "console",
                         start_date: new Date(new Date().getTime() - 1000 * 60 * 2),
                         last_alert_date: new Date(new Date().getTime() - 1000 * 60 * 2),
-                        affectedUniqueIds: new Set<string>(["web|health|www.codeo.co.za"])
+                        affected: JSON.stringify([["web|health|www.codeo.co.za", previousSnapshot]])
                     });
                     await persistAlerts([alert]);
 
@@ -379,7 +379,7 @@ describe("alerter", () => {
                         channel: "console",
                         start_date: new Date(new Date().getTime() - 1000 * 60 * 2),
                         last_alert_date: new Date(new Date().getTime() - 1000 * 60 * 2),
-                        affectedUniqueIds: new Set<string>(["web|health|www.codeo.co.za", "mysql|query"])
+                        affected: JSON.stringify([["web|health|www.codeo.co.za", previousSnapshot]])
                     });
                     await persistAlerts([alert]);
 
