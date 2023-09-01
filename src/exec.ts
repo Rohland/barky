@@ -1,9 +1,10 @@
 import { MonitorFailureResult, Result } from "./models/result";
-import { initConnection, persistResults } from "./models/db";
+import { persistResults } from "./models/db";
 import { digest } from "./digest/digest";
 import { emitResults } from "./result-emitter";
 import { evaluate } from "./evaluation";
 import { DigestConfiguration } from "./models/digest";
+import { log } from "./models/logger";
 
 export async function execute(
     config: any,
@@ -15,7 +16,6 @@ export async function execute(
 async function runDigest(
     config: any,
     results: Result[]) {
-    await initConnection(config.fileName);
     const digestConfig = new DigestConfiguration(config.digest);
     configureMonitorLogsWithAlertConfiguration(results, digestConfig);
     digestConfig.trackChannelConfigIssues(results);
@@ -45,5 +45,13 @@ export function configureMonitorLogsWithAlertConfiguration(
 
 export async function emitAndPersistResults(results: Result[]) {
     emitResults(results);
-    await persistResults(results);
+    try {
+        await persistResults(results);
+    } catch(err) {
+        if (results.every(x => x.isConfigurationFailureResult)) {
+            return;
+        }
+        log(`error persisting results: ${ err }`, err);
+        emitResults([MonitorFailureResult.ConfigurationError(err)]);
+    }
 }

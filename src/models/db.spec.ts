@@ -13,6 +13,7 @@ import { Result } from "./result";
 import { Snapshot } from "./snapshot";
 import { AlertState } from "./alerts";
 import { AlertConfiguration, IAlertConfig } from "./alert_configuration";
+import { getTestSnapshot } from "./snapshot.spec";
 
 describe("persistResults", () => {
 
@@ -50,70 +51,16 @@ describe("persistResults", () => {
             await verifySnapshotTableExists();
         });
     });
-    describe("if has results", () => {
-        describe.each([
-            null,
-            undefined,
-            [{ channels: [] }],
-            [{}]
-        ])(`but alert digester is not configured, i.e. configured with: %s`,
-            (alertDigester) => {
-                it("should not persist results", async () => {
-                    // arrange
-                    const result = new Result(
-                        new Date(),
-                        "mysql",
-                        "test-label",
-                        "test-identifier",
-                        {},
-                        "OK",
-                        123,
-                        true,
-                        {
-                            alert: alertDigester as IAlertConfig
-                        }
-                    );
-
-                    // act
-                    await persistResults([result]);
-
-                    // assert
-                    const connection = getConnection(testDb);
-                    const rows = await connection("logs").select();
-                    expect(rows.length).toEqual(0);
-                });
-            });
-        describe("if alert configured", () => {
-            describe("and is success", () => {
-                it("should not persist it", async () => {
-                    // arrange
-                    const result = new Result(
-                        new Date(),
-                        "mysql",
-                        "test-label",
-                        "test-identifier",
-                        {},
-                        "OK",
-                        123,
-                        true,
-                        {
-                            alert: {
-                                channels: ["test-channel"],
-                            }
-                        }
-                    );
-
-                    // act
-                    await persistResults([result]);
-
-                    // assert
-                    const rows = await getLogs();
-                    expect(rows.length).toEqual(0);
-                });
-            });
-            describe("and is failure", () => {
-                describe("should persist it", () => {
-                    it("should insert them", async () => {
+    describe("persistResults", () => {
+        describe("if has results", () => {
+            describe.each([
+                null,
+                undefined,
+                [{ channels: [] }],
+                [{}]
+            ])(`but alert digester is not configured, i.e. configured with: %s`,
+                (alertDigester) => {
+                    it("should not persist results", async () => {
                         // arrange
                         const result = new Result(
                             new Date(),
@@ -123,7 +70,34 @@ describe("persistResults", () => {
                             {},
                             "OK",
                             123,
-                            false,
+                            true,
+                            {
+                                alert: alertDigester as IAlertConfig
+                            }
+                        );
+
+                        // act
+                        await persistResults([result]);
+
+                        // assert
+                        const connection = getConnection(testDb);
+                        const rows = await connection("logs").select();
+                        expect(rows.length).toEqual(0);
+                    });
+                });
+            describe("if alert configured", () => {
+                describe("and is success", () => {
+                    it("should not persist it", async () => {
+                        // arrange
+                        const result = new Result(
+                            new Date(),
+                            "mysql",
+                            "test-label",
+                            "test-identifier",
+                            {},
+                            "OK",
+                            123,
+                            true,
                             {
                                 alert: {
                                     channels: ["test-channel"],
@@ -136,12 +110,42 @@ describe("persistResults", () => {
 
                         // assert
                         const rows = await getLogs();
-                        expect(rows.length).toEqual(1);
+                        expect(rows.length).toEqual(0);
+                    });
+                });
+                describe("and is failure", () => {
+                    describe("should persist it", () => {
+                        it("should insert them", async () => {
+                            // arrange
+                            const result = new Result(
+                                new Date(),
+                                "mysql",
+                                "test-label",
+                                "test-identifier",
+                                {},
+                                "OK",
+                                123,
+                                false,
+                                {
+                                    alert: {
+                                        channels: ["test-channel"],
+                                    }
+                                }
+                            );
+
+                            // act
+                            await persistResults([result]);
+
+                            // assert
+                            const rows = await getLogs();
+                            expect(rows.length).toEqual(1);
+                        });
                     });
                 });
             });
         });
     });
+
     describe("persistSnapshots", () => {
         describe.each([
             null,
@@ -353,19 +357,7 @@ describe("persistResults", () => {
                     // arrange
                     const alert = AlertState.New("test");
                     alert.state = { test: 123 };
-                    alert.track([new Snapshot({
-                        date: new Date(),
-                        type: "web",
-                        label: "health",
-                        identifier: "www.codeo.co.za",
-                        last_result: "test 123",
-                        success: false,
-                        alert_config: {
-                            channels: ["test-channel"],
-                            rules: [],
-                            links: []
-                        }
-                    })])
+                    alert.track([getTestSnapshot()]);
                     await persistAlerts([alert]);
 
                     // act

@@ -8,7 +8,7 @@ import YAML from 'yaml';
 import fs from 'fs';
 import path from 'path';
 import { MonitorFailureResult } from "./models/result";
-import { destroy } from "./models/db";
+import { destroy, initConnection } from "./models/db";
 import { emitAndPersistResults, execute } from "./exec";
 import { initLocaleAndTimezone } from "./lib/utility";
 import { loop } from "./loop";
@@ -25,6 +25,7 @@ async function run(args) {
     initLogger(args);
     try {
         const config = getConfig(args);
+        await initConnection(config.fileName);
         log(`starting ${ args.eval } evaluators`);
         await execute(
             config,
@@ -33,11 +34,7 @@ async function run(args) {
     } catch (err) {
         log(err, err);
         // emits a global config error - assume cloud watch monitor is set up for this as a safety net
-        const result = new MonitorFailureResult(
-            "watchdog",
-            "configuration",
-            err.message);
-        await emitAndPersistResults([result]);
+        await emitAndPersistResults([MonitorFailureResult.ConfigurationError(err)]);
         return -1;
     } finally {
         await destroy();

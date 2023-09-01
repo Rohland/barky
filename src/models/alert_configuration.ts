@@ -100,6 +100,12 @@ export class AlertRule {
         const count = previousLogs.length;
         return count >= this.count;
     }
+
+    public static Default(): AlertRule {
+        return new AlertRule({
+            count: 1
+        });
+    }
 }
 
 export class AlertConfiguration {
@@ -123,9 +129,7 @@ export class AlertConfiguration {
 
     public findFirstValidRule(): AlertRule {
         if (!this.rules || this.rules.length === 0) {
-            return new AlertRule({
-                count: 1
-            });
+            return AlertRule.Default();
         }
         const result = this.rules.find(x => x.isValidNow());
         return result ?? null;

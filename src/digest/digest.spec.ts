@@ -536,14 +536,14 @@ describe("digest", () => {
                     "web",
                     "health",
                     "www.codeo.co.za",
-                    true,
-                    "OK (inferred)",
+                    "inferred",
+                    "OK",
                     0,
                     true,
                     { alert: snapshot.alert });
                 expect(output.length).toEqual(1);
                 expect(output[0]).toEqual(expectedResult);
-                expect(console.log).toHaveBeenCalledWith(expect.stringContaining("|OK (inferred)|"));
+                expect(console.log).toHaveBeenCalledWith(expect.stringContaining("|OK|inferred|"));
             });
         });
         describe("when app is skipped", () => {

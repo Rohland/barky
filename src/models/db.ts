@@ -168,9 +168,7 @@ async function createLogsTable(connection: Knex<any, any[]>) {
 
 async function logResults(results: Result[]) {
     const dataToInsert = results
-        .filter(x =>
-            x.alert?.channels?.length > 0
-            && !x.success);
+        .filter(x => !x.success);
     if (dataToInsert.length === 0) {
         return;
     }

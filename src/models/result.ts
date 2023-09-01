@@ -1,5 +1,5 @@
 import { IUniqueKey, uniqueKey } from "../lib/key";
-import { AlertConfiguration } from "./alert_configuration";
+import { AlertConfiguration, AlertRule } from "./alert_configuration";
 import { IApp } from "./app";
 
 export class Result implements IUniqueKey {
@@ -41,6 +41,18 @@ export class Result implements IUniqueKey {
             this.timeTaken.toFixed(2)
         ].join("|");
     }
+
+    findFirstValidRule(): AlertRule {
+        const matchedRule = this.alert?.findFirstValidRule();
+        if (matchedRule) {
+            return matchedRule;
+        }
+        return AlertRule.Default();
+    }
+
+    get isConfigurationFailureResult(): boolean {
+        return false;
+    }
 }
 
 export class MonitorFailureResult extends Result {
@@ -60,6 +72,18 @@ export class MonitorFailureResult extends Result {
             false,
             app
         );
+    }
+
+    get isConfigurationFailureResult(): boolean {
+        const configurationFailure = MonitorFailureResult.ConfigurationError(null);
+        return configurationFailure.type === this.type && configurationFailure.label === this.label;
+    }
+
+    public static ConfigurationError(err: Error): MonitorFailureResult {
+        return new MonitorFailureResult(
+            "watchdog",
+            "configuration",
+            err?.message);
     }
 }
 
@@ -143,7 +167,7 @@ export class PingResult extends Result {
             "monitor",
             "ping",
             appCount,
-            `${ appCount} evaluated`,
+            `${ appCount } evaluated`,
             time,
             true,
             null

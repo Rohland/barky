@@ -22,9 +22,8 @@ export async function digest(
 }
 
 export async function generateDigest(results: Result[]): Promise<DigestContext> {
-    const digestableResults = results.filter(x => x.isDigestable);
     const [snapshots, logs] = await Promise.all([getSnapshots(), getLogs()]);
-    const resultsToEvaluate = generateResultsToEvaluate(digestableResults, snapshots);
+    const resultsToEvaluate = generateResultsToEvaluate(results, snapshots);
     const context = new DigestContext(
         snapshots,
         logs);
@@ -59,8 +58,8 @@ function generateInferredOKResultFor(snapshot: Snapshot) {
         snapshot.type,
         snapshot.label,
         snapshot.identifier,
-        true,
-        "OK (inferred)",
+        "inferred",
+        "OK",
         0,
         true,
         {
@@ -92,8 +91,8 @@ export class DigestContext {
     }
 
     public get state(): DigestState {
-        const previousCount = this._previousSnapshotLookup.size;
-        const newCount = this.snapshots.length;
+        const previousCount = Array.from(this._previousSnapshotLookup.values()).filter(x => x.isDigestable).length;
+        const newCount = this.snapshots.filter(x => x.isDigestable).length;
         const wasInOKState = previousCount === 0;
         const hasIssues = newCount > 0;
         if (wasInOKState) {
@@ -120,7 +119,9 @@ export class DigestContext {
     }
 
     public getSnapshotsForChannel(channel: ChannelConfig) {
-        return this.snapshots.filter(x => x.alert.channels.some(c => channel.isMatchFor(c)));
+        return this.snapshots
+            .filter(x => x.isDigestable)
+            .filter(x => x.alert?.channels?.some(c => channel.isMatchFor(c)));
     }
 
     public getLastSnapshotFor(uniqueId: string) {
@@ -190,6 +191,7 @@ export class DigestContext {
 
     public alertableSnapshots(config: DigestConfiguration): Snapshot[] {
         return this.snapshots
+            .filter(x => x.isDigestable)
             .filter(x => !config.muteWindows.some(m => m.isMuted(x.uniqueId)));
     }
 }
@@ -198,11 +200,7 @@ export function evaluateNewResult(
     result: Result,
     context: DigestContext) {
     const previousLogs = context.getLogsFor(result.uniqueId);
-    const rule = result.alert.findFirstValidRule();
-    if (!rule) {
-        context.deleteLogs(previousLogs);
-        return;
-    }
+    const rule = result.findFirstValidRule();
     if (result instanceof SkippedResult) {
         context.addSnapshotForResult(result);
         return;

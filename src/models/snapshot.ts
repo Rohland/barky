@@ -43,4 +43,8 @@ export class Snapshot implements IUniqueKey {
     get uniqueId(): string {
         return uniqueKey(this);
     }
+
+    get isDigestable(): boolean {
+        return this.alert?.channels?.length > 0;
+    }
 }
