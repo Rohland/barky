@@ -93,7 +93,7 @@ function validateEntry(app, entry, _log) {
         const fail = eval(variableDefinitions + expression);
         failure ||= fail;
         if (fail) {
-            msgs.push(renderTemplate(rule.message, entry));
+            msgs.push(renderTemplate(rule.message, entry, { humanizeNumbers: true }));
         }
     });
     return new SumoResult(

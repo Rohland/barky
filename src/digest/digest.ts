@@ -7,6 +7,7 @@ import { ChannelConfig } from "../models/channels/base";
 import { AlertRule, AlertRuleType } from "../models/alert_configuration";
 import { DigestConfiguration } from "../models/digest";
 import { findMatchingKeyFor } from "../lib/key";
+import { emitResults } from "../result-emitter";
 
 export async function digest(
     config: DigestConfiguration,
@@ -38,26 +39,35 @@ export async function generateDigest(results: Result[]): Promise<DigestContext> 
 export function generateResultsToEvaluate(
     results: Result[],
     snapshots: Snapshot[]): Result[] {
+    const inferred = [];
     snapshots.forEach(snapshot => {
         const matchedResult = findMatchingKeyFor(snapshot, results);
         if (matchedResult) {
             return;
         }
-        results.push(new Result(
-            new Date(),
-            snapshot.type,
-            snapshot.label,
-            snapshot.identifier,
-            true,
-            "OK (inferred)",
-            0,
-            true,
-            {
-                alert: snapshot.alert
-            }
-        ));
+        const ok = generateInferredOKResultFor(snapshot);
+        results.push(ok);
+        inferred.push(ok);
     });
+    emitResults(inferred);
     return results;
+}
+
+function generateInferredOKResultFor(snapshot: Snapshot) {
+    const inferred = new Result(
+        new Date(),
+        snapshot.type,
+        snapshot.label,
+        snapshot.identifier,
+        true,
+        "OK (inferred)",
+        0,
+        true,
+        {
+            alert: snapshot.alert
+        }
+    );
+    return inferred;
 }
 
 export enum DigestState {

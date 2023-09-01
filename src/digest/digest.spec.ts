@@ -16,16 +16,20 @@ import {
     persistSnapshots
 } from "../models/db";
 import { AlertConfiguration } from "../models/alert_configuration";
+import mockConsole from "jest-mock-console";
 
 describe("digest", () => {
 
     const testDb = "digesterdb";
+    let _restoreConsole;
 
     beforeEach(async () => {
+        _restoreConsole = mockConsole();
         deleteDbIfExists(testDb);
         await initConnection(testDb);
     });
     afterEach(async () => {
+        _restoreConsole();
         await destroy();
         deleteDbIfExists(testDb);
     });
@@ -468,7 +472,7 @@ describe("digest", () => {
 
     describe("generateResultsToEvaluate", () => {
         describe("when intersection between result set and snapshots", () => {
-            it("should add no new logs", async () => {
+            it("should add and emit no new logs", async () => {
                 // arrange
                 const result = new Result(
                     new Date(),
@@ -500,6 +504,7 @@ describe("digest", () => {
                 // assert
                 expect(output.length).toEqual(1);
                 expect(output[0]).toEqual(result);
+                expect(console.log).not.toHaveBeenCalled();
             });
         });
         describe("when no match in result set with last snapshot", () => {
@@ -538,6 +543,7 @@ describe("digest", () => {
                     { alert: snapshot.alert });
                 expect(output.length).toEqual(1);
                 expect(output[0]).toEqual(expectedResult);
+                expect(console.log).toHaveBeenCalledWith(expect.stringContaining("|OK (inferred)|"));
             });
         });
         describe("when app is skipped", () => {

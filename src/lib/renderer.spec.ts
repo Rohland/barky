@@ -44,4 +44,43 @@ describe("renderTemplate", () => {
             expect(result).toEqual(expected);
         });
     });
+    describe("with humanizeNumbers turned on", () => {
+        describe.each([
+            ["Test {{ value }}", { value: 1 }, "Test 1"],
+            ["Test {{ value }}", { value: "abc" }, "Test abc"],
+            ["Test {{ value }}", { value: 0.0001 }, "Test 0.0001"],
+            ["Test {{ value }}", { value: 10.2123 }, "Test 10.21"],
+            ["Test {{ value }}", { value: -10 }, "Test -10"],
+            ["Test {{ value }}", { value: 100 }, "Test 100"],
+            ["Test {{ value }}", { value: 1000 }, "Test 1k"],
+            ["Test {{ value }}", { value: 1500 }, "Test 1.5k"],
+            ["Test {{ value }}", { value: 1908 }, "Test 1.91k"],
+            ["Test {{ value }}", { value: 1990 }, "Test 1.99k"],
+            ["Test {{ value }}", { value: -1990 }, "Test -1.99k"],
+            ["Test {{ value }}", { value: 10300 }, "Test 10.3k"],
+            ["Test {{ value }}", { value: 10350 }, "Test 10.35k"],
+            ["Test {{ value }}", { value: 156000 }, "Test 156k"],
+            ["Test {{ value }}", { value: 199102 }, "Test 199.1k"],
+            ["Test {{ value }}", { value: 199902 }, "Test 199.9k"],
+            ["Test {{ value }}", { value: 982000 }, "Test 982k"],
+            ["Test {{ value }}", { value: 1000000 }, "Test 1M"],
+            ["Test {{ value }}", { value: 1100000 }, "Test 1.1M"],
+            ["Test {{ value }}", { value: 1890000 }, "Test 1.89M"],
+            ["Test {{ value }}", { value: 10540000 }, "Test 10.54M"],
+            ["Test {{ value }}", { value: -10540000 }, "Test -10.54M"],
+            ["Test {{ value }}", { value: 100540000 }, "Test 100.54M"],
+        ])(`with template %s`, (template, data, expected) => {
+            it("should return expected", async () => {
+                // arrange
+                const options = {
+                    humanizeNumbers: true
+                };
+                // act
+                const result = renderTemplate(template, data, options);
+                // assert
+                expect(result).toEqual(expected);
+            });
+        });
+    });
+
 });
