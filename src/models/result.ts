@@ -3,7 +3,7 @@ import { AlertConfiguration, AlertRule } from "./alert_configuration";
 import { IApp } from "./app";
 
 export class Result implements IUniqueKey {
-    public readonly resultMsg: string;
+    public resultMsg: string;
     public alert: AlertConfiguration;
 
     constructor(
@@ -32,12 +32,12 @@ export class Result implements IUniqueKey {
     toString() {
         return [
             this.date.toISOString(),
-            this.type,
-            this.label,
-            this.identifier,
+            formatValue(this.type),
+            formatValue(this.label),
+            formatValue(this.identifier),
             this.success ? 1 : 0,
-            this.resultMsg,
-            this.result,
+            formatValue(this.resultMsg),
+            formatValue(this.result),
             this.timeTaken.toFixed(2)
         ].join("|");
     }
@@ -53,6 +53,12 @@ export class Result implements IUniqueKey {
     get isConfigurationFailureResult(): boolean {
         return false;
     }
+}
+
+function formatValue(value: string): string {
+    return typeof value === "string"
+        ? value?.replace(/\|/g, "/")
+        : value;
 }
 
 export class MonitorFailureResult extends Result {

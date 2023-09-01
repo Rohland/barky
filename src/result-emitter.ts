@@ -24,7 +24,9 @@ export function emitResults(results: Result[]) {
             return;
         }
         const fields = [
-            x.toString()?.replace(/[\r\n]+/g, " "),
+            x
+                .toString()
+                ?.replace(/[\r\n]+/g, " "),
             rule
         ];
         console.log(fields.join("|"));

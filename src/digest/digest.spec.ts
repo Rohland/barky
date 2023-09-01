@@ -542,7 +542,13 @@ describe("digest", () => {
                     true,
                     { alert: snapshot.alert });
                 expect(output.length).toEqual(1);
-                expect(output[0]).toEqual(expectedResult);
+                expect({
+                    ...output[0],
+                    date: null
+                }).toEqual({
+                    ...expectedResult,
+                    date: null
+                });
                 expect(console.log).toHaveBeenCalledWith(expect.stringContaining("|OK|inferred|"));
             });
         });

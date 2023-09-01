@@ -1,6 +1,7 @@
 import { emitResults, prepareResults } from "./result-emitter";
 import mockConsole from "jest-mock-console";
 import { SkippedResult } from "./models/result";
+import { getTestResult } from "./models/result.spec";
 
 describe("result-emitter", () => {
     let _restoreConsole;
@@ -159,6 +160,23 @@ describe("result-emitter", () => {
                 // assert
                 expect(item.toString).toHaveBeenCalledTimes(1);
                 expect(console.log).toHaveBeenCalledWith(expect.stringMatching(/^test\|/));
+            });
+        });
+        describe("when item strings have pipe delimiter", () => {
+            it("should replace them", async () => {
+                // arrange
+                const item = getTestResult();
+                item.resultMsg = "web|identifier|test";
+                item.result = "a|b";
+                const items = [item];
+
+                // act
+                // @ts-ignore
+                emitResults(items);
+
+                // assert
+                expect(console.log).toHaveBeenCalledWith(expect.stringMatching(/web\/identifier\/test/));
+                expect(console.log).toHaveBeenCalledWith(expect.stringMatching(/a\/b/));
             });
         });
         describe("when item strings have line breaks", () => {
