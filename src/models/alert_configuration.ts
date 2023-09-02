@@ -4,6 +4,7 @@ import { MonitorLog } from "./log";
 import { Time } from "../lib/time";
 
 export interface IAlertRule {
+    isDefault?: boolean;
     description?: string;
     count?: number;
     any?: number;
@@ -36,8 +37,10 @@ export class AlertRule {
     public fromDate?: Date;
     private _daysOfWeek?: number[];
     private _timesOfDay: string[];
+    private _isDefault: boolean;
 
     constructor(rule: IAlertRule) {
+        this._isDefault = rule.isDefault ?? false;
         this.description = rule.description;
         this.count = rule.count;
         this.any = rule.any;
@@ -67,6 +70,10 @@ export class AlertRule {
             return this.isValidAtTime(date);
         }
         return true;
+    }
+
+    get isNotValidNow() : boolean {
+        return this.isDefault || !this.isValidNow();
     }
 
     private isValidAtTime(date?: Date): boolean {
@@ -101,10 +108,20 @@ export class AlertRule {
         return count >= this.count;
     }
 
+    get isDefault(): boolean {
+        return this._isDefault;
+    }
+
     public static Default(): AlertRule {
         return new AlertRule({
-            count: 1
+            count: 1,
+            isDefault: true
         });
+    }
+
+    getLogCountToClear(length: number) {
+        const count = length - this.count;
+        return count < 0 ? 0: count;
     }
 }
 

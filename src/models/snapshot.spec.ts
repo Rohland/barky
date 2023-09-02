@@ -1,4 +1,5 @@
 import { Snapshot } from "./snapshot";
+import { getTestResult } from "./result.spec";
 
 describe("snapshot", () => {
     describe("when instantiated", () => {
@@ -57,12 +58,13 @@ describe("snapshot", () => {
 });
 
 export function getTestSnapshot() {
+    const result = getTestResult();
     return new Snapshot({
         id: 1,
-        type: "web",
-        label: "health",
-        identifier: "www.codeo.co.za",
-        last_result: "last_failure",
+        type: result.type,
+        label: result.label,
+        identifier: result.identifier,
+        last_result: result.result,
         success: false,
         date: new Date(),
         alert_config: {

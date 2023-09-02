@@ -6,6 +6,8 @@ import { deleteDbIfExists, destroy, getAlerts, initConnection, persistAlerts } f
 import { AlertState } from "../models/alerts";
 import { DigestConfiguration } from "../models/digest";
 import { Snapshot } from "../models/snapshot";
+import { getTestResult } from "../models/result.spec";
+import { getTestSnapshot } from "../models/snapshot.spec";
 
 describe("alerter", () => {
 
@@ -77,6 +79,29 @@ describe("alerter", () => {
                 expect(Array.from(alert.affectedKeys)).toEqual([result1.uniqueId, result2.uniqueId]);
                 // check the start date is the min date of the snapshots
                 expect(alert.start_date).toEqual(oneDayAgo);
+            });
+            describe("if first instance of failure was prior to this digest cycle", () => {
+                it("should set start date to the earliest failure", async () => {
+                    // arrange
+                    const config = new DigestConfiguration({});
+                    const previousSnapshot = getTestSnapshot();
+                    const oneDayAgo = new Date(new Date().setDate(new Date().getDate() - 1));
+                    previousSnapshot.date = oneDayAgo;
+                    const context = new DigestContext([previousSnapshot], []);
+
+                    const result = getTestResult();
+                    context.addSnapshotForResult(result);
+
+                    // act
+                    await executeAlerts(config, context);
+
+                    // assert
+                    expect(console.log).toHaveBeenCalledWith(expect.stringMatching(/Outage started at \d\d:\d\d:\d\d. 1 health check affected./));
+                    const alerts = await getAlerts();
+                    expect(alerts.length).toEqual(1);
+                    const alert = alerts[0];
+                    expect(alert.start_date).toEqual(previousSnapshot.date);
+                });
             });
         });
         describe("but alerts are muted", () => {

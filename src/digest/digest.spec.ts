@@ -15,8 +15,9 @@ import {
     persistResults,
     persistSnapshots
 } from "../models/db";
-import { AlertConfiguration } from "../models/alert_configuration";
+import { AlertConfiguration, AlertRule } from "../models/alert_configuration";
 import mockConsole from "jest-mock-console";
+import { getTestResult } from "../models/result.spec";
 
 describe("digest", () => {
 
@@ -47,7 +48,7 @@ describe("digest", () => {
     describe("evaluateNewResult", () => {
         describe("when result is failure", () => {
             describe("but no matching rules", () => {
-                it("should treat as simple count rule", async () => {
+                it("should treat as simple count rule and clear alert", async () => {
                     // arrange
                     const logs = [generateLog(1), generateLog(2)] as MonitorLog[];
                     const context = new DigestContext([], logs);
@@ -79,13 +80,54 @@ describe("digest", () => {
                             last_result: result.resultMsg,
                             success: false,
                             date: result.date,
-                            alert: result.alert,
-                            alert_config: result.alert.getConfig()
+                            alert: null,
+                            alert_config: undefined
                         }
                     ]);
                 });
             });
             describe("and type is consecutive", () => {
+                describe("and has time window", () => {
+                    describe("but does not breach rule", () => {
+                        it("should not append snapshot", async () => {
+                            // arrange
+                            const logs = [generateLog(1), generateLog(2)] as MonitorLog[];
+                            const context = new DigestContext([], logs);
+                            const result = new Result(
+                                new Date("2023-01-01"),
+                                "web",
+                                "health",
+                                "www.codeo.co.za",
+                                false,
+                                "FAIL",
+                                100,
+                                false, {
+                                    alert: {
+                                        channels: ["test-channel"],
+                                        rules: [{
+                                            count: 3,
+                                            time: ["0:00-0:00"]
+                                        }],
+                                    }
+                                });
+
+                            // act
+                            evaluateNewResult(result, context);
+
+                            // assert
+                            expect(context.logIdsToDelete).toEqual([logs[0].id]);
+                            expect(context.snapshots).toEqual([
+                                expect.objectContaining({
+                                    type: result.type,
+                                    label: result.label,
+                                    identifier: result.identifier,
+                                    alert: null,
+                                    alert_config: undefined
+                                })
+                            ]);
+                        });
+                    });
+                });
                 describe("but does not breach rule", () => {
                     it("should keep previous logs and append no new snapshot", async () => {
                         // arrange
@@ -115,24 +157,13 @@ describe("digest", () => {
                     });
                 });
                 describe("and breaches rule", () => {
-                    it("should keep previous x logs and append new snapshot", async () => {
+                    it("should keep previous x logs, append new snapshot and use earliest logs date", async () => {
                         // arrange
-                        const logs = [generateLog(1), generateLog(2), generateLog(3), generateLog(4)];
+                        const oneDayAgo = new Date(new Date().setDate(new Date().getDate() - 1));
+                        const logs = [generateLog(1, oneDayAgo), generateLog(2), generateLog(3), generateLog(4)];
                         const context = new DigestContext([], logs);
-                        const result = new Result(
-                            new Date("2023-01-01"),
-                            "web",
-                            "health",
-                            "www.codeo.co.za",
-                            false,
-                            "OK",
-                            100,
-                            false, {
-                                alert: {
-                                    channels: ["test-channel"],
-                                    rules: [{ count: 2 }]
-                                }
-                            });
+                        const result = getTestResult();
+                        result.alert.rules = [new AlertRule({count: 2})];
 
                         // act
                         evaluateNewResult(result, context);
@@ -146,7 +177,7 @@ describe("digest", () => {
                                 identifier: result.identifier,
                                 last_result: result.resultMsg,
                                 success: false,
-                                date: result.date,
+                                date: oneDayAgo,
                                 alert: result.alert,
                                 alert_config: result.alert.getConfig()
                             }
@@ -337,7 +368,7 @@ describe("digest", () => {
                 });
             });
             describe("and type is consecutive", () => {
-                it("should schedule previous logs for deletion and append no new snapshot", async () => {
+                it("should schedule previous logs for deletion & append no new snapshot", async () => {
                     // arrange
                     const logs = [generateLog(1), generateLog(2)];
                     const context = new DigestContext([], logs);

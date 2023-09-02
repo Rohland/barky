@@ -201,6 +201,9 @@ export function evaluateNewResult(
     context: DigestContext) {
     const previousLogs = context.getLogsFor(result.uniqueId);
     const rule = result.findFirstValidRule();
+    if (rule.isNotValidNow) {
+        result.clearAlert();
+    }
     if (result instanceof SkippedResult) {
         context.addSnapshotForResult(result);
         return;
@@ -237,16 +240,25 @@ function evaluateNewFailureResult(
             if (!rule.isFailureForConsecutiveCount(previousLogs)) {
                 return;
             }
-            if (previousLogs.length > rule.count) {
-                const logsToDelete = previousLogs.length - rule.count;
-                context.deleteLogs(previousLogs.slice(0, logsToDelete));
-            }
+            const logCountToClear = rule.getLogCountToClear(previousLogs.length);
+            context.deleteLogs(previousLogs.slice(0, logCountToClear));
+            result.date = earliestDateFor(previousLogs, result.date);
             context.addSnapshotForResult(result);
             break;
         default:
             throw new Error(`Unhandled rule type: ${ rule.type }`);
     }
 }
+
+function earliestDateFor(previousLogs: MonitorLog[], date: Date) {
+    if (!previousLogs || previousLogs.length === 0) {
+        return date;
+    }
+    return previousLogs.reduce((prev, curr) => {
+        return prev.date < curr.date ? prev : curr;
+    }, previousLogs[0]).date;
+}
+
 
 function evaluateNewSuccessResult(
     result: Result,

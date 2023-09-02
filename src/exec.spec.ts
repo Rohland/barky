@@ -174,7 +174,8 @@ describe("exec", () => {
                         digest: {
                             "alert-policies": {
                                 monitor: {
-                                    channels: ["console"]
+                                    channels: ["console"],
+                                    rules: [{count: 1}]
                                 }
                             },
                             channels: []
@@ -202,7 +203,8 @@ describe("exec", () => {
                             digest: {
                                 "alert-policies": {
                                     monitor: {
-                                        channels: ["console"]
+                                        channels: ["console"],
+                                        rules: [{ count: 1 }]
                                     }
                                 },
                                 channels: []
@@ -255,7 +257,8 @@ describe("exec", () => {
                             digest: {
                                 "alert-policies": {
                                     monitor: {
-                                        channels: ["console"]
+                                        channels: ["console"],
+                                        rules: [{ count: 1 }]
                                     }
                                 },
                                 channels: []
@@ -289,7 +292,8 @@ describe("exec", () => {
                         }
                     };
                     const alert = {
-                        channels: ["console"]
+                        channels: ["console"],
+                        rules: [{ count: 1 }]
                     };
                     const result = new WebResult(new Date(), "health-check", "www.codeo.co.za", false, "400", "FAIL", 0, { alert });
                     evaluateMock.mockResolvedValue([result]);
@@ -307,11 +311,13 @@ describe("exec", () => {
                         const config = {
                             fileName: testDb,
                             digest: {
-                                channels: []
+                                channels: [],
+                                rules: [{ count: 1 }]
                             }
                         };
                         const alert = {
-                            channels: ["console"]
+                            channels: ["console"],
+                            rules: [{ count: 1 }]
                         };
                         const fail = new WebResult(new Date(), "health-check", "www.codeo.co.za", false, "400", "FAIL", 0, { alert });
                         evaluateMock.mockResolvedValue([fail]);

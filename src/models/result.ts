@@ -53,6 +53,10 @@ export class Result implements IUniqueKey {
     get isConfigurationFailureResult(): boolean {
         return false;
     }
+
+    clearAlert() {
+        this.alert = null;
+    }
 }
 
 function formatValue(value: string): string {
