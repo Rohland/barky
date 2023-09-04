@@ -59,7 +59,7 @@ export class AlertState {
     }
 
     public get durationMinutes() {
-            return Math.floor((new Date().valueOf() - this.start_date.valueOf()) / 1000 / 60);
+            return (new Date().valueOf() - this.start_date.valueOf()) / 1000 / 60;
     }
 
     public get durationHuman() {
