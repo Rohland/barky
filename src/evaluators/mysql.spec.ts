@@ -1,7 +1,7 @@
-import { validateRow } from "./mysql";
+import { validateResults, validateRow } from "./mysql";
 
 describe("mysql", () => {
-    describe("validateRow", () => {
+    describe("validateResults", () => {
         describe("when validator has no rules", () => {
             describe.each([
                 [undefined],
@@ -23,14 +23,55 @@ describe("mysql", () => {
                     const row = {
                         id: "123"
                     };
-                    const trigger = app.triggers[0];
                     // act and assert
-                    expect(() => validateRow(app, "id", row, trigger)).toThrowError("trigger for app 'app' has no rules");
+                    expect(() => validateResults(app, [row])).toThrowError("trigger for app 'app' has no rules");
                 });
 
             });
         });
-        describe("when validator has rules", () => {
+        describe("when trigger has rules", () => {
+            describe("and matches a rule", () => {
+                it("should evaluate that rule", async () => {
+                    // arrange
+                    const app = {
+                        name: "app",
+                        identifier: "id",
+                        triggers: [
+                            {
+                                match: "123",
+                                rules: [
+                                    {
+                                        expression: true,
+                                        message: "specific match"
+                                    }
+                                ]
+                            },
+                            {
+                                match: ".*",
+                                rules: [
+                                    {
+                                        expression: true,
+                                        message: "catch all"
+                                    }
+                                ]
+                            }
+                        ]
+                    };
+                    const row = {
+                        id: "123",
+                        name: "test"
+                    };
+
+                    // act
+                    const results = validateResults(app, [row]);
+
+                    // assert
+                    expect(results.length).toEqual(1);
+                    const result = results[0];
+                    expect(result.success).toEqual(false);
+                    expect(result.resultMsg).toEqual("specific match");
+                });
+            });
             describe("and success", () => {
                 it("should return success with all values", async () => {
                     // arrange
@@ -55,9 +96,11 @@ describe("mysql", () => {
                     };
 
                     // act
-                    const result = validateRow(app, "id", row, app.triggers[0]);
+                    const results = validateResults(app, [row]);
 
                     // assert
+                    expect(results.length).toEqual(1);
+                    const result = results[0];
                     expect(result.success).toEqual(true);
                     expect(result.resultMsg).toEqual("OK");
                     expect(result.result).toEqual(JSON.stringify({"name": "test"}));
@@ -88,9 +131,11 @@ describe("mysql", () => {
                         };
 
                         // act
-                        const result = validateRow(app, "id", row, app.triggers[0]);
+                        const results = validateResults(app, [row]);
 
                         // assert
+                        expect(results.length).toEqual(1);
+                        const result = results[0];
                         expect(result.success).toEqual(true);
                         expect(result.resultMsg).toEqual("OK");
                         expect(result.result).toEqual(JSON.stringify({"value": 321}));

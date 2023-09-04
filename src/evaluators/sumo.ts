@@ -141,7 +141,7 @@ export function findTriggerRulesFor(identifier, app): IRule[] {
     if (!triggers || triggers.length === 0) {
         throw new Error("expected sumo app configuration to have triggers, but did not");
     }
-    const trigger = triggers.find(x => new RegExp(x.match, "gi").test(identifier));
+    const trigger = triggers.find(x => new RegExp(x.match, "i").test(identifier));
     if (!trigger) {
         throw new Error(`expected to find one trigger that matched ${ identifier } but did not`);
     }

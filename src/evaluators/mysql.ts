@@ -1,12 +1,13 @@
 import mysql from "mysql2/promise";
 import { startClock, stopClock } from "../lib/profiler";
 import { renderTemplate } from "../lib/renderer";
-import { MonitorFailureResult, MySqlResult } from "../models/result";
+import { MonitorFailureResult, MySqlResult, Result } from "../models/result";
 import { log } from "../models/logger";
 import { EvaluatorResult } from "./types";
 import { getAppVariations, IApp } from "../models/app";
 import { BaseEvaluator } from "./base";
 import { IUniqueKey } from "../lib/key";
+import { flatten } from "../lib/utility";
 
 export class MySqlEvaluator extends BaseEvaluator {
     constructor(config: any) {
@@ -30,7 +31,7 @@ export class MySqlEvaluator extends BaseEvaluator {
     public async evaluate(): Promise<EvaluatorResult> {
         const apps = this.getAppsToEvaluate();
         try {
-            const results = await Promise.all(apps.map(app => tryEvaluate(app)));
+            const results = flatten(await Promise.all(apps.map(app => tryEvaluate(app))));
             return {
                 results,
                 apps
@@ -49,13 +50,13 @@ export class MySqlEvaluator extends BaseEvaluator {
     }
 }
 
-async function tryEvaluate(app) {
+async function tryEvaluate(app): Promise<Result|Result[]> {
     try {
         const connection = await getConnection(app);
         const timer = startClock();
         const results = await runQuery(connection, app);
         app.timeTaken = stopClock(timer);
-        return validateResults(app, results, log);
+        return validateResults(app, results);
     } catch (err) {
         log(`Error evaluating app ${ app.name }: ${ err.message }`, err);
         return new MonitorFailureResult(
@@ -66,19 +67,19 @@ async function tryEvaluate(app) {
     }
 }
 
-function validateResults(app, results, _log) {
+export function validateResults(app, results): Result[] {
     return results.map(row => {
         const identifier = row[app.identifier] ?? app.identifier;
-        const trigger = findTriggerForRow(identifier, row, app.triggers);
+        const trigger = findTriggerForRow(identifier, app.triggers);
         return validateRow(app, identifier, row, trigger);
     });
 }
 
-function findTriggerForRow(identifier, row, triggers) {
-    const trigger = (triggers ?? []).find(validator => {
-        const regex = new RegExp(validator.match, "gi");
-        if (regex.test(row[identifier])) {
-            return validator;
+function findTriggerForRow(identifier, triggers) {
+    const trigger = (triggers ?? []).find(trigger => {
+        const regex = new RegExp(trigger.match, "i");
+        if (regex.test(identifier)) {
+            return trigger;
         }
     });
     if (!trigger) {
@@ -104,7 +105,7 @@ export function validateRow(
     app,
     identifier,
     row,
-    trigger) {
+    trigger): MySqlResult {
     if (!trigger.rules || trigger.rules.length === 0) {
         throw new Error(`trigger for app '${ app.name }' has no rules`);
     }
@@ -186,6 +187,10 @@ async function getConnection(app) {
 }
 
 function disposeConnections() {
-    connections.map(x => x.destroy())
+    try {
+        connections.map(x => x.destroy());
+    } catch {
+        // no-op
+    }
 }
 

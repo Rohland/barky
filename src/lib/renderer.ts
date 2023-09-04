@@ -2,7 +2,10 @@ export interface ITemplateOptions {
     humanizeNumbers?: boolean;
 }
 
-export function renderTemplate(template, data, options: ITemplateOptions = null) {
+export function renderTemplate(
+    template,
+    data,
+    options: ITemplateOptions = null) {
     if (!template || template.trim().length === 0) {
         return "";
     }

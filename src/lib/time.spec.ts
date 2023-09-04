@@ -24,7 +24,7 @@ describe("Time", () => {
     });
     describe("with time", () => {
         describe.each([
-            ["11:12",11, 12, 0, 0],
+            ["11:12", 11, 12, 0, 0],
             ["13:15:30", 13, 15, 30, 0],
             ["1:02:03", 1, 2, 3, 0],
             ["01:02:03.456", 1, 2, 3, 456],
@@ -36,7 +36,7 @@ describe("Time", () => {
                 const time = new Time(input);
 
                 // assert
-                expect(time.time).toEqual(input.startsWith("1:") ? `0${input}` : input);
+                expect(time.time).toEqual(input.startsWith("1:") ? `0${ input }` : input);
                 expect(time.hours).toEqual(hours);
                 expect(time.minutes).toEqual(minutes);
                 expect(time.seconds).toEqual(seconds);
@@ -145,18 +145,25 @@ describe("toLocalTime", () => {
 
 describe("humanizeDuration", () => {
     describe.each([
-        [0, "a few seconds"],
-        [1, "1 min"],
-        [59, "59 mins"],
-        [60, "1 hr"],
-        [61, "1 hr and 1 min"],
-        [120, "2 hrs"],
-        [340, "5 hrs and 40 mins"],
-    ])(`when given %s`, (input, expected) => {
+        [0, "s", "0 secs"],
+        [0, "m", "0 mins"],
+        [0, "h", "0 hrs"],
+        [0.1, "m", "6 secs"],
+        [0.5, "m", "30 secs"],
+        [1, "m", "1 min"],
+        [1.1, "m", "1 min and 6 secs"],
+        [1.9, "m", "1 min and 53 secs"],
+        [59, "m", "59 mins"],
+        [60, "m", "1 hr"],
+        [61, "m", "1 hr and 1 min"],
+        [120, "m", "2 hrs"],
+        [120.5, "m", "2 hrs and 30 secs"],
+        [340, "m", "5 hrs and 40 mins"],
+    ])(`when given %s`, (input, type, expected) => {
         it("should return expected", async () => {
             // arrange
             // act
-            const result = humanizeDuration(input);
+            const result = humanizeDuration(input, type);
 
             // assert
             expect(result).toEqual(expected);

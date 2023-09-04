@@ -1,4 +1,4 @@
-import { toLocalTimeString } from "./utility";
+import { pluraliseWithS, toLocalTimeString } from "./utility";
 
 export class Time {
     time: string;
@@ -57,20 +57,50 @@ export function toLocalTime(date: Date): Time {
     return new Time(date);
 }
 
-export function humanizeDuration(minutes: number) {
-    if (minutes < 1) {
-        return "a few seconds";
+export function humanizeDuration(time: number, type: string = "m"): string {
+    let minutes = time;
+    let defaultTypeText = "mins";
+    switch (type?.toLowerCase()?.trim()) {
+        case "s":
+            minutes = time / 60;
+            defaultTypeText = "secs";
+            break;
+        case "m":
+            minutes = time;
+            defaultTypeText = "mins";
+            break;
+        case "h":
+            minutes = time * 60;
+            defaultTypeText = "hrs";
+            break;
     }
-    const onTheHour = minutes % 60 === 0;
-    const hrs = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    const minutesText = mins === 1 ? "min" : "mins";
-    if (hrs === 0) {
-        return `${ mins } ${ minutesText }`;
+    const secondsText = humanizeSeconds((minutes - Math.floor(minutes)) * 60);
+    const minsText = humanizeMinutes(minutes % 60);
+    const hoursText = humanizeHours(minutes / 60);
+    const text = [hoursText, minsText, secondsText].filter(x => !!x).join(", ");
+    if (text.length === 0) {
+        return `0 ${ defaultTypeText }`;
     }
-    const hoursText = hrs > 1 ? "hrs" : "hr";
-    if (onTheHour) {
-        return `${ hrs } ${ hoursText }`;
-    }
-    return `${ hrs } ${ hoursText} and ${ mins } ${ minutesText }`;
+    return text.replace(/,\s+([^,]+)$/, ` and $1`);
+}
+
+function humanizeSeconds(seconds) {
+    const value = Math.floor(seconds);
+    return value === 0 ?
+        "" :
+        `${ value } ${ pluraliseWithS("sec", value) }`;
+}
+
+function humanizeMinutes(minutes) {
+    const value = Math.floor(minutes);
+    return value === 0 ?
+        "" :
+        `${ value } ${ pluraliseWithS("min", value) }`;
+}
+
+function humanizeHours(hours) {
+    const value = Math.floor(hours);
+    return value === 0 ?
+        "" :
+        `${ value } ${ pluraliseWithS("hr", value) }`;
 }
