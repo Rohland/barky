@@ -138,24 +138,38 @@ export class SlackChannelConfig extends ChannelConfig {
     }
 
     public async sendResolvedAlert(alert: AlertState): Promise<void> {
-        await this.postToSlack(
-            this.generateMessage([], alert),
-            alert.state);
-        await this.postToSlack(
-            `✅ <!channel> Previous outage resolved at ${ alert.endTime }. Duration was ${ alert.durationHuman }.\n_See above for more details about affected services._`,
-        );
+        await Promise.all([
+            this.postToSlack(
+                this.generateMessage([], alert),
+                alert.state),
+            this.postToSlack(
+                `✅ <!channel> Previous outage resolved at ${ alert.endTime }. Duration was ${ alert.durationHuman }.\n_See above for more details about affected services._`,
+                alert.state,
+                true
+            )
+        ]);
     }
 
-    async postToSlack(message: string, state?: any): Promise<any> {
+    async postToSlack(
+        message: string,
+        state?: any,
+        reply: boolean = false): Promise<any> {
         const body = {
             channel: state?.channel ?? this.channel,
             text: message,
-            ts: state?.ts,
             unfurl_links: false
         };
-        const url = state
-            ? "https://slack.com/api/chat.update"
-            : "https://slack.com/api/chat.postMessage";
+        const postMessageUrl = "https://slack.com/api/chat.postMessage";
+        const updateMessageUrl = "https://slack.com/api/chat.update";
+        let url = postMessageUrl;
+        if (reply && state?.ts) {
+            body["thread_ts"] = state.ts;
+        } else {
+            body["ts"] = state?.ts;
+            if (state) {
+                url = updateMessageUrl;
+            }
+        }
         const config = {
             method: 'post',
             url,

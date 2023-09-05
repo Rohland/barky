@@ -187,10 +187,12 @@ async function getConnection(app) {
 }
 
 function disposeConnections() {
-    try {
-        connections.map(x => x.destroy());
-    } catch {
-        // no-op
-    }
+    connections.forEach(x => {
+        try {
+            x.destroy();
+        } catch {
+            // no-op
+        }
+    });
 }
 
