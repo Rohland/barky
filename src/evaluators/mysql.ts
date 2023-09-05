@@ -156,22 +156,26 @@ function generateValueForVariable(value) {
     }
 }
 
-async function runQuery(connection, app) {
+async function runQuery(connection: mysql.Connection, app) {
+    const timeout = app.timeout ?? 15000;
+    const timeoutSeconds = Math.round(timeout /1000);
+    const query = `set innodb_lock_wait_timeout=${ timeoutSeconds }; ${ app.query }`;
     const results = await connection.query({
-        sql: app.query,
+        sql: query,
         timeout: app.timeout ?? 15000,
     });
     let resultIndex = parseInt(app["result-index"]);
     if (Number.isNaN(resultIndex)) {
+        // @ts-ignore
         resultIndex = results[0].length;
     }
     const rows = results[0][resultIndex > 0 ? resultIndex - 1 : 0];
     return Array.isArray(rows) ? rows : [rows];
 }
 
-const connections = [];
+let connections: mysql.Connection[] = [];
 
-async function getConnection(app) {
+export async function getConnection(app): Promise<mysql.Connection> {
     // @ts-ignore
     const connection = await mysql.createConnection({
         host: process.env[`mysql-${ app.connection }-host`],
@@ -186,7 +190,7 @@ async function getConnection(app) {
     return connection;
 }
 
-function disposeConnections() {
+export function disposeConnections() {
     connections.forEach(x => {
         try {
             x.destroy();
@@ -194,5 +198,6 @@ function disposeConnections() {
             // no-op
         }
     });
+    connections = [];
 }
 

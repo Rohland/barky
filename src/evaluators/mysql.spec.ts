@@ -1,4 +1,11 @@
-import { validateResults, validateRow } from "./mysql";
+
+const mysqlMock = {
+    createConnection: jest.fn()
+};
+jest.doMock("mysql2/promise", () => {
+    return mysqlMock;
+});
+import { disposeConnections, getConnection, validateResults } from "./mysql";
 
 describe("mysql", () => {
     describe("validateResults", () => {
@@ -103,7 +110,7 @@ describe("mysql", () => {
                     const result = results[0];
                     expect(result.success).toEqual(true);
                     expect(result.resultMsg).toEqual("OK");
-                    expect(result.result).toEqual(JSON.stringify({"name": "test"}));
+                    expect(result.result).toEqual(JSON.stringify({ "name": "test" }));
                 });
                 describe("but if emit configured", () => {
                     it("should only return emitted fields", async () => {
@@ -138,9 +145,30 @@ describe("mysql", () => {
                         const result = results[0];
                         expect(result.success).toEqual(true);
                         expect(result.resultMsg).toEqual("OK");
-                        expect(result.result).toEqual(JSON.stringify({"value": 321}));
+                        expect(result.result).toEqual(JSON.stringify({ "value": 321 }));
                     });
                 });
+            });
+        });
+    });
+    describe("disposeConnections", () => {
+        describe("with connections", () => {
+            it("should destroy them and clear connections object", async () => {
+                // arrange
+                const mockConnection = {
+                    destroy: jest.fn()
+                };
+                mysqlMock.createConnection.mockResolvedValue(mockConnection);
+                // @ts-ignore
+                const connection = await getConnection({});
+
+                // act
+                disposeConnections();
+                disposeConnections();
+
+                // assert
+                expect(connection).toEqual(mockConnection);
+                expect(mockConnection.destroy).toHaveBeenCalledTimes(1);
             });
         });
     });
