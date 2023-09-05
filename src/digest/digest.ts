@@ -238,7 +238,7 @@ function evaluateNewFailureResult(
             break;
         case AlertRuleType.ConsecutiveCount:
             if (!rule.isFailureForConsecutiveCount(previousLogs)) {
-                return;
+                result.clearAlert();
             }
             const logCountToClear = rule.getLogCountToClear(previousLogs.length);
             context.deleteLogs(previousLogs.slice(0, logCountToClear));
@@ -289,7 +289,7 @@ function evaluateWindowForFailure(
     context.deleteLogs(previousLogs.filter(x => x.date < rule.fromDate));
     const fail = rule.isFailureInWindowGivenLogs(previousLogs);
     if (!fail) {
-        return;
+        result.clearAlert();
     }
     context.addSnapshotForResult(result);
 }

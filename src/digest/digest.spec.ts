@@ -129,7 +129,7 @@ describe("digest", () => {
                     });
                 });
                 describe("but does not breach rule", () => {
-                    it("should keep previous logs and append no new snapshot", async () => {
+                    it("should keep previous logs and append new snapshot with no alert", async () => {
                         // arrange
                         const logs = [generateLog(1), generateLog(2)] as MonitorLog[];
                         const context = new DigestContext([], logs);
@@ -153,7 +153,14 @@ describe("digest", () => {
 
                         // assert
                         expect(context.logIdsToDelete).toEqual([]);
-                        expect(context.snapshots).toEqual([]);
+                        expect(context.snapshots).toEqual([
+                            expect.objectContaining({
+                                type: result.type,
+                                label: result.label,
+                                identifier: result.identifier,
+                                alert: null
+                            })
+                        ]);
                     });
                 });
                 describe("and breaches rule", () => {
@@ -163,7 +170,7 @@ describe("digest", () => {
                         const logs = [generateLog(1, oneDayAgo), generateLog(2), generateLog(3), generateLog(4)];
                         const context = new DigestContext([], logs);
                         const result = getTestResult();
-                        result.alert.rules = [new AlertRule({count: 2})];
+                        result.alert.rules = [new AlertRule({ count: 2 })];
 
                         // act
                         evaluateNewResult(result, context);
@@ -247,33 +254,33 @@ describe("digest", () => {
                         generateLog(3),
                     ] as MonitorLog[];
                     const context = new DigestContext([], logs);
-                    const result = new Result(
-                        new Date(),
-                        "web",
-                        "health",
-                        "www.codeo.co.za",
-                        false,
-                        "FAIL",
-                        100,
-                        false,
+                    const result = getTestResult();
+                    result.alert= new AlertConfiguration(
                         {
-                            alert: {
-                                channels: ["test-channel"],
-                                rules: [
-                                    {
-                                        any: 2,
-                                        window: "-10m"
-                                    }
-                                ]
-                            }
-                        });
+                            channels: ["test-channel"],
+                            rules: [
+                                {
+                                    any: 2,
+                                    window: "-10m"
+                                }
+                            ]
+                        }
+                    );
 
                     // act
                     evaluateNewResult(result, context);
 
                     // assert
                     expect(context.logIdsToDelete).toEqual([1, 2]);
-                    expect(context.snapshots).toEqual([]);
+                    expect(context.snapshots).toEqual([
+                        expect.objectContaining({
+                            type: result.type,
+                            label: result.label,
+                            identifier: result.identifier,
+                            success: false,
+                            alert: null
+                        })
+                    ]);
                 });
             });
             describe("and type is 'any in window' and window period is failure", () => {
@@ -662,16 +669,7 @@ describe("digest", () => {
                 describe("but no alerts configured", () => {
                     it("should return state == OK", async () => {
                         // arrange
-                        const result = new Result(
-                            new Date(),
-                            "web",
-                            "health",
-                            "www.codeo.co.za",
-                            false,
-                            "FAIL",
-                            100,
-                            false,
-                            null);
+                        const result = getTestResult();
 
                         // act
                         const context = await generateDigest([result]);
@@ -679,7 +677,15 @@ describe("digest", () => {
                         // assert
                         expect(context.state).toEqual(DigestState.OK);
                         const snapshots = await getSnapshots();
-                        expect(snapshots).toEqual([]);
+                        expect(snapshots).toEqual([
+                            expect.objectContaining({
+                                type: result.type,
+                                label: result.label,
+                                identifier: result.identifier,
+                                success: false,
+                                alert: null
+                            })
+                        ]);
                     });
                 });
                 describe("and has alerts configured", () => {
@@ -789,7 +795,7 @@ describe("digest", () => {
                     describe("however if result is skipped", () => {
                         it("should keep previous snapshot and infer ongoing", async () => {
                             // arrange
-                            const alert =  {
+                            const alert = {
                                 channels: ["test-channel"],
                                 rules: [{ count: 1 }]
                             };
@@ -860,6 +866,79 @@ describe("digest", () => {
                         const logs = await getLogs();
                         expect(snapshots.length).toEqual(1);
                         expect(logs.length).toEqual(1);
+                    });
+                });
+            });
+        });
+        describe("bugs", () => {
+            describe("when results previously, that don't meet alert threshold (so no snapshot)", () => {
+                describe("and then another result that triggers rule", () => {
+                    it("should trigger digest", async () => {
+                        // arrange
+                        const alert = new AlertConfiguration({
+                            channels: ["test-channel"],
+                            rules: [{ count: 2 }]
+                        });
+                        const result = getTestResult();
+                        result.alert = alert;
+                        await persistResults([result]);
+                        let context = await generateDigest([result]);
+
+                        // pre-assert
+                        expect(context.state).toEqual(DigestState.OK);
+                        let logs = await getLogs();
+                        expect(logs.length).toEqual(1);
+
+                        // act
+                        result.alert = alert;
+                        await persistResults([result]);
+                        context = await generateDigest([result]);
+
+                        // assert
+                        expect(context.state).toEqual(DigestState.OutageTriggered);
+                        logs = await getLogs();
+                        expect(logs.length).toEqual(2);
+                        expect(context.snapshots).toEqual([
+                            expect.objectContaining({
+                                type: result.type,
+                                label: result.label,
+                                identifier: result.identifier,
+                                success: false,
+                                alert: alert
+                            })
+                        ]);
+                    });
+                });
+                describe("and then a missing result", () => {
+                    it("should infer OK", async () => {
+                        // arrange
+                        const result = getTestResult();
+                        result.alert = new AlertConfiguration({
+                            channels: ["test-channel"],
+                            rules: [{ count: 2 }]
+                        });
+                        await persistResults([result]);
+                        let context = await generateDigest([result]);
+
+                        // pre-assert
+                        expect(context.state).toEqual(DigestState.OK);
+                        let logs = await getLogs();
+                        expect(logs.length).toEqual(1);
+
+                        // act
+                        const completelyUnrelatedResult = getTestResult();
+                        completelyUnrelatedResult.success = true;
+                        completelyUnrelatedResult.identifier += "2";
+                        await persistResults([completelyUnrelatedResult]);
+                        context = await generateDigest([completelyUnrelatedResult]);
+
+                        // assert
+                        expect(console.log).toHaveBeenCalledWith(expect.stringContaining(`|${ result.identifier }|`));
+                        expect(console.log).toHaveBeenCalledWith(expect.stringContaining(`|inferred|`));
+                        expect(context.state).toEqual(DigestState.OK);
+                        logs = await getLogs();
+                        expect(logs.length).toEqual(0);
+                        expect(context.snapshots).toEqual([]);
                     });
                 });
             });
