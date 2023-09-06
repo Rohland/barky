@@ -8,6 +8,7 @@ import { getAppVariations, IApp } from "../models/app";
 import { BaseEvaluator, EvaluatorType } from "./base";
 import { IUniqueKey } from "../lib/key";
 import { flatten } from "../lib/utility";
+import { DefaultTrigger } from "../models/trigger";
 
 export class MySqlEvaluator extends BaseEvaluator {
     constructor(config: any) {
@@ -82,10 +83,10 @@ function findTriggerForRow(identifier, triggers) {
             return trigger;
         }
     });
-    if (!trigger) {
-        throw new Error(`Could not find trigger for row with identifier: ${ identifier }`);
+    if (trigger) {
+        return trigger;
     }
-    return trigger;
+    return DefaultTrigger;
 }
 
 function generateVariablesAndValues(row, app) {

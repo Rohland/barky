@@ -30,6 +30,10 @@ export enum AlertRuleType {
     AnyInWindow
 }
 
+const DefaultAlertRule = {
+    count: 1
+};
+
 export class AlertRule {
     public description?: string;
     public count?: number;
@@ -114,7 +118,7 @@ export class AlertRule {
 
     public static Default(): AlertRule {
         return new AlertRule({
-            count: 1,
+            ...DefaultAlertRule,
             isDefault: true
         });
     }

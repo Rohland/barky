@@ -1,4 +1,5 @@
 import { findTriggerRulesFor } from "./sumo";
+import { DefaultTrigger } from "../models/trigger";
 
 describe("sumo", () => {
     describe("findTriggerRulesFor", () => {
@@ -9,11 +10,14 @@ describe("sumo", () => {
         ])(`when trigger is %s`,
             // @ts-ignore
             (triggers) => {
-            it("should throw", () => {
+            it("should return default trigger", () => {
                 const app = {
                     triggers
                 };
-                expect(() => findTriggerRulesFor("test", app)).toThrowError("expected sumo app configuration to have triggers, but did not");
+                const result = findTriggerRulesFor("test", app);
+
+                // assert
+                expect(result).toEqual(DefaultTrigger.rules);
             });
         });
     });

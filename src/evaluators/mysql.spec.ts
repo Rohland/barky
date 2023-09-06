@@ -36,6 +36,29 @@ describe("mysql", () => {
 
             });
         });
+        describe("when no trigger rules", () => {
+            it("should return success for each row", async () => {
+                // arrange
+                const app = {
+                    name: "app",
+                    identifier: "id"
+                };
+                const row = {
+                    id: "123",
+                    name: "test"
+                };
+
+                // act
+                const results = validateResults(app, [row]);
+
+                // assert
+                expect(results.length).toEqual(1);
+                const result = results[0];
+                expect(result.success).toEqual(true);
+                expect(result.resultMsg).toEqual("OK");
+                expect(result.result).toEqual(JSON.stringify({ "name": "test" }));
+            });
+        });
         describe("when trigger has rules", () => {
             describe("and matches a rule", () => {
                 it("should evaluate that rule", async () => {

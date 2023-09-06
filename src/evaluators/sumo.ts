@@ -9,6 +9,7 @@ import { EvaluatorResult } from "./types";
 import { getAppVariations, IApp } from "../models/app";
 import { BaseEvaluator, EvaluatorType } from "./base";
 import { IUniqueKey } from "../lib/key";
+import { DefaultTrigger, IRule } from "../models/trigger";
 
 const SumoDomain = process.env["sumo-domain"] ?? "api.eu.sumologic.com";
 const SumoUrl = `https://${ SumoDomain }/api/v1/search/jobs`;
@@ -131,15 +132,10 @@ function generateValueForVariable(value) {
     }
 }
 
-interface IRule {
-    expression: string;
-    message: string;
-}
-
 export function findTriggerRulesFor(identifier, app): IRule[] {
     const triggers = app.triggers;
     if (!triggers || triggers.length === 0) {
-        throw new Error("expected sumo app configuration to have triggers, but did not");
+        return DefaultTrigger.rules;
     }
     const trigger = triggers.find(x => new RegExp(x.match, "i").test(identifier));
     if (!trigger) {
