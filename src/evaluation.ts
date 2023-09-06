@@ -35,9 +35,10 @@ export function getEvaluators(config, evalName): BaseEvaluator[] {
     const evaluatorsToConfigure =
         evalName?.trim()?.toLowerCase()?.split(",")
         || Object.keys(config.env ?? {});
+    const reservedKeys = ["config", "import"];
     return evaluatorsToConfigure
         .map(x => x?.trim())
-        .filter(x => !!x && x !== "config")
+        .filter(x => !!x && !reservedKeys.includes(x))
         .map(e => {
             const constructor = evaluators.get(e);
             if (!constructor) {

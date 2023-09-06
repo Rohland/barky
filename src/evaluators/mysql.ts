@@ -5,7 +5,7 @@ import { MonitorFailureResult, MySqlResult, Result } from "../models/result";
 import { log } from "../models/logger";
 import { EvaluatorResult } from "./types";
 import { getAppVariations, IApp } from "../models/app";
-import { BaseEvaluator } from "./base";
+import { BaseEvaluator, EvaluatorType } from "./base";
 import { IUniqueKey } from "../lib/key";
 import { flatten } from "../lib/utility";
 
@@ -14,8 +14,8 @@ export class MySqlEvaluator extends BaseEvaluator {
         super(config);
     }
 
-    public get type(): string {
-        return "mysql";
+    public get type(): EvaluatorType {
+        return EvaluatorType.mysql;
     }
 
     configureAndExpandApp(app: IApp, name: string): IApp[] {

@@ -12,6 +12,12 @@ export function resetExecutionCounter() {
     executionCounter.clear();
 }
 
+export enum EvaluatorType {
+    "web" = "web",
+    "mysql" = "mysql",
+    "sumo" = "sumo"
+};
+
 export abstract class BaseEvaluator {
 
     private _globalConfig: any;
@@ -33,7 +39,7 @@ export abstract class BaseEvaluator {
 
     abstract configureAndExpandApp(app: IApp, name: string): IApp[];
 
-    abstract get type(): string;
+    abstract get type(): EvaluatorType;
 
     public get config(): any {
         return this._globalConfig[this.type];

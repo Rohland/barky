@@ -1,0 +1,11 @@
+config:
+  locale: en-ZA
+  timezone: Africa/Johannesburg
+
+import:
+  - ./import-1.yaml
+  - import-2.yaml
+
+web:
+  codeo.co.za:
+    url: https://codeo.co.za

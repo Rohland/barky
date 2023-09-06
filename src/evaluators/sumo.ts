@@ -7,7 +7,7 @@ import { renderTemplate } from "../lib/renderer";
 import { log } from "../models/logger";
 import { EvaluatorResult } from "./types";
 import { getAppVariations, IApp } from "../models/app";
-import { BaseEvaluator } from "./base";
+import { BaseEvaluator, EvaluatorType } from "./base";
 import { IUniqueKey } from "../lib/key";
 
 const SumoDomain = process.env["sumo-domain"] ?? "api.eu.sumologic.com";
@@ -19,8 +19,8 @@ export class SumoEvaluator extends BaseEvaluator {
         super(config);
     }
 
-    get type(): string {
-        return "sumo";
+    get type(): EvaluatorType {
+        return EvaluatorType.sumo;
     }
 
     configureAndExpandApp(app: IApp, name: string): IApp[] {

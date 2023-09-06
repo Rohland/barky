@@ -1,0 +1,7 @@
+config:
+  locale: xxx
+  timezone: yyy
+
+web:
+  codeo.dev:
+    url: https://codeo.dev

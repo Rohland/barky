@@ -72,6 +72,7 @@ describe("evaluation", () => {
                 const config = {
                     env: {
                         config: {},
+                        import: [],
                         web: {},
                         mysql: {},
                         sumo: {}

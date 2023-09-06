@@ -4,7 +4,7 @@ import { MonitorFailureResult, WebResult } from "../models/result";
 import { log } from "../models/logger";
 import { EvaluatorResult } from "./types";
 import { getAppVariations, IApp } from "../models/app";
-import { BaseEvaluator } from "./base";
+import { BaseEvaluator, EvaluatorType } from "./base";
 import { IUniqueKey } from "../lib/key";
 
 export class WebEvaluator extends BaseEvaluator {
@@ -12,8 +12,8 @@ export class WebEvaluator extends BaseEvaluator {
         super(config);
     }
 
-    get type(): string {
-        return "web";
+    get type(): EvaluatorType {
+        return EvaluatorType.web;
     }
 
     async evaluate(): Promise<EvaluatorResult> {

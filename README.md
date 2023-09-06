@@ -76,6 +76,15 @@ The following high level keys are supported (note, it is case sensitive):
 - sumo
 - mysql
 
+For convenience, you can store rules in separate yaml files and include them as follows. Note that paths should be relative to parent.
+
+```yaml
+import:
+  - rules/web.yaml
+  - rules/sumo.yaml
+  - rules/mysql.yaml
+```
+
 ##### Evaluator Basics
 
 For each evaluator, a ping is emitted to `stdout` with information about what type was evaluated, and how many were evaluated.

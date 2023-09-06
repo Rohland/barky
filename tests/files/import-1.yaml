@@ -1,0 +1,7 @@
+web:
+  www.codeo.co.za:
+    url: https://www.codeo.co.za
+
+mysql:
+  test:
+    connection: test
