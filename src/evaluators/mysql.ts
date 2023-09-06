@@ -50,7 +50,7 @@ export class MySqlEvaluator extends BaseEvaluator {
     }
 }
 
-async function tryEvaluate(app): Promise<Result|Result[]> {
+async function tryEvaluate(app): Promise<Result | Result[]> {
     try {
         const connection = await getConnection(app);
         const timer = startClock();
@@ -158,7 +158,7 @@ function generateValueForVariable(value) {
 
 async function runQuery(connection: mysql.Connection, app) {
     const timeout = app.timeout ?? 15000;
-    const timeoutSeconds = Math.round(timeout /1000);
+    const timeoutSeconds = Math.round(timeout / 1000);
     const query = `set innodb_lock_wait_timeout=${ timeoutSeconds }; ${ app.query }`;
     const results = await connection.query({
         sql: query,
@@ -175,6 +175,20 @@ async function runQuery(connection: mysql.Connection, app) {
 
 let connections: mysql.Connection[] = [];
 
+function configureSSLForConnection(app, config: {
+    ssl: {}
+}) {
+    const sslDisabledValue = process.env[`mysql-${ app.connection }-ssl-disabled`];
+    if (!sslDisabledValue) {
+        return;
+    }
+    const disabledValues = ["1", "true"];
+    const disabled = disabledValues.includes(sslDisabledValue.toLowerCase().trim());
+    if (disabled) {
+        config.ssl["rejectUnauthorized"] = false;
+    }
+}
+
 export async function getConnection(app): Promise<mysql.Connection> {
     const config = {
         host: process.env[`mysql-${ app.connection }-host`],
@@ -184,12 +198,9 @@ export async function getConnection(app): Promise<mysql.Connection> {
         database: process.env[`mysql-${ app.connection }-database`],
         timezone: 'Z',
         multipleStatements: true,
-        ssl: {
-        }
+        ssl: {}
     };
-    if (process.env[`mysql-${ app.connection }-ssl-disabled`]){
-        config.ssl["rejectUnauthorized"] = false;
-    }
+    configureSSLForConnection(app, config);
     // @ts-ignore
     const connection = await mysql.createConnection(config);
     connections.push(connection);

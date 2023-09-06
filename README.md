@@ -313,6 +313,7 @@ Note, the `connection` value is used to lookup environment variables by conventi
 - mysql-aws-aurora-password=your_password
 - mysql-aws-aurora-port=3306
 - mysql-aws-aurora-database=your_schema
+- mysql-aws-aurora-ssl-disabled=true
 
 
 ```yaml
