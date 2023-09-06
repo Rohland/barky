@@ -175,9 +175,7 @@ async function runQuery(connection: mysql.Connection, app) {
 
 let connections: mysql.Connection[] = [];
 
-function configureSSLForConnection(app, config: {
-    ssl: {}
-}) {
+function configureSSLForConnection(app, config: any) {
     const sslDisabledValue = process.env[`mysql-${ app.connection }-ssl-disabled`];
     if (!sslDisabledValue) {
         return;
@@ -185,6 +183,7 @@ function configureSSLForConnection(app, config: {
     const disabledValues = ["1", "true"];
     const disabled = disabledValues.includes(sslDisabledValue.toLowerCase().trim());
     if (disabled) {
+        config.ssl ??= {};
         config.ssl["rejectUnauthorized"] = false;
     }
 }
@@ -197,8 +196,7 @@ export async function getConnection(app): Promise<mysql.Connection> {
         port: process.env[`mysql-${ app.connection }-port`],
         database: process.env[`mysql-${ app.connection }-database`],
         timezone: 'Z',
-        multipleStatements: true,
-        ssl: {}
+        multipleStatements: true
     };
     configureSSLForConnection(app, config);
     // @ts-ignore
