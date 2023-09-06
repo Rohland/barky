@@ -176,16 +176,22 @@ async function runQuery(connection: mysql.Connection, app) {
 let connections: mysql.Connection[] = [];
 
 export async function getConnection(app): Promise<mysql.Connection> {
-    // @ts-ignore
-    const connection = await mysql.createConnection({
+    const config = {
         host: process.env[`mysql-${ app.connection }-host`],
         user: process.env[`mysql-${ app.connection }-user`],
         password: process.env[`mysql-${ app.connection }-password`],
         port: process.env[`mysql-${ app.connection }-port`],
         database: process.env[`mysql-${ app.connection }-database`],
         timezone: 'Z',
-        multipleStatements: true
-    });
+        multipleStatements: true,
+        ssl: {
+        }
+    };
+    if (process.env[`mysql-${ app.connection }-ssl-disabled`]){
+        config.ssl["rejectUnauthorized"] = false;
+    }
+    // @ts-ignore
+    const connection = await mysql.createConnection(config);
     connections.push(connection);
     return connection;
 }
