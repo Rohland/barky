@@ -84,6 +84,21 @@ describe("web evaluator", () => {
                     // assert
                     expect(result.test).toEqual("321");
                 });
+                describe("even when its a numeric value", () => {
+                    it("should return env var", async () => {
+                        // arrange
+                        const headers = {
+                            test: 1
+                        };
+                        process.env["my-test-header"] = "321";
+
+                        // act
+                        const result = getCustomHeaders(headers);
+
+                        // assert
+                        expect(result.test).toEqual(1);
+                    });
+                });
             });
         });
     });

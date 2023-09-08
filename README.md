@@ -241,7 +241,7 @@ web:
             - description: Weekdays
               count: 2 # any consecutive 2 failures trigger alert
               days_of_week: [mon, tue, wed, thu, fri]
-              time_of_day: [00:00-04:00, 6:00- 17:00] # local time as per timezone
+              time: [00:00-04:00, 6:00- 17:00] # local time as per timezone
             - description: Weekends
               window: -5m
               any: 3

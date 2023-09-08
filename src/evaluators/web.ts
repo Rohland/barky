@@ -134,7 +134,7 @@ function evaluateResult(
 export function getCustomHeaders(headers) {
     headers ??= {};
     for (const key in headers) {
-        const value = headers[key] ?? "";
+        const value = (headers[key] ?? "").toString();
         const match = value.match(/^\$(.*)$/);
         if (match) {
             const envVar = process.env[match[1]];
