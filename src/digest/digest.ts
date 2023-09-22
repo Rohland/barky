@@ -267,17 +267,25 @@ function evaluateNewSuccessResult(
     context: DigestContext) {
     switch (rule.type) {
         case AlertRuleType.AnyInWindow:
-            evaluateWindowForFailure(
-                result,
-                rule,
-                previousLogs,
-                context);
+            evaluateWindowForSuccess(result, rule, previousLogs, context);
             break;
         case AlertRuleType.ConsecutiveCount:
             context.deleteLogs(previousLogs);
             break;
         default:
             throw new Error(`Unhandled rule type: ${ rule.type }`);
+    }
+}
+
+function evaluateWindowForSuccess(
+    result: Result,
+    rule: AlertRule,
+    previousLogs: MonitorLog[],
+    context: DigestContext) {
+    context.deleteLogs(previousLogs.filter(x => x.date < rule.fromDate));
+    const shouldRetainSnapshot = rule.isFailureInWindowGivenLogs(previousLogs);
+    if (shouldRetainSnapshot) {
+        context.addSnapshotForResult(result);
     }
 }
 

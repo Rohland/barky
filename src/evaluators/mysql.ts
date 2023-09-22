@@ -5,10 +5,10 @@ import { MonitorFailureResult, MySqlResult, Result } from "../models/result";
 import { log } from "../models/logger";
 import { EvaluatorResult } from "./types";
 import { getAppVariations, IApp } from "../models/app";
-import { BaseEvaluator, EvaluatorType } from "./base";
+import { BaseEvaluator, EvaluatorType, findTriggerRulesFor } from "./base";
 import { IUniqueKey } from "../lib/key";
 import { flatten } from "../lib/utility";
-import { DefaultTrigger } from "../models/trigger";
+import { IRule } from "../models/trigger";
 
 export class MySqlEvaluator extends BaseEvaluator {
     constructor(config: any) {
@@ -71,22 +71,9 @@ async function tryEvaluate(app): Promise<Result | Result[]> {
 export function validateResults(app, results): Result[] {
     return results.map(row => {
         const identifier = row[app.identifier] ?? app.identifier;
-        const trigger = findTriggerForRow(identifier, app.triggers);
-        return validateRow(app, identifier, row, trigger);
+        const rules = findTriggerRulesFor(identifier, app);
+        return validateRow(app, identifier, row, rules);
     });
-}
-
-function findTriggerForRow(identifier, triggers) {
-    const trigger = (triggers ?? []).find(trigger => {
-        const regex = new RegExp(trigger.match, "i");
-        if (regex.test(identifier)) {
-            return trigger;
-        }
-    });
-    if (trigger) {
-        return trigger;
-    }
-    return DefaultTrigger;
 }
 
 function generateVariablesAndValues(row, app) {
@@ -106,15 +93,15 @@ export function validateRow(
     app,
     identifier,
     row,
-    trigger): MySqlResult {
-    if (!trigger.rules || trigger.rules.length === 0) {
+    rules: IRule[]): MySqlResult {
+    if (!rules || rules.length === 0) {
         throw new Error(`trigger for app '${ app.name }' has no rules`);
     }
     convertRowValuesToInferredType(row);
     let failure = false;
     const { variables, values } = generateVariablesAndValues(row, app);
     const msgs = [];
-    trigger.rules.find(rule => {
+    rules.find(rule => {
         const variableDefinitions = variables.map(x => `const ${ x } = ${ generateValueForVariable(row[x]) }`).join(";");
         const expression = `;${ rule.expression }`;
         const fail = eval(variableDefinitions + expression);

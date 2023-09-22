@@ -1,7 +1,6 @@
-import { parseDaysOfWeek, parsePeriod, parseTimeRange } from "../lib/period-parser";
-import { dayOfWeek, flatten } from "../lib/utility";
+import { parsePeriod } from "../lib/period-parser";
 import { MonitorLog } from "./log";
-import { Time } from "../lib/time";
+import { DayAndTimeEvaluator } from "../lib/time";
 
 export interface IAlertRule {
     isDefault?: boolean;
@@ -39,9 +38,8 @@ export class AlertRule {
     public count?: number;
     public any?: number;
     public fromDate?: Date;
-    private _daysOfWeek?: number[];
-    private _timesOfDay: string[];
     private _isDefault: boolean;
+    private _dayAndTimeEvaluator: DayAndTimeEvaluator;
 
     constructor(rule: IAlertRule) {
         this._isDefault = rule.isDefault ?? false;
@@ -54,8 +52,7 @@ export class AlertRule {
         }
         const window = rule.window ? rule.window : "-5m";
         this.fromDate = parsePeriod(window.startsWith("-") ? window : `-${ window }`)
-        this._daysOfWeek = parseDaysOfWeek(rule.days);
-        this._timesOfDay = rule.time ? flatten([rule.time]) : [];
+        this._dayAndTimeEvaluator = new DayAndTimeEvaluator(rule.days, rule.time);
     }
 
     get type(): AlertRuleType {
@@ -65,41 +62,11 @@ export class AlertRule {
     }
 
     isValidNow(date?: Date): boolean {
-        const hasDateRule = this._daysOfWeek?.length > 0;
-        const hasTimeRule = this._timesOfDay.length > 0;
-        if (hasDateRule) {
-            return this.isToday(date);
-        }
-        if (hasTimeRule) {
-            return this.isValidAtTime(date);
-        }
-        return true;
+        return this._dayAndTimeEvaluator.isValidNow(date);
     }
 
     get isNotValidNow() : boolean {
         return this.isDefault || !this.isValidNow();
-    }
-
-    private isValidAtTime(date?: Date): boolean {
-        const now = date ?? new Date();
-        const time = new Time(now);
-        for(const entry of this._timesOfDay) {
-            if (!entry?.trim()){
-                continue;
-            }
-            const period = parseTimeRange(entry);
-            const isWithinPeriod = time.isBetween(period.start, period.end);
-            if (isWithinPeriod) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private isToday(date?: Date): boolean {
-        date = date ?? new Date();
-        const dayOfWeekInTimezone = dayOfWeek(date);
-        return this._daysOfWeek.includes(dayOfWeekInTimezone);
     }
 
     isFailureInWindowGivenLogs(logs: MonitorLog[]) {

@@ -1,4 +1,5 @@
-import { pluraliseWithS, toLocalTimeString } from "./utility";
+import { dayOfWeek, flatten, pluraliseWithS, toLocalTimeString } from "./utility";
+import { parseDaysOfWeek, parseTimeRange } from "./period-parser";
 
 export class Time {
     time: string;
@@ -103,4 +104,53 @@ function humanizeHours(hours) {
     return value === 0 ?
         "" :
         `${ value } ${ pluraliseWithS("hr", value) }`;
+}
+
+export class DayAndTimeEvaluator {
+
+    private _daysOfWeek: number [];
+    private _times: string[]
+
+    constructor(daysOfWeek: string | string[], times: string | string[]) {
+        this._daysOfWeek = parseDaysOfWeek(flatten([daysOfWeek]));
+        this._times = flatten([times]);
+    }
+
+    isValidNow(date?: Date): boolean {
+        const hasDateRule = this._daysOfWeek?.length > 0;
+        const hasTimeRule = this._times.length > 0;
+        let dateMatches = true;
+        let timeMatches = true;
+        if (hasDateRule) {
+            dateMatches = this.isToday(date);
+        }
+        if (hasTimeRule) {
+            timeMatches = this.isValidAtTime(date);
+        }
+        return dateMatches && timeMatches;
+    }
+
+    private isValidAtTime(date?: Date): boolean {
+        const now = date ?? new Date();
+        const time = new Time(now);
+        for(const entry of this._times) {
+            if (!entry?.trim()){
+                continue;
+            }
+            const period = parseTimeRange(entry);
+            const isWithinPeriod = time.isBetween(period.start, period.end);
+            if (isWithinPeriod) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private isToday(date?: Date): boolean {
+        date = date ?? new Date();
+        const dayOfWeekInTimezone = dayOfWeek(date);
+        return this._daysOfWeek.includes(dayOfWeekInTimezone);
+    }
+
+
 }

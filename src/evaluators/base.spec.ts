@@ -1,10 +1,12 @@
-import { BaseEvaluator, resetExecutionCounter } from "./base";
+import { BaseEvaluator, EvaluatorType, findTriggerRulesFor, resetExecutionCounter } from "./base";
 import { IApp } from "../models/app";
 import { EvaluatorResult } from "./types";
 import { WebEvaluator } from "./web";
 import { MySqlEvaluator } from "./mysql";
 import { SumoEvaluator } from "./sumo";
 import { IUniqueKey } from "../lib/key";
+import { DefaultTrigger } from "../models/trigger";
+import { initLocaleAndTimezone } from "../lib/utility";
 
 describe("base evaluator", () => {
 
@@ -54,9 +56,9 @@ describe("base evaluator", () => {
                 const apps3 = evaluator.getAppsToEvaluate();
 
                 // assert
-                expect(apps1).toEqual([{type: "custom"}]);
-                expect(apps2).toEqual([{type: "custom"}]);
-                expect(apps3).toEqual([{type: "custom"}]);
+                expect(apps1).toEqual([{ type: "custom" }]);
+                expect(apps2).toEqual([{ type: "custom" }]);
+                expect(apps3).toEqual([{ type: "custom" }]);
                 expect(evaluator.skippedApps).toEqual([]);
             });
         });
@@ -154,6 +156,178 @@ describe("base evaluator", () => {
             });
         });
     });
+
+    describe("findTriggerRulesFor", () => {
+        describe.each([
+            null,
+            undefined,
+            []
+        ])(`when trigger is %s`,
+            // @ts-ignore
+            (triggers) => {
+                it("should return default trigger", () => {
+                    const app = {
+                        triggers
+                    };
+                    const result = findTriggerRulesFor("test", app);
+
+                    // assert
+                    expect(result).toEqual(DefaultTrigger.rules);
+                });
+            });
+        describe("when has triggers", () => {
+            describe("but none match", () => {
+                it("should return default trigger rules", async () => {
+                    // arrange
+                    const app = {
+                        triggers: [
+                            {
+                                match: "test",
+                                rules: []
+                            }
+                        ]
+                    };
+
+                    // act
+                    const rules = findTriggerRulesFor("abc", app);
+
+                    // assert
+                    expect(rules.length).toEqual(1);
+                    expect(rules[0].expression).toEqual("false");
+                });
+            });
+            describe("and one matches", () => {
+                describe("but has no rules", () => {
+                    describe.each([
+                        null,
+                        undefined,
+                        []
+                    ])(`when rules is %s`,
+                        // @ts-ignore
+                        (rules) => {
+                            it("should return default rule", async () => {
+                                // arrange
+                                const app = {
+                                    name: "test",
+                                    triggers: [
+                                        {
+                                            match: "test",
+                                            rules
+                                        }
+                                    ]
+                                };
+
+                                // act
+                                const result = findTriggerRulesFor("test", app);
+
+                                // assert
+                                expect(result.length).toEqual(1);
+                                expect(result[0].expression).toEqual("false");
+                            });
+                        });
+                });
+                describe("and has rules", () => {
+                    it("should return rules", async () => {
+                        // arrange
+                        const app = {
+                            triggers: [
+                                {
+                                    match: "test",
+                                    rules: [
+                                        {
+                                            expression: "123",
+                                            message: "test"
+                                        }
+                                    ]
+                                }
+                            ]
+                        };
+
+                        // act
+                        const result = findTriggerRulesFor("test", app);
+
+                        // assert
+                        expect(result).toEqual(app.triggers[0].rules);
+                    });
+                });
+            });
+        });
+        describe("when has day and time rules", () => {
+            describe.each([
+                ["2023-01-01T00:00:00.000Z", "Africa/Johannesburg", null, "01:30-02:30", true],
+                ["2023-01-01T00:00:00.000Z", "Africa/Johannesburg", ["Sun", "Mon"], "01:30-02:30", true],
+                ["2023-01-01T00:00:00.000Z", "Africa/Johannesburg", "Sun", "01:30-02:30", true],
+                ["2023-01-01T00:00:00.000Z", "Africa/Johannesburg", "Mon", "01:30-02:30", false],
+                ["2023-01-01T00:00:00.000Z", "Africa/Johannesburg", "Sun", "02:30-03:30", false],
+            ])(`when date is %s, timezone is %s, day is %s and time is %s`, (date, timezone, day, time, expected) => {
+                it(`should return ${ expected ? "rule" : "default rules" }`, async () => {
+                    // arrange
+                    initLocaleAndTimezone({
+                        timezone,
+                    });
+                    const app = {
+                        triggers: [
+                            {
+                                match: "test",
+                                rules: [
+                                    {
+                                        expression: "123",
+                                        message: "test",
+                                        days: day,
+                                        time: time
+                                    }
+                                ]
+                            }
+                        ]
+                    };
+
+                    // act
+                    // @ts-ignore
+                    const result = findTriggerRulesFor("test", app, new Date(date));
+
+                    // assert
+                    if (expected) {
+                        expect(result).toEqual(app.triggers[0].rules);
+                    } else {
+                        expect(result).toEqual(DefaultTrigger.rules);
+                    }
+                });
+            });
+            describe("when one rule has date and time (and matches) and one rule has none", () => {
+                it("should return both rules", async () => {
+                    // arrange
+                    initLocaleAndTimezone({
+                        timezone: "Africa/Johannesburg"
+                    });
+                    const app = {
+                        triggers: [
+                            {
+                                match: "test",
+                                rules: [
+                                    {
+                                        expression: "123",
+                                        message: "test",
+                                        days: null,
+                                        time: "00:00-24:00"
+                                    },
+                                    {
+                                        expression: "321",
+                                        message: "abc",
+                                    }
+                                ]
+                            }
+                        ]
+                    };
+
+                    // act
+                    const result = findTriggerRulesFor("test", app);
+
+                    // assert
+                    expect(result).toEqual(app.triggers[0].rules);
+                });
+            });
+        });
+    });
 });
 
 class CustomEvaluator extends BaseEvaluator {
@@ -170,8 +344,8 @@ class CustomEvaluator extends BaseEvaluator {
         return Promise.resolve(undefined);
     }
 
-    get type(): string {
-        return "custom";
+    get type(): EvaluatorType {
+        return "custom" as EvaluatorType;
     }
 
     protected generateSkippedAppUniqueKey(name: string): IUniqueKey {

@@ -1,5 +1,6 @@
 import { AlertConfiguration, AlertRule, AlertRuleType, IAlertRule } from "./alert_configuration";
 import { initLocaleAndTimezone } from "../lib/utility";
+import exp = require("constants");
 
 describe("AlertRule", () => {
     describe("when constructed with consecutive count type", () => {
@@ -150,6 +151,30 @@ describe("AlertRule", () => {
                     // arrange
                     const rule = new AlertRule({
                         days: [day]
+                    });
+                    initLocaleAndTimezone({
+                        timezone,
+                    });
+
+                    // act
+                    const result = rule.isValidNow(new Date(date));
+
+                    // assert
+                    expect(result).toEqual(expected);
+                });
+            });
+        });
+        describe("with date and time rules", () => {
+            describe.each([
+                ["2023-01-01T00:00:00.000Z", "Africa/Johannesburg", "Sun", "01:30-02:30", true],
+                ["2023-01-01T00:00:00.000Z", "Africa/Johannesburg", "Mon", "01:30-02:30", false],
+                ["2023-01-01T00:00:00.000Z", "Africa/Johannesburg", "Sun", "02:30-03:30", false],
+            ])(`with day and time`, (date, timezone, day, time, expected) => {
+                it(`should return ${ expected } for day ${ day } and time ${ time }`, async () => {
+                    // arrange
+                    const rule = new AlertRule({
+                        days: [day],
+                        time
                     });
                     initLocaleAndTimezone({
                         timezone,
