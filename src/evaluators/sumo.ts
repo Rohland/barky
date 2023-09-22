@@ -7,9 +7,8 @@ import { renderTemplate } from "../lib/renderer";
 import { log } from "../models/logger";
 import { EvaluatorResult } from "./types";
 import { getAppVariations, IApp } from "../models/app";
-import { BaseEvaluator, EvaluatorType } from "./base";
+import { BaseEvaluator, EvaluatorType, findTriggerRulesFor } from "./base";
 import { IUniqueKey } from "../lib/key";
-import { DefaultTrigger, IRule } from "../models/trigger";
 
 const SumoDomain = process.env["sumo-domain"] ?? "api.eu.sumologic.com";
 const SumoUrl = `https://${ SumoDomain }/api/v1/search/jobs`;
@@ -130,21 +129,6 @@ function generateValueForVariable(value) {
     } else {
         return `'${ value }'`;
     }
-}
-
-export function findTriggerRulesFor(identifier, app): IRule[] {
-    const triggers = app.triggers;
-    if (!triggers || triggers.length === 0) {
-        return DefaultTrigger.rules;
-    }
-    const trigger = triggers.find(x => new RegExp(x.match, "i").test(identifier));
-    if (!trigger) {
-        throw new Error(`expected to find one trigger that matched ${ identifier } but did not`);
-    }
-    if (!trigger.rules || trigger.rules.length === 0) {
-        throw new Error(`expected to find one or more rules for trigger but did not`);
-    }
-    return trigger.rules;
 }
 
 async function startSearch(app, _log) {

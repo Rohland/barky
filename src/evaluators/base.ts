@@ -5,6 +5,8 @@ import { log } from "../models/logger";
 import { parsePeriodToSeconds } from "../lib/period-parser";
 import { LoopMs } from "../loop";
 import { IUniqueKey } from "../lib/key";
+import { DefaultTrigger, IRule } from "../models/trigger";
+import { DayAndTimeEvaluator } from "../lib/time";
 
 const executionCounter = new Map<string, number>();
 
@@ -81,11 +83,38 @@ export abstract class BaseEvaluator {
         executionCounter.set(key, count + 1);
         if (!shouldEvaluate) {
             log(`skipping ${ this.type } check for '${ name }' - every set to: ${ app.every }`);
-            this.skippedApps.push( {
+            this.skippedApps.push({
                 ...app,
                 ...this.generateSkippedAppUniqueKey(name)
             });
         }
         return shouldEvaluate;
     }
+}
+
+export function findTriggerRulesFor(
+    identifier: string,
+    app: IApp,
+    date?: Date): IRule[] {
+    const triggers = app.triggers;
+    if (!triggers || triggers.length === 0) {
+        return DefaultTrigger.rules;
+    }
+    const trigger = triggers.find(x => new RegExp(x.match, "i").test(identifier));
+    if (!trigger) {
+        return DefaultTrigger.rules;
+    }
+    const rules = findMatchingTriggerRulesValidRightNow(trigger.rules, date);
+    return rules.length === 0
+        ? DefaultTrigger.rules
+        : rules;
+}
+
+function findMatchingTriggerRulesValidRightNow(
+    rules: IRule[],
+    date?: Date): IRule[] {
+    return (rules ?? []).filter(rule => {
+        const dayAndTimeEvaluator = new DayAndTimeEvaluator(rule.days, rule.time);
+        return dayAndTimeEvaluator.isValidNow(date);
+    });
 }

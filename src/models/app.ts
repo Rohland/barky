@@ -1,5 +1,6 @@
 import { IAlertConfig } from "./alert_configuration";
 import { flatten } from "../lib/utility";
+import { ITrigger } from "./trigger";
 
 export interface IApp {
     [key: string]: any;
@@ -9,6 +10,7 @@ export interface IApp {
     alert?: IAlertConfig;
     every?: string;
     type?: string;
+    triggers?: ITrigger[];
 }
 
 export class AppVariant {

@@ -18,6 +18,7 @@ import {
 import { AlertConfiguration, AlertRule } from "../models/alert_configuration";
 import mockConsole from "jest-mock-console";
 import { getTestResult } from "../models/result.spec";
+import { getTestSnapshot } from "../models/snapshot.spec";
 
 describe("digest", () => {
 
@@ -446,7 +447,7 @@ describe("digest", () => {
                 });
             });
             describe("and type is 'any in window' and window period is failure", () => {
-                it("should delete logs older than window period and return snapshot", async () => {
+                it("should delete logs older than window period and keep snapshot", async () => {
                     // arrange
                     const snapshot = new Snapshot({
                         id: 1,
@@ -637,7 +638,48 @@ describe("digest", () => {
                 expect(context.state).toEqual(DigestState.OK);
             });
             describe("and has previous snapshots", () => {
-                describe("and alerts all clear", () => {
+                describe("and success result received", () => {
+                    it("should present result as outage cleared and leave no snapshots behind", async () => {
+                        // arrange
+                        const previousSnapshot = getTestSnapshot();
+                        await persistSnapshots([
+                            previousSnapshot
+                        ]);
+                        const result = getTestResult();
+                        result.success = true;
+
+                        // act
+                        const context = await generateDigest([result]);
+
+                        // assert
+                        expect(context.state).toEqual(DigestState.OutageResolved);
+                        const snapshots = await getSnapshots();
+                        expect(snapshots.length).toEqual(0);
+                    });
+                    describe("and was 'any' rule", () => {
+                        it("should present result as outage cleared and leave no snapshots behind", async () => {
+                            // arrange
+                            const previousSnapshot = getTestSnapshot();
+                            const rule = new AlertRule({ any: 1 });
+                            previousSnapshot.alert.rules.push(rule);
+                            await persistSnapshots([
+                                previousSnapshot
+                            ]);
+                            const result = getTestResult();
+                            result.success = true;
+                            result.alert.rules.push(rule);
+
+                            // act
+                            const context = await generateDigest([result]);
+
+                            // assert
+                            expect(context.state).toEqual(DigestState.OutageResolved);
+                            const snapshots = await getSnapshots();
+                            expect(snapshots.length).toEqual(0);
+                        });
+                    });
+                });
+                describe("and no result received", () => {
                     it("should present result as outage cleared", async () => {
                         // arrange
                         await persistSnapshots([
@@ -660,6 +702,8 @@ describe("digest", () => {
 
                         // assert
                         expect(context.state).toEqual(DigestState.OutageResolved);
+                        const snapshots = await getSnapshots();
+                        expect(snapshots.length).toEqual(0);
                     });
                 });
             });

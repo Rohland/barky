@@ -15,7 +15,7 @@ describe("mysql", () => {
                 [null],
                 []
             ])(`when validator.rules is %s`, (rules) => {
-                it("should throw error", () => {
+                it("should return ok", () => {
                     // arrange
                     const app = {
                         name: "app",
@@ -30,10 +30,13 @@ describe("mysql", () => {
                     const row = {
                         id: "123"
                     };
-                    // act and assert
-                    expect(() => validateResults(app, [row])).toThrowError("trigger for app 'app' has no rules");
-                });
 
+                    // act
+                    const result = validateResults(app, [row]);
+
+                    // assert
+                    expect(result[0].success).toEqual(true);
+                });
             });
         });
         describe("when no trigger rules", () => {

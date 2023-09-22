@@ -297,6 +297,11 @@ The example below does not have any alerts configured, see web example above to 
             message: "Error rate is too high: {{error_rate}}%"
 ```
 
+The trigger.**rule** object has the following additional properties that can be set:
+
+- *days* - the days of the week to apply the rule to (example: [mon, tue, wed, thu, fri]) - defaults to every day
+- *time* - the time of day to apply the rule to (example: 00:00-06:00) - defaults to all hours of the day
+
 ##### MySQL Configuration
 
 The example below will execute the given mysql query, and iterate over the result set.
@@ -334,6 +339,12 @@ mysql:
           - expression: minutes_to_process >= 10
             message: "Queue is backlogged with {{ unprocessed }} msgs & will take {{ minutes_to_process }} minutes to catch up"
 ```
+
+The trigger.**rule** object has the following additional properties that can be set:
+
+- *days* - the days of the week to apply the rule to (example: [mon, tue, wed, thu, fri]) - defaults to every day
+- *time* - the time of day to apply the rule to (example: 00:00-06:00) - defaults to all hours of the day
+
 ---
 ## Digest
 
