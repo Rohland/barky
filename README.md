@@ -302,6 +302,14 @@ The trigger.**rule** object has the following additional properties that can be 
 - *days* - the days of the week to apply the rule to (example: [mon, tue, wed, thu, fri]) - defaults to every day
 - *time* - the time of day to apply the rule to (example: 00:00-06:00) - defaults to all hours of the day
 
+Example period formats
+
+- `-10m to -5m` is 10 minutes ago to 5 minutes ago
+- `-1h to 0h` is hour ago to now
+- `-1d to -1h` is 24 hours ago to 1 hour ago
+- `today` is from 00:00AM until now
+- `yesterday` is from 00:00AM yesterday until 00:00AM today
+
 ##### MySQL Configuration
 
 The example below will execute the given mysql query, and iterate over the result set.
