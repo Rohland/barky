@@ -26,7 +26,7 @@ export abstract class BaseEvaluator {
     private _skippedApps: IUniqueKey[] = [];
 
     constructor(config: any) {
-        this._globalConfig = config;
+        this._globalConfig = config || {};
     }
 
     public async evaluateApps(): Promise<EvaluatorResult> {
@@ -44,7 +44,7 @@ export abstract class BaseEvaluator {
     abstract get type(): EvaluatorType;
 
     public get config(): any {
-        return this._globalConfig[this.type];
+        return this._globalConfig[this.type] || {};
     }
 
     public get skippedApps(): IApp[] {

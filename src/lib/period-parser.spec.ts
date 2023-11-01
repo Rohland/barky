@@ -278,6 +278,42 @@ describe("period parsing", () => {
                 expect(new Date().valueOf() - +result.to).toBeLessThan(1000);
             });
         });
+        describe("with named ranges", () => {
+            describe("today", () => {
+                it("should return value from 00:00AM to now", async () => {
+                    // arrange
+                    const period = "today";
+
+                    // act
+                    const result = parsePeriodRange(period);
+
+                    // assert
+                    const today = new Date();
+                    today.setHours(0,0,0,0);
+                    expect(result.from).toEqual(today);
+                    const fuzzyDeltaInMillis = 100;
+                    const now = new Date();
+                    expect(+now - +result.to).toBeLessThanOrEqual(fuzzyDeltaInMillis);
+                });
+            });
+
+            describe("yesterday", () => {
+                it("should return value from 00:00AM yesterday to 00:00AM today", async () => {
+                    // arrange
+                    const period = "yesterday";
+
+                    // act
+                    const result = parsePeriodRange(period);
+
+                    // assert
+                    const today = new Date();
+                    today.setHours(0,0,0,0);
+                    const yesterday = new Date(today.setDate(today.getDate() - 1));
+                    expect(result.from).toEqual(yesterday);
+                    expect(result.to).toEqual(today);
+                });
+            });
+        });
     });
 
 });

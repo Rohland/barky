@@ -61,7 +61,14 @@ async function tryEvaluate(app) {
         app.timeTaken = stopClock(timer);
         return validateResults(app, results, log);
     } catch (err) {
-        log(`error executing sumo evaluator for '${ app.name }': ${ err.message }`, err);
+        const errorInfo = new Error(err.message);
+        errorInfo.stack = err.stack;
+        // @ts-ignore
+        errorInfo.response = {
+            status: err?.response?.status,
+            data: err?.response.data
+        };
+        log(`error executing sumo evaluator for '${ app.name }': ${ err.message }`, errorInfo);
         return new MonitorFailureResult(
             "sumo",
             app.name,
@@ -131,7 +138,7 @@ function generateValueForVariable(value) {
     }
 }
 
-async function startSearch(app, _log) {
+async function startSearch(app, log) {
     const search = {
         query: app.query,
         from: toSumoTime(app.period.from),
@@ -143,6 +150,7 @@ async function startSearch(app, _log) {
         SumoUrl,
         search,
         getHeaders(app.token));
+    log(`started sumo job search for '${ app.name }'`, result.data);
     return result.data.id;
 }
 
@@ -162,9 +170,15 @@ async function isJobComplete(app, log) {
     }
 }
 
-async function getSearchResult(app, _log) {
-    const result = await axios.get(`${ SumoUrl }/${ app.jobId }/records?offset=0&limit=100`, getHeaders(app.token));
-    return result.data;
+async function getSearchResult(app, log) {
+    try {
+        const result = await axios.get(`${ SumoUrl }/${ app.jobId }/records?offset=0&limit=100`, getHeaders(app.token));
+        log(`successfully completed sumo job search for '${ app.name }', result:`, result.data);
+        return result.data;
+    } catch(err) {
+        log(`failed to complete sumo job search for '${ app.name }', result:`, err.response?.data);
+        throw err;
+    }
 }
 
 async function deleteJob(app, log) {

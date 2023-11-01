@@ -30,8 +30,41 @@ export function parsePeriodToMinutes(input): number {
     return parsePeriodToSeconds(input) / 60;
 }
 
-export function parsePeriodRange(input): IPeriod {
-    if (!input || !ValidPeriodRangeRegex.test(input.trim())) {
+export function parsePeriodRange(input: string): IPeriod {
+    if (!input) {
+        throw new Error(InvalidPeriodRangeError);
+    }
+    const namedRangeResult = tryParseNamedPeriodRange(input);
+    if (namedRangeResult) {
+        return namedRangeResult;
+    }
+    return tryParseNumericPeriodRange(input);
+}
+
+function tryParseNamedPeriodRange(input: string): IPeriod {
+    const lowered = input.trim().toLowerCase();
+    const today = new Date();
+    switch(lowered) {
+        case "today":
+            today.setHours(0, 0, 0, 0);
+            return {
+                from: today,
+                to: new Date()
+            };
+        case "yesterday":
+            today.setHours(0, 0, 0, 0);
+            const yesterday = new Date(today.setDate(today.getDate() - 1));
+            return {
+                from: yesterday,
+                to: today
+            };
+        default:
+            return null;
+    }
+}
+
+function tryParseNumericPeriodRange(input: string): IPeriod {
+    if (!ValidPeriodRangeRegex.test(input.trim())){
         throw new Error(InvalidPeriodRangeError);
     }
     const match = ValidPeriodRangeRegex.exec(input.trim());
