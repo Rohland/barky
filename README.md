@@ -375,7 +375,7 @@ Example configuration:
 
 ```yaml
 mute-windows: # alerts are silenced if generated in these window periods
-  - match: mysql:performance # only for monitors matching this regex
+  - match: mysql.*performance # only for monitors matching this regex
     time: 00:00 - 06:00
   - date: 2023-08-27  # only matches for this specific date
     time: 22:00 - 24:00 # 2PM to 4PM for a specific date
@@ -421,9 +421,18 @@ Any number of windows can be defined where alerts will be silenced. This is usef
 
 Fields:
 
-- `match`: regex to match monitor names (not required)
+- `match`: regex to match monitor identifier(see below for format) (not required)
 - `date`: specific date to match (not required)
 - `time`: time range to match (required)
+
+The `match` regular expression is used to match against the monitor identifier that is a string value composed of:
+
+- `type` - the type of monitor (example: web, sumo, mysql)
+- `label` - the name of the monitor (example: web-performance)
+- `identifier` - the name of the failing identifier (example: www.codeo.co.za)
+
+The value is composed as follows: `type|label|identifier`. For example: `web|web-performance|www.codeo.co.za`. The regular expression for match
+will thus be compared against this string value (case insensitive).
 
 ### SMS
 

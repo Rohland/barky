@@ -118,8 +118,10 @@ export class DigestContext {
         return this._snapshots;
     }
 
-    public getSnapshotsForChannel(channel: ChannelConfig) {
-        return this.snapshots
+    public getAlertableSnapshotsForChannel(
+        config: DigestConfiguration,
+        channel: ChannelConfig) {
+        return this.alertableSnapshots(config)
             .filter(x => x.isDigestable)
             .filter(x => x.alert?.channels?.some(c => channel.isMatchFor(c)));
     }

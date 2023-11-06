@@ -34,7 +34,7 @@ async function sendNewAlerts(
         if (!channel) {
             return;
         }
-        const snapshots = context.getSnapshotsForChannel(channel);
+        const snapshots = context.getAlertableSnapshotsForChannel(config, channel);
         alert.start_date = earliestDateFor(snapshots);
         await channel.sendNewAlert(
             snapshots,
@@ -62,7 +62,7 @@ async function sendOngoingAlerts(
         if (!channel) {
             return;
         }
-        const snapshots = context.getSnapshotsForChannel(channel);
+        const snapshots = context.getAlertableSnapshotsForChannel(config, channel);
         if (channel.canSendAlert(alert)) {
             await channel.sendOngoingAlert(snapshots, alert);
             alert.last_alert_date = new Date();

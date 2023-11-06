@@ -116,21 +116,7 @@ describe("alerter", () => {
                     ]
                 });
                 const context = new DigestContext([], []);
-                const result1 = new Result(
-                    new Date(),
-                    "web",
-                    "health",
-                    "www.codeo.co.za",
-                    false,
-                    "FAIL",
-                    0,
-                    false,
-                    {
-                        alert: {
-                            channels: ["console"]
-                        }
-                    }
-                );
+                const result1 = getTestResult();
                 context.addSnapshotForResult(result1);
 
                 // act
@@ -138,6 +124,32 @@ describe("alerter", () => {
 
                 // assert
                 expect(console.log).not.toHaveBeenCalled();
+            });
+            describe("when there is another alert that is not muted", () => {
+                it("should exclude muted", async () => {
+                    // arrange
+                    const config = new DigestConfiguration({
+                        "mute-windows": [
+                            {
+                                match: "web",
+                                time: "00:00-24:00",
+                            }
+                        ]
+                    });
+                    const context = new DigestContext([], []);
+                    const result1 = getTestResult();
+                    const result2 = getTestResult();
+                    result2.type = "mysql";
+
+                    context.addSnapshotForResult(result1);
+                    context.addSnapshotForResult(result2);
+
+                    // act
+                    await executeAlerts(config, context);
+
+                    // assert
+                    expect(console.log).toHaveBeenCalledWith(expect.stringContaining("1 health check affected"));
+                });
             });
         });
     });
