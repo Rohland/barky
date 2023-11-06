@@ -182,19 +182,19 @@ describe("mysql", () => {
             it("should destroy them and clear connections object", async () => {
                 // arrange
                 const mockConnection = {
-                    destroy: jest.fn()
+                    end: jest.fn()
                 };
                 mysqlMock.createConnection.mockResolvedValue(mockConnection);
                 // @ts-ignore
                 const connection = await getConnection({});
 
                 // act
-                disposeConnections();
-                disposeConnections();
+                await disposeConnections();
+                await disposeConnections();
 
                 // assert
                 expect(connection).toEqual(mockConnection);
-                expect(mockConnection.destroy).toHaveBeenCalledTimes(1);
+                expect(mockConnection.end).toHaveBeenCalledTimes(1);
             });
         });
     });
