@@ -21,7 +21,7 @@ export class SlackChannelConfig extends ChannelConfig {
         snapshots: Snapshot[],
         alert: AlertState): string {
         const msg = this._generateFull(snapshots, alert);
-        if (msg.length < 3800) {
+        if (msg.length <= 3000) {
             return msg;
         }
         return this._generateSummary(snapshots, alert);
@@ -71,6 +71,8 @@ export class SlackChannelConfig extends ChannelConfig {
         const parts = [];
         if (alert.isResolved) {
             parts.push(`${ this.prefix } ✅ Outage Resolved!`);
+        } else if (alert.isMuted) {
+            parts.push(`${ this.prefix } 🔕 Outage Muted!`);
         } else {
             parts.push(`${ this.prefix } 🔥 Ongoing Outage!`);
         }
@@ -96,7 +98,7 @@ export class SlackChannelConfig extends ChannelConfig {
         }
         const resolved = alert.getResolvedSnapshotList(snapshots.map(x => x.uniqueId));
         if (resolved.length > 0) {
-            parts.push(`*☑️ ${ resolved.length } resolved ${ pluraliseWithS("check", resolved.length) }:*`);
+            parts.push(`*☑️ ${ resolved.length } resolved/muted ${ pluraliseWithS("check", resolved.length) }:*`);
             resolved.forEach(x => {
                 const lastResult = x.lastSnapshot ? `(last result before resolution: _${ x.lastSnapshot.result }_)` : "";
                 parts.push(`    • ${ x.key.type }:${ x.key.label } → ${ x.key.identifier } ${ lastResult } ${ this.generateLinks(x.lastSnapshot) }`);
@@ -144,6 +146,19 @@ export class SlackChannelConfig extends ChannelConfig {
                 alert.state),
             this.postToSlack(
                 `✅ <!channel> Previous outage resolved at ${ alert.endTime }. Duration was ${ alert.durationHuman }.\n_See above for more details about affected services._`,
+                alert.state,
+                true
+            )
+        ]);
+    }
+
+    async sendMutedAlert(alert: AlertState): Promise<void> {
+        await Promise.all([
+            this.postToSlack(
+                this.generateMessage([], alert),
+                alert.state),
+            this.postToSlack(
+                `🔕 <!channel> Affected alerts were muted at ${ alert.endTime }.\n_See above for more details about affected services._`,
                 alert.state,
                 true
             )

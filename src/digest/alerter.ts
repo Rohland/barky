@@ -8,12 +8,12 @@ import { DigestConfiguration } from "../models/digest";
 export async function executeAlerts(
     config: DigestConfiguration,
     context: DigestContext) {
-    const alerts = await getAlerts();
-    setPreviousSnapshotContextForAlerts(alerts, context);
-    const distinctChannels = getChannelsAffected(context.alertableSnapshots(config));
-    const newAlerts = detectNewAlerts(alerts, distinctChannels);
-    const existingAlerts = detectExistingAlerts(alerts, distinctChannels);
-    const resolvedAlerts = detectResolvedAlerts(alerts, distinctChannels);
+    const alertsFromLastRound = await getAlerts();
+    setPreviousSnapshotContextForAlerts(alertsFromLastRound, context);
+    const distinctChannels = getChannelsAffected(context.digestableSnapshots);
+    const newAlerts = detectNewAlerts(alertsFromLastRound, distinctChannels);
+    const existingAlerts = detectExistingAlerts(alertsFromLastRound, distinctChannels);
+    const resolvedAlerts = detectResolvedAlerts(alertsFromLastRound, distinctChannels);
     await triggerAlerts(
         config,
         context,
@@ -35,6 +35,9 @@ async function sendNewAlerts(
             return;
         }
         const snapshots = context.getAlertableSnapshotsForChannel(config, channel);
+        if (snapshots.length === 0) {
+            return;
+        }
         alert.start_date = earliestDateFor(snapshots);
         await channel.sendNewAlert(
             snapshots,
@@ -63,6 +66,12 @@ async function sendOngoingAlerts(
             return;
         }
         const snapshots = context.getAlertableSnapshotsForChannel(config, channel);
+        if (snapshots.length === 0) {
+            // only way we can get here is if the channels alerts are muted
+            alert.setMuted();
+            await sendMutedAlert(config, alert);
+            return;
+        }
         if (channel.canSendAlert(alert)) {
             await channel.sendOngoingAlert(snapshots, alert);
             alert.last_alert_date = new Date();
@@ -79,7 +88,10 @@ async function sendResolvedAlerts(
     await Promise.all(alerts.map(async alert => {
         alert.removeMuted(config.muteWindows);
         alert.resolve();
-        if (alert.affected.size === 0) {
+        if (alert.size === 0) {
+            if (alert.isMuted) {
+                await sendMutedAlert(config, alert);
+            }
             return;
         }
         const channel = config.getChannelConfig(alert.channel);
@@ -88,6 +100,14 @@ async function sendResolvedAlerts(
         }
         await channel.sendResolvedAlert(alert);
     }));
+}
+
+async function sendMutedAlert(config: DigestConfiguration, alert: AlertState) {
+    const channel = config.getChannelConfig(alert.channel);
+    if (!channel) {
+        return;
+    }
+    await channel.sendMutedAlert(alert);
 }
 
 async function triggerAlerts(

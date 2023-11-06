@@ -217,9 +217,8 @@ describe("alerter", () => {
                 expect(Array.from(alerts[0].affectedKeys)).toEqual([result.uniqueId, result2.uniqueId]);
             });
             describe("but if muted", () => {
-                it("should not alert", async () => {
+                it("should send muted notification", async () => {
                     // arrange
-
                     const config = new DigestConfiguration({
                         "mute-windows": [
                             {
@@ -235,21 +234,7 @@ describe("alerter", () => {
                         identifier: "www.codeo.co.za",
                     });
                     const context = new DigestContext([previousSnapshot], []);
-                    const result = new Result(
-                        new Date(),
-                        "web",
-                        "health",
-                        "www.codeo.co.za",
-                        false,
-                        "FAIL",
-                        0,
-                        false,
-                        {
-                            alert: {
-                                channels: ["console"]
-                            }
-                        }
-                    );
+                    const result = getTestResult();
                     context.addSnapshotForResult(result);
                     const alert = new AlertState({
                         channel: "console",
@@ -258,28 +243,14 @@ describe("alerter", () => {
                         affected: JSON.stringify([[result.uniqueId, previousSnapshot]])
                     });
                     await persistAlerts([alert]);
-                    const result2 = new Result(
-                        new Date(),
-                        "web",
-                        "health",
-                        "www.codeo2.co.za",
-                        false,
-                        "FAIL",
-                        0,
-                        false,
-                        {
-                            alert: {
-                                channels: ["console"]
-                            }
-                        }
-                    );
+                    const result2 = getTestResult();
                     context.addSnapshotForResult(result2);
 
                     // act
                     await executeAlerts(config, context);
 
                     // assert
-                    expect(console.log).not.toHaveBeenCalled();
+                    expect(console.log).toHaveBeenCalledWith(expect.stringMatching("🔕 Alerts muted at"));
                 });
             });
         });
@@ -367,7 +338,7 @@ describe("alerter", () => {
         });
         describe("but if some muted muted", () => {
             describe("if none left", () => {
-                it("should not send notification", async () => {
+                it("should send muted notification", async () => {
                     // arrange
                     const config = new DigestConfiguration({
                         "mute-windows": [
@@ -396,7 +367,7 @@ describe("alerter", () => {
                     await executeAlerts(config, context);
 
                     // assert
-                    expect(console.log).not.toHaveBeenCalled();
+                    expect(console.log).toHaveBeenCalledWith(expect.stringContaining("🔕 Alerts muted at "));
                     const alerts = await getAlerts();
                     expect(alerts.length).toEqual(0);
                 });

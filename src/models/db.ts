@@ -60,12 +60,13 @@ async function saveSnapshots(conn: Knex, snapshots: Snapshot[]) {
 }
 
 export async function persistAlerts(alerts: AlertState[]) {
+    const persistable = alerts.filter(x => x.size > 0 && !x.isMuted);
     await _connection.transaction(async trx => {
         await trx("alerts").truncate();
-        if (alerts.length === 0) {
+        if (persistable.length === 0) {
             return;
         }
-        await trx("alerts").insert(alerts.map(x => {
+        await trx("alerts").insert(persistable.map(x => {
             return {
                 channel: x.channel,
                 start_date: x.start_date.toISOString(),
@@ -76,7 +77,6 @@ export async function persistAlerts(alerts: AlertState[]) {
         }));
     });
 }
-
 
 export async function mutateAndPersistSnapshotState(
     snapshots: Snapshot[],

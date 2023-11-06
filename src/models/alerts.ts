@@ -19,6 +19,7 @@ export class AlertState {
     public state?: any;
     private _resolved: boolean;
     private _previousSnapshots: Map<string, Snapshot> = new Map<string, Snapshot>();
+    private _wasMuted: boolean;
 
     constructor(data: any) {
         for(const key in data) {
@@ -55,7 +56,7 @@ export class AlertState {
     }
 
     public get endTime() {
-        return this.isResolved ? toLocalTimeString(new Date()) : null;
+        return this.isResolved || this.isMuted ? toLocalTimeString(new Date()) : null;
     }
 
     public get durationMinutes() {
@@ -69,6 +70,14 @@ export class AlertState {
 
     public get isResolved() {
         return this._resolved;
+    }
+
+    public get isMuted() {
+        return this._wasMuted;
+    }
+
+    public get size() {
+        return this.affected.size;
     }
 
     public get affectedKeys(): string[] {
@@ -104,10 +113,17 @@ export class AlertState {
         const keys = Array.from(this.affected.keys());
         const muted = keys.filter(x => muteWindows.some(y => y.isMuted(x)));
         muted.forEach(x => this.affected.delete(x));
+        const hadAlerts = keys.length > 0;
+        const noAlertsNow = this.affected.size === 0;
+        this._wasMuted = hadAlerts && noAlertsNow;
     }
 
     setPreviousSnapshots(previous: Snapshot[]) {
         this._previousSnapshots = new Map<string, Snapshot>();
         previous.forEach(x => this._previousSnapshots.set(x.uniqueId, x));
+    }
+
+    setMuted() {
+        this._wasMuted = true;
     }
 }

@@ -38,6 +38,11 @@ export class SMSChannelConfig extends ChannelConfig {
         await this.sendSMSToAllContacts(message);
     }
 
+    public async sendMutedAlert(alert: AlertState): Promise<void> {
+        const message = `${ this.prefix } Current Alert MUTED at ${ alert.endTime }.\n\n${ this.postfix }`.trim();
+        await this.sendSMSToAllContacts(message);
+    }
+
     public async pingAboutOngoingAlert(
         _snapshots: Snapshot[],
         _alert: AlertState): Promise<void> {

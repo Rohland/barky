@@ -41,6 +41,7 @@ export abstract class ChannelConfig {
     public abstract sendNewAlert(snapshots: Snapshot[], alert: AlertState): Promise<void>;
     public abstract sendOngoingAlert(snapshots: Snapshot[], alert: AlertState): Promise<void>;
     public abstract sendResolvedAlert(alert: AlertState): Promise<void>;
+    public abstract sendMutedAlert(alert: AlertState): Promise<void>;
     public abstract pingAboutOngoingAlert(snapshots: Snapshot[], alert: AlertState): Promise<void>;
 
     canSendAlert(alert: AlertState): boolean {
