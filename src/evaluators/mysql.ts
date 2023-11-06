@@ -38,7 +38,7 @@ export class MySqlEvaluator extends BaseEvaluator {
                 apps
             };
         } finally {
-            disposeConnections();
+            await disposeConnections();
         }
     }
 
@@ -193,14 +193,8 @@ export async function getConnection(app): Promise<mysql.Connection> {
     return connection;
 }
 
-export function disposeConnections() {
-    connections.forEach(x => {
-        try {
-            x.destroy();
-        } catch {
-            // no-op
-        }
-    });
+export async function disposeConnections() {
+    await Promise.allSettled(connections.map(x => x.end()));
     connections = [];
 }
 
