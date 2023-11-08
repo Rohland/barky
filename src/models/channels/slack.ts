@@ -21,7 +21,7 @@ export class SlackChannelConfig extends ChannelConfig {
         snapshots: Snapshot[],
         alert: AlertState): string {
         const msg = this._generateFull(snapshots, alert);
-        if (msg.length < 3800) {
+        if (msg.length <= 3000) {
             return msg;
         }
         return this._generateSummary(snapshots, alert);
@@ -71,6 +71,8 @@ export class SlackChannelConfig extends ChannelConfig {
         const parts = [];
         if (alert.isResolved) {
             parts.push(`${ this.prefix } ✅ Outage Resolved!`);
+        } else if (alert.isMuted) {
+            parts.push(`${ this.prefix } 🔕 Outage Muted!`);
         } else {
             parts.push(`${ this.prefix } 🔥 Ongoing Outage!`);
         }
@@ -96,7 +98,7 @@ export class SlackChannelConfig extends ChannelConfig {
         }
         const resolved = alert.getResolvedSnapshotList(snapshots.map(x => x.uniqueId));
         if (resolved.length > 0) {
-            parts.push(`*☑️ ${ resolved.length } resolved ${ pluraliseWithS("check", resolved.length) }:*`);
+            parts.push(`*☑️ ${ resolved.length } resolved/muted ${ pluraliseWithS("check", resolved.length) }:*`);
             resolved.forEach(x => {
                 const lastResult = x.lastSnapshot ? `(last result before resolution: _${ x.lastSnapshot.result }_)` : "";
                 parts.push(`    • ${ x.key.type }:${ x.key.label } → ${ x.key.identifier } ${ lastResult } ${ this.generateLinks(x.lastSnapshot) }`);
@@ -146,7 +148,22 @@ export class SlackChannelConfig extends ChannelConfig {
                 `✅ <!channel> Previous outage resolved at ${ alert.endTime }. Duration was ${ alert.durationHuman }.\n_See above for more details about affected services._`,
                 alert.state,
                 true
-            )
+            ),
+            this.reactToSlackMessage(alert.state, "white_check_mark")
+        ]);
+    }
+
+    async sendMutedAlert(alert: AlertState): Promise<void> {
+        await Promise.all([
+            this.postToSlack(
+                this.generateMessage([], alert),
+                alert.state),
+            this.postToSlack(
+                `🔕 <!channel> Affected alerts were muted at ${ alert.endTime }.\n_See above for more details about affected services._`,
+                alert.state,
+                true
+            ),
+            this.reactToSlackMessage(alert.state, "no_bell")
         ]);
     }
 
@@ -193,6 +210,34 @@ export class SlackChannelConfig extends ChannelConfig {
             const msg = `Error posting to Slack: ${ err.message }`;
             log(msg, err);
             throw new Error(msg);
+        }
+    }
+
+    private async reactToSlackMessage(state: any, reaction: string) {
+        if (!state) {
+            return;
+        }
+        const body = {
+            name: reaction,
+            channel: state?.channel ?? this.channel,
+            timestamp: state.ts
+        };
+        const config = {
+            method: 'post',
+            url: "https://slack.com/api/reactions.add",
+            headers: {
+                'Authorization': `Bearer ${ this.token }`,
+                'Content-type': 'application/json;charset=utf-8',
+                'Accept': '*/*',
+            },
+            data: JSON.stringify(body)
+        };
+        try {
+            const result = await axios.request(config);
+            console.log(result);
+        } catch (err) {
+            const msg = `Error posting to Slack: ${ err.message }`;
+            log(msg, err);
         }
     }
 }

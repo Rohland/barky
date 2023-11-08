@@ -344,6 +344,7 @@ describe("persistResults", () => {
                 // arrange
                 const alert = AlertState.New("test");
                 alert.state = { test: 123 };
+                alert.track([getTestSnapshot()]);
                 await persistAlerts([alert]);
 
                 // act
@@ -351,6 +352,36 @@ describe("persistResults", () => {
 
                 // assert
                 expect(alerts[0].state).toEqual(alert.state);
+            });
+            describe("with muted", () => {
+                it("should not persist", async () => {
+                    // arrange
+                    const alert = AlertState.New("test");
+                    alert.state = { test: 123 };
+                    alert.track([getTestSnapshot()]);
+                    alert.setMuted();
+                    await persistAlerts([alert]);
+
+                    // act
+                    const alerts = await getAlerts();
+
+                    // assert
+                    expect(alerts.length).toEqual(0)
+                });
+            });
+            describe("with no affected", () => {
+                it("should not persist", async () => {
+                    // arrange
+                    const alert = AlertState.New("test");
+                    alert.state = { test: 123 };
+                    await persistAlerts([alert]);
+
+                    // act
+                    const alerts = await getAlerts();
+
+                    // assert
+                    expect(alerts.length).toEqual(0);
+                });
             });
             describe("with affected", () => {
                 it("should be able to retrieve state", async () => {

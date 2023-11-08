@@ -118,11 +118,14 @@ export class DigestContext {
         return this._snapshots;
     }
 
+    get digestableSnapshots(): Snapshot[] {
+        return this._snapshots.filter(x => x.isDigestable);
+    }
+
     public getAlertableSnapshotsForChannel(
         config: DigestConfiguration,
         channel: ChannelConfig) {
         return this.alertableSnapshots(config)
-            .filter(x => x.isDigestable)
             .filter(x => x.alert?.channels?.some(c => channel.isMatchFor(c)));
     }
 
@@ -192,8 +195,7 @@ export class DigestContext {
     }
 
     public alertableSnapshots(config: DigestConfiguration): Snapshot[] {
-        return this.snapshots
-            .filter(x => x.isDigestable)
+        return this.digestableSnapshots
             .filter(x => !config.muteWindows.some(m => m.isMuted(x.uniqueId)));
     }
 }

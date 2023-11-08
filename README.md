@@ -432,7 +432,7 @@ The `match` regular expression is used to match against the monitor identifier t
 - `identifier` - the name of the failing identifier (example: www.codeo.co.za)
 
 The value is composed as follows: `type|label|identifier`. For example: `web|web-performance|www.codeo.co.za`. The regular expression for match
-will thus be compared against this string value (case insensitive).
+will thus be compared against this string value (case-insensitive).
 
 ### SMS
 

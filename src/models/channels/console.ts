@@ -24,7 +24,13 @@ export class ConsoleChannelConfig extends ChannelConfig {
     sendResolvedAlert(alert: AlertState): Promise<void> {
         const message = `${ this.prefix } ✅ Outage ended at ${ alert.endTime }. Duration was ${ alert.durationHuman }. ${ this.postfix }`.trim();
         console.log(message);
-        return Promise  .resolve();
+        return Promise.resolve();
+    }
+
+    sendMutedAlert(alert: AlertState): Promise<void> {
+        const message = `${ this.prefix } 🔕 Outage muted at ${ alert.endTime }. ${ this.postfix }`.trim();
+        console.log(message);
+        return Promise.resolve();
     }
 
     public async pingAboutOngoingAlert(
