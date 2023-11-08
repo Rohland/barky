@@ -17,7 +17,7 @@ describe("slack", () => {
                         label: "health",
                         identifier: "www.codeo.co.za",
                         success: false,
-                        last_result: "Expected 200, received 500",
+                        last_result: "Expected 200, got 500",
                         alert_config: {
                             links: [
                                 {
@@ -58,7 +58,7 @@ describe("slack", () => {
                     label: "health",
                     identifier: "www.codeo.co.za",
                     success: false,
-                    last_result: "Expected 200, received 500",
+                    last_result: "Expected 200, got 500",
                     alert_config: {
                         links: [
                             {
@@ -105,7 +105,7 @@ describe("slack", () => {
                         label: "health",
                         identifier: "www.codeo.co.za",
                         success: false,
-                        last_result: "Expected 200, received 500",
+                        last_result: "Expected 200, got 500",
                         alert_config: {
                             links: [
                                 {

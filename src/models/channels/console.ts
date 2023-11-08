@@ -28,7 +28,7 @@ export class ConsoleChannelConfig extends ChannelConfig {
     }
 
     sendMutedAlert(alert: AlertState): Promise<void> {
-        const message = `${ this.prefix } 🔕 Alerts muted at ${ alert.endTime }. ${ this.postfix }`.trim();
+        const message = `${ this.prefix } 🔕 Outage muted at ${ alert.endTime }. ${ this.postfix }`.trim();
         console.log(message);
         return Promise.resolve();
     }

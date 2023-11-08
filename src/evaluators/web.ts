@@ -115,7 +115,7 @@ function evaluateResult(
     if (status != expectedStatus) {
         return {
             success: false,
-            msg: `Expected status:${expectedStatus},received ${status}`
+            msg: `Expected status:${expectedStatus}, got ${status}`
         };
     }
 

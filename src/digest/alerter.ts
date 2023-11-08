@@ -86,12 +86,8 @@ async function sendResolvedAlerts(
     alerts: AlertState[],
     config: DigestConfiguration) {
     await Promise.all(alerts.map(async alert => {
-        alert.removeMuted(config.muteWindows);
         alert.resolve();
         if (alert.size === 0) {
-            if (alert.isMuted) {
-                await sendMutedAlert(config, alert);
-            }
             return;
         }
         const channel = config.getChannelConfig(alert.channel);

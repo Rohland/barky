@@ -148,7 +148,8 @@ export class SlackChannelConfig extends ChannelConfig {
                 `✅ <!channel> Previous outage resolved at ${ alert.endTime }. Duration was ${ alert.durationHuman }.\n_See above for more details about affected services._`,
                 alert.state,
                 true
-            )
+            ),
+            this.reactToSlackMessage(alert.state, "white_check_mark")
         ]);
     }
 
@@ -161,7 +162,8 @@ export class SlackChannelConfig extends ChannelConfig {
                 `🔕 <!channel> Affected alerts were muted at ${ alert.endTime }.\n_See above for more details about affected services._`,
                 alert.state,
                 true
-            )
+            ),
+            this.reactToSlackMessage(alert.state, "no_bell")
         ]);
     }
 
@@ -208,6 +210,34 @@ export class SlackChannelConfig extends ChannelConfig {
             const msg = `Error posting to Slack: ${ err.message }`;
             log(msg, err);
             throw new Error(msg);
+        }
+    }
+
+    private async reactToSlackMessage(state: any, reaction: string) {
+        if (!state) {
+            return;
+        }
+        const body = {
+            name: reaction,
+            channel: state?.channel ?? this.channel,
+            timestamp: state.ts
+        };
+        const config = {
+            method: 'post',
+            url: "https://slack.com/api/reactions.add",
+            headers: {
+                'Authorization': `Bearer ${ this.token }`,
+                'Content-type': 'application/json;charset=utf-8',
+                'Accept': '*/*',
+            },
+            data: JSON.stringify(body)
+        };
+        try {
+            const result = await axios.request(config);
+            console.log(result);
+        } catch (err) {
+            const msg = `Error posting to Slack: ${ err.message }`;
+            log(msg, err);
         }
     }
 }
