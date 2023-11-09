@@ -68,7 +68,7 @@ async function tryEvaluate(app: IApp) {
         // @ts-ignore
         errorInfo.response = {
             status: err?.response?.status,
-            data: err?.response.data
+            data: err?.response?.data
         };
         log(`error executing sumo evaluator for '${ app.name }': ${ err.message }`, errorInfo);
         return new MonitorFailureResult(
@@ -157,8 +157,8 @@ async function startSearch(app, log) {
 }
 
 async function isJobComplete(app, log) {
-    const now = +new Date();
-    while (+new Date() - now < app.timeout) {
+    const startTime = +new Date();
+    while (+new Date() - startTime < app.timeout) {
         try {
             const status = await axios.get(`${ SumoUrl }/${ app.jobId }`, getHeaders(app.token));
             if (status.data.state.match(/done gathering results/i)) {
@@ -169,6 +169,13 @@ async function isJobComplete(app, log) {
             await deleteJob(app, log);
             throw err;
         }
+    }
+    const timedOutAfter = +new Date() - startTime;
+    // job failed
+    try {
+        await deleteJob(app, log);
+    } finally {
+        throw new Error(`timed out after ${ timedOutAfter }ms`);
     }
 }
 
