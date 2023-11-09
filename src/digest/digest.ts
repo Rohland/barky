@@ -6,7 +6,7 @@ import { executeAlerts } from "./alerter";
 import { ChannelConfig } from "../models/channels/base";
 import { AlertRule, AlertRuleType } from "../models/alert_configuration";
 import { DigestConfiguration } from "../models/digest";
-import { findMatchingKeyFor } from "../lib/key";
+import { findMatchingKeyFor, findMatchingKeysFor } from "../lib/key";
 import { emitResults } from "../result-emitter";
 
 export async function digest(
@@ -142,7 +142,7 @@ export class DigestContext {
 
     public addSnapshotForResult(result: Result) {
         if (result instanceof SkippedResult) {
-            this.tryFindAndAddExistingSnapshotForSkippedResult(result);
+            this.tryFindAndAddExistingSnapshotsForSkippedResult(result);
             return;
         }
         const data = {
@@ -166,15 +166,15 @@ export class DigestContext {
         } else {
             data.date = existingSnapshot?.date ?? data.date;
         }
-        this.snapshots.push(new Snapshot(data));
+        this._snapshots.push(new Snapshot(data));
     }
 
-    private tryFindAndAddExistingSnapshotForSkippedResult(result: SkippedResult) {
-        const found = findMatchingKeyFor(result, Array.from(this._previousSnapshotLookup.values()));
-        if (!found) {
+    private tryFindAndAddExistingSnapshotsForSkippedResult(result: SkippedResult) {
+        const found = findMatchingKeysFor(result, Array.from(this._previousSnapshotLookup.values()));
+        if (found.length === 0) {
             return;
         }
-        this.snapshots.push(found);
+        this._snapshots.push(...found);
     }
 
     private generateLogLookup(logs: MonitorLog[]): Map<string, MonitorLog[]> {

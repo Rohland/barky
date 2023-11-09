@@ -3,11 +3,9 @@ import { startClock, stopClock } from "../lib/profiler";
 import { renderTemplate } from "../lib/renderer";
 import { MonitorFailureResult, MySqlResult, Result } from "../models/result";
 import { log } from "../models/logger";
-import { EvaluatorResult } from "./types";
 import { getAppVariations, IApp } from "../models/app";
 import { BaseEvaluator, EvaluatorType, findTriggerRulesFor } from "./base";
 import { IUniqueKey } from "../lib/key";
-import { flatten } from "../lib/utility";
 import { IRule } from "../models/trigger";
 
 export class MySqlEvaluator extends BaseEvaluator {
@@ -29,17 +27,8 @@ export class MySqlEvaluator extends BaseEvaluator {
         });
     }
 
-    public async evaluate(): Promise<EvaluatorResult> {
-        const apps = this.getAppsToEvaluate();
-        try {
-            const results = flatten(await Promise.all(apps.map(app => tryEvaluate(app))));
-            return {
-                results,
-                apps
-            };
-        } finally {
-            await disposeConnections();
-        }
+    async tryEvaluate(app: IApp) {
+        return await tryEvaluate(app);
     }
 
     protected generateSkippedAppUniqueKey(name: string): IUniqueKey {
@@ -49,9 +38,13 @@ export class MySqlEvaluator extends BaseEvaluator {
             identifier: "*" // when skipped, we want to match all identifiers under the type:label
         };
     }
+
+    protected async dispose(): Promise<void> {
+        await disposeConnections();
+    }
 }
 
-async function tryEvaluate(app): Promise<Result | Result[]> {
+async function tryEvaluate(app: IApp): Promise<Result | Result[]> {
     try {
         const connection = await getConnection(app);
         const timer = startClock();

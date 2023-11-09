@@ -2,7 +2,6 @@ import axios from "axios";
 import { startClock, stopClock } from "../lib/profiler";
 import { MonitorFailureResult, WebResult } from "../models/result";
 import { log } from "../models/logger";
-import { EvaluatorResult } from "./types";
 import { getAppVariations, IApp } from "../models/app";
 import { BaseEvaluator, EvaluatorType } from "./base";
 import { IUniqueKey } from "../lib/key";
@@ -16,13 +15,8 @@ export class WebEvaluator extends BaseEvaluator {
         return EvaluatorType.web;
     }
 
-    async evaluate(): Promise<EvaluatorResult> {
-        const apps = this.getAppsToEvaluate();
-        const results = await Promise.all(apps.map(app => tryEvaluate(app)));
-        return {
-            results,
-            apps
-        };
+    async tryEvaluate(app: IApp) {
+        return await tryEvaluate(app);
     }
 
     configureAndExpandApp(app: IApp, name: string): IApp[] {
@@ -40,6 +34,11 @@ export class WebEvaluator extends BaseEvaluator {
             label: "*", // when skipped, we match on type:*:identifier (label is always set to health in any case)
             identifier: name
         };
+    }
+
+
+    protected async dispose(): Promise<void> {
+        return;
     }
 }
 

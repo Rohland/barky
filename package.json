@@ -1,6 +1,6 @@
 {
   "name": "barky",
-  "version": "1.0.51",
+  "version": "1.0.52",
   "description": "A simple cloud services watchdog with digest notification support & no external dependencies",
   "homepage": "https://github.com/Rohland/barky#readme",
   "main": "dist/cli.js",

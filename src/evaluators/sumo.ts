@@ -5,7 +5,6 @@ import { MonitorFailureResult, SumoResult } from "../models/result";
 import { startClock, stopClock } from "../lib/profiler";
 import { renderTemplate } from "../lib/renderer";
 import { log } from "../models/logger";
-import { EvaluatorResult } from "./types";
 import { getAppVariations, IApp } from "../models/app";
 import { BaseEvaluator, EvaluatorType, findTriggerRulesFor } from "./base";
 import { IUniqueKey } from "../lib/key";
@@ -34,13 +33,8 @@ export class SumoEvaluator extends BaseEvaluator {
         });
     }
 
-    async evaluate(): Promise<EvaluatorResult> {
-        const apps = this.getAppsToEvaluate();
-        const results = await Promise.all(apps.map(app => tryEvaluate(app)));
-        return {
-            results,
-            apps
-        };
+    async tryEvaluate(app: IApp) {
+        return await tryEvaluate(app);
     }
 
     protected generateSkippedAppUniqueKey(name: string): IUniqueKey {
@@ -50,9 +44,13 @@ export class SumoEvaluator extends BaseEvaluator {
             identifier: "*" // when skipped, we want to match all identifiers under the type:label
         };
     }
+
+    protected async dispose(): Promise<void> {
+        return;
+    }
 }
 
-async function tryEvaluate(app) {
+async function tryEvaluate(app: IApp) {
     try {
         const timer = startClock();
         app.jobId = await startSearch(app, log);

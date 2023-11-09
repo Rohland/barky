@@ -233,8 +233,7 @@ export class SlackChannelConfig extends ChannelConfig {
             data: JSON.stringify(body)
         };
         try {
-            const result = await axios.request(config);
-            console.log(result);
+            await axios.request(config);
         } catch (err) {
             const msg = `Error posting to Slack: ${ err.message }`;
             log(msg, err);

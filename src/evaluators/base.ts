@@ -7,6 +7,7 @@ import { LoopMs } from "../loop";
 import { IUniqueKey } from "../lib/key";
 import { DefaultTrigger, IRule } from "../models/trigger";
 import { DayAndTimeEvaluator } from "../lib/time";
+import { MonitorFailureResult, Result } from "../models/result";
 
 const executionCounter = new Map<string, number>();
 
@@ -30,14 +31,70 @@ export abstract class BaseEvaluator {
     }
 
     public async evaluateApps(): Promise<EvaluatorResult> {
-        const results = await this.evaluate();
-        results.skippedApps = this._skippedApps;
-        return results;
+        try {
+            const results = await this.evaluate();
+            results.skippedApps ||= [];
+            results.skippedApps.push(...(this.skippedApps || []));
+            const appResults = results.results;
+            const apps = results.apps;
+            apps.forEach(app => {
+                const hasResultOrWasSkipped =
+                    appResults.find(x => x.label === app.name)
+                    || results.skippedApps.find(x => x.name === app.name);
+                if (!hasResultOrWasSkipped) {
+                    log(`No result found for app ${ app.name }`);
+                    results.skippedApps.push({
+                        ...app,
+                        ...this.generateSkippedAppUniqueKey(app.name)
+                    });
+                }
+            });
+            return results;
+        } finally {
+            if (typeof this.dispose === "function") {
+                await this.dispose();
+            }
+        }
     }
 
-    protected abstract evaluate(): Promise<EvaluatorResult>;
+    public async evaluate(): Promise<EvaluatorResult> {
+        const apps = this.getAppsToEvaluate();
+        const results = await Promise.allSettled(apps.map(async app => {
+            try {
+                return await this.tryEvaluate(app)
+            } catch(err) {
+                try {
+                    const errorInfo = new Error(err.message);
+                    errorInfo.stack = err.stack;
+                    // @ts-ignore
+                    errorInfo.response = {
+                        status: err?.response?.status,
+                        data: err?.response.data
+                    };
+                    log(`error executing ${ app.type } evaluator for '${ app.name }': ${ err.message }`, errorInfo);
+                } catch {
+                    // no-op
+                }
+                return new MonitorFailureResult(
+                    app.type,
+                    app.name,
+                    err.message,
+                    app);
+            }
+        }));
+        // see above - we don't expect any failures, as we catch errors
+        const values = results.map(x => x.status === "fulfilled" ? x.value : null).filter(x => !!x);
+        return {
+            results: values.flat(),
+            apps
+        };
+    }
+
+    protected abstract tryEvaluate(app: IApp): Promise<Result | Result []>;
 
     protected abstract generateSkippedAppUniqueKey(name: string): IUniqueKey;
+
+    protected abstract dispose(): Promise<void>;
 
     abstract configureAndExpandApp(app: IApp, name: string): IApp[];
 
