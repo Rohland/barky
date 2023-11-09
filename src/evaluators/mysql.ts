@@ -42,6 +42,10 @@ export class MySqlEvaluator extends BaseEvaluator {
     protected async dispose(): Promise<void> {
         await disposeConnections();
     }
+
+    protected isResultForApp(app: IApp, result: Result): boolean {
+        return app.name === result.label;
+    }
 }
 
 async function tryEvaluate(app: IApp): Promise<Result | Result[]> {

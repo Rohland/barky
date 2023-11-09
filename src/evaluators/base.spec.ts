@@ -382,6 +382,10 @@ describe("base evaluator", () => {
             protected async tryEvaluate(_app: IApp): Promise<Result | Result[]> {
                 return [];
             }
+
+            protected isResultForApp(app: IApp, result: Result): boolean {
+                return app.name === result.label;
+            }
         }
 
         describe("when results are emitted", () => {
@@ -491,6 +495,10 @@ class CustomEvaluator extends BaseEvaluator {
 
     protected tryEvaluate(_app: IApp): Promise<Result | Result[]> {
         return Promise.resolve(undefined);
+    }
+
+    protected isResultForApp(app: IApp, result: Result): boolean {
+        return app.name === result.label;
     }
 
 }

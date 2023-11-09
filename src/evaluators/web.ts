@@ -1,6 +1,6 @@
 import axios from "axios";
 import { startClock, stopClock } from "../lib/profiler";
-import { MonitorFailureResult, WebResult } from "../models/result";
+import { MonitorFailureResult, Result, WebResult } from "../models/result";
 import { log } from "../models/logger";
 import { getAppVariations, IApp } from "../models/app";
 import { BaseEvaluator, EvaluatorType } from "./base";
@@ -39,6 +39,11 @@ export class WebEvaluator extends BaseEvaluator {
 
     protected async dispose(): Promise<void> {
         return;
+    }
+
+
+    protected isResultForApp(app: IApp, result: Result): boolean {
+        return app.name === result.identifier;
     }
 }
 

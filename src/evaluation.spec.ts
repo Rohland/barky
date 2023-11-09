@@ -95,12 +95,12 @@ describe("evaluation", () => {
         describe("when called", () => {
             it("should execute evaluation and include ping info", async () => {
                 // arrange
-                const result = new WebResult(new Date(), "health", "wwww.codeo.co.za", "FAIL", "500", "500", 1, null);
+                const result = new WebResult(new Date(), "health", "www.codeo.co.za", "FAIL", "500", "500", 1, null);
                 const type = new WebEvaluator({});
                 type.evaluate = jest.fn().mockResolvedValue({
                     apps: [{
                         type: "web",
-                        name: "health"
+                        name: "www.codeo.co.za"
                     }],
                     results: [result]
                 });

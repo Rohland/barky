@@ -1,7 +1,7 @@
 import axios from "axios";
 import { parsePeriodRange } from "../lib/period-parser";
 import { sleepMs } from "../lib/sleep";
-import { MonitorFailureResult, SumoResult } from "../models/result";
+import { MonitorFailureResult, Result, SumoResult } from "../models/result";
 import { startClock, stopClock } from "../lib/profiler";
 import { renderTemplate } from "../lib/renderer";
 import { log } from "../models/logger";
@@ -47,6 +47,10 @@ export class SumoEvaluator extends BaseEvaluator {
 
     protected async dispose(): Promise<void> {
         return;
+    }
+
+    protected isResultForApp(app: IApp, result: Result): boolean {
+        return app.name === result.label;
     }
 }
 

@@ -39,7 +39,7 @@ export abstract class BaseEvaluator {
             const apps = results.apps;
             apps.forEach(app => {
                 const hasResultOrWasSkipped =
-                    appResults.find(x => x.label === app.name)
+                    appResults.find(result => this.isResultForApp(app, result))
                     || results.skippedApps.find(x => x.name === app.name);
                 if (!hasResultOrWasSkipped) {
                     log(`No result found for app ${ app.name }`);
@@ -56,6 +56,8 @@ export abstract class BaseEvaluator {
             }
         }
     }
+
+    protected abstract isResultForApp(app: IApp, result: Result): boolean;
 
     public async evaluate(): Promise<EvaluatorResult> {
         const apps = this.getAppsToEvaluate();
