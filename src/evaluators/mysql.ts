@@ -17,8 +17,8 @@ export class MySqlEvaluator extends BaseEvaluator {
         return EvaluatorType.mysql;
     }
 
-    configureAndExpandApp(app: IApp, name: string): IApp[] {
-        return getAppVariations(app, name).map(variant => {
+    configureAndExpandApp(app: IApp): IApp[] {
+        return getAppVariations(app).map(variant => {
             return {
                 timeout: 15000,
                 ...app,
@@ -54,7 +54,17 @@ async function tryEvaluate(app: IApp): Promise<Result | Result[]> {
         const timer = startClock();
         const results = await runQuery(connection, app);
         app.timeTaken = stopClock(timer);
-        return validateResults(app, results);
+        const finalResults = validateResults(app, results);
+        return finalResults.length > 0
+            ? finalResults
+            : new MySqlResult( // no results from mysql means OK for all identifiers!
+                app.name,
+                "*",
+                "inferred",
+                "OK",
+                app.timeTaken,
+                true,
+                app);
     } catch (err) {
         log(`Error evaluating app ${ app.name }: ${ err.message }`, err);
         return new MonitorFailureResult(
@@ -65,7 +75,7 @@ async function tryEvaluate(app: IApp): Promise<Result | Result[]> {
     }
 }
 
-export function validateResults(app, results): Result[] {
+export function validateResults(app: IApp, results: Result[]): Result[] {
     return results.map(row => {
         const identifier = row[app.identifier] ?? app.identifier;
         const rules = findTriggerRulesFor(identifier, app);
@@ -73,7 +83,7 @@ export function validateResults(app, results): Result[] {
     });
 }
 
-function generateVariablesAndValues(row, app) {
+function generateVariablesAndValues(row, app: IApp) {
     const variables = Object.keys(row).filter(x => x !== app.identifier);
     const values = {};
     const emit: Array<string> = app.emit ?? [];
@@ -87,8 +97,8 @@ function generateVariablesAndValues(row, app) {
 }
 
 export function validateRow(
-    app,
-    identifier,
+    app: IApp,
+    identifier: string,
     row,
     rules: IRule[]): MySqlResult {
     if (!rules || rules.length === 0) {

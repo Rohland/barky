@@ -98,7 +98,7 @@ export abstract class BaseEvaluator {
 
     protected abstract dispose(): Promise<void>;
 
-    abstract configureAndExpandApp(app: IApp, name: string): IApp[];
+    abstract configureAndExpandApp(app: IApp): IApp[];
 
     abstract get type(): EvaluatorType;
 
@@ -115,10 +115,11 @@ export abstract class BaseEvaluator {
         const apps = [];
         for (let name of appNames) {
             const app = this.config[name];
-            const expanded = this.configureAndExpandApp(app, name);
+            app.name ??= name;
+            const expanded = this.configureAndExpandApp(app);
             expanded.forEach(x => {
                 x.type = this.type;
-                if (this.shouldEvaluateApp(x, name)) {
+                if (this.shouldEvaluateApp(x)) {
                     apps.push(x);
                 }
             });
@@ -128,23 +129,21 @@ export abstract class BaseEvaluator {
         return expanded;
     }
 
-    private shouldEvaluateApp(
-        app: IApp,
-        name: string): boolean {
+    private shouldEvaluateApp(app: IApp): boolean {
         if (!app.every) {
             return true;
         }
         const durationMs = parsePeriodToSeconds(app.every) * 1000;
         const everyCount = Math.round(durationMs / LoopMs);
-        const key = `${ this.type }-${ name }`;
+        const key = `${ this.type }-${ app.name }`;
         const count = executionCounter.get(key) ?? 0;
         const shouldEvaluate = count % everyCount === 0;
         executionCounter.set(key, count + 1);
         if (!shouldEvaluate) {
-            log(`skipping ${ this.type } check for '${ name }' - every set to: ${ app.every }`);
+            log(`skipping ${ this.type } check for '${ app.name }' - every set to: ${ app.every }`);
             this.skippedApps.push({
                 ...app,
-                ...this.generateSkippedAppUniqueKey(name)
+                ...this.generateSkippedAppUniqueKey(app.name)
             });
         }
         return shouldEvaluate;

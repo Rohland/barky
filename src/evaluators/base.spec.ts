@@ -39,6 +39,46 @@ describe("base evaluator", () => {
                 });
             });
         });
+        describe("when app is missing name", () => {
+            it("should use inferred name by key", async () => {
+                // arrange
+                const myApp = {};
+                const config = {
+                    ["web"]: {
+                        myApp
+                    }
+                };
+                const e = new WebEvaluator(config);
+
+                // act
+                const apps = e.getAppsToEvaluate()
+
+                // assert
+                expect(apps.length).toEqual(1);
+                expect(apps[0].name).toEqual("myApp");
+            });
+        });
+        describe("when app is not missing name", () => {
+            it("should use name", async () => {
+                // arrange
+                const myApp = {
+                    name: "test"
+                };
+                const config = {
+                    ["web"]: {
+                        myApp
+                    }
+                };
+                const e = new WebEvaluator(config);
+
+                // act
+                const apps = e.getAppsToEvaluate()
+
+                // assert
+                expect(apps.length).toEqual(1);
+                expect(apps[0].name).toEqual("test");
+            });
+        });
     });
 
     describe("given an evaluator", () => {
@@ -57,9 +97,9 @@ describe("base evaluator", () => {
                 const apps3 = evaluator.getAppsToEvaluate();
 
                 // assert
-                expect(apps1).toEqual([{ type: "custom" }]);
-                expect(apps2).toEqual([{ type: "custom" }]);
-                expect(apps3).toEqual([{ type: "custom" }]);
+                expect(apps1).toEqual([{ type: "custom", name: "app1" }]);
+                expect(apps2).toEqual([{ type: "custom", name: "app1" }]);
+                expect(apps3).toEqual([{ type: "custom", name: "app1" }]);
                 expect(evaluator.skippedApps).toEqual([]);
             });
         });
@@ -351,7 +391,7 @@ describe("base evaluator", () => {
                 this.results.push(result);
             }
 
-            configureAndExpandApp(_app: IApp, _name: string): IApp[] {
+            configureAndExpandApp(_app: IApp): IApp[] {
                 return [];
             }
 
@@ -469,7 +509,7 @@ class CustomEvaluator extends BaseEvaluator {
         super(config);
     }
 
-    configureAndExpandApp(app: IApp, _name: string): IApp[] {
+    configureAndExpandApp(app: IApp): IApp[] {
         return [app];
     }
 

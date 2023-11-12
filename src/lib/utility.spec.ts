@@ -1,4 +1,12 @@
-import { flatten, hash, initLocaleAndTimezone, isToday, shortHash, toLocalTimeString } from "./utility";
+import {
+    flatten,
+    hash,
+    initLocaleAndTimezone,
+    isToday,
+    shortHash,
+    toLocalTimeString,
+    tryExecuteTimes
+} from "./utility";
 
 describe("utility functions", () => {
     describe("flatten", () => {
@@ -194,6 +202,59 @@ describe("utility functions", () => {
                 // assert
                 expect(hashes[0]).toEqual(hashes[1]);
                 expect(hashes[0]).toEqual(hashes[2]);
+            });
+        });
+    });
+
+    describe("tryExecuteTimes", () => {
+        describe("on success", () => {
+            it("should return", async () => {
+                // arrange
+                const func = jest.fn().mockResolvedValue("ok");
+
+                // act
+                const result = await tryExecuteTimes("test", 3, func);
+
+                // assert
+                expect(func).toHaveBeenCalledTimes(1);
+                expect(result).toEqual("ok");
+            });
+        });
+        describe("on failure but then success", () => {
+            it("should return success", async () => {
+                // arrange
+                const func = jest.fn().mockRejectedValueOnce(new Error("test")).mockResolvedValue("ok");
+
+                // act
+                const result = await tryExecuteTimes("test", 3, func);
+
+                // assert
+                expect(func).toHaveBeenCalledTimes(2);
+                expect(result).toEqual("ok");
+            });
+        });
+        describe("on successive failure", () => {
+            it("should retry the number of times and throw", async () => {
+                // arrange
+                const func = jest.fn().mockRejectedValue(new Error("test"));
+
+                // act
+                await expect(tryExecuteTimes("test", 3, func)).rejects.toThrow("test");
+
+                // assert
+                expect(func).toHaveBeenCalledTimes(3);
+            });
+            describe("with throw set to false", () => {
+                it("should not throw", async () => {
+                    // arrange
+                    const func = jest.fn().mockRejectedValue(new Error("test"));
+
+                    // act
+                    await tryExecuteTimes("test", 3, func, false, 0);
+
+                    // assert
+                    expect(func).toHaveBeenCalledTimes(3);
+                });
             });
         });
     });

@@ -22,8 +22,8 @@ export class SumoEvaluator extends BaseEvaluator {
         return EvaluatorType.sumo;
     }
 
-    configureAndExpandApp(app: IApp, name: string): IApp[] {
-        return getAppVariations(app, name).map(variant => {
+    configureAndExpandApp(app: IApp): IApp[] {
+        return getAppVariations(app).map(variant => {
             return {
                 timeout: 10000,
                 ...app,

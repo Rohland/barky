@@ -19,8 +19,8 @@ export class WebEvaluator extends BaseEvaluator {
         return await tryEvaluate(app);
     }
 
-    configureAndExpandApp(app: IApp, name: string): IApp[] {
-        return getAppVariations(app, name).map(variant => {
+    configureAndExpandApp(app: IApp): IApp[] {
+        return getAppVariations(app).map(variant => {
             return {
                 ...app,
                 ...variant

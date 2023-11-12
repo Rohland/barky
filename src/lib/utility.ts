@@ -1,4 +1,6 @@
 import * as crypto from "crypto";
+import { log } from "../models/logger";
+import { sleepMs } from "./sleep";
 
 Error.stackTraceLimit = Infinity;
 
@@ -94,4 +96,28 @@ export function shortHash(key: string) {
         })
         .update(key ?? "")
         .digest("hex");
+}
+
+export async function tryExecuteTimes<T>(
+    label: string,
+    times: number,
+    func: () => Promise<T>,
+    throwOnEventualFailure: boolean = true,
+    delayBetweenAttempts: number = 500): Promise<T> {
+    let counter = 0;
+    let lastError = null;
+    while(counter++ < times) {
+        try {
+            return await func();
+        } catch(err) {
+            const msg = `Error ${ label }: ${ err.message }`;
+            log(msg, err);
+            lastError = err;
+        }
+        await sleepMs(delayBetweenAttempts);
+    }
+    if (throwOnEventualFailure && lastError) {
+        throw lastError;
+    }
+    return null;
 }

@@ -2,9 +2,8 @@ import { Snapshot } from "../snapshot";
 import { AlertState } from "../alerts";
 import { ChannelConfig, ChannelType } from "./base";
 import axios from "axios";
-import { pluraliseWithS, toLocalTimeString } from "../../lib/utility";
+import { pluraliseWithS, toLocalTimeString, tryExecuteTimes } from "../../lib/utility";
 import { AlertConfiguration } from "../alert_configuration";
-import { log } from "../logger";
 
 export class SlackChannelConfig extends ChannelConfig {
     public channel: string;
@@ -171,72 +170,73 @@ export class SlackChannelConfig extends ChannelConfig {
         message: string,
         state?: any,
         reply: boolean = false): Promise<any> {
-        const body = {
-            channel: state?.channel ?? this.channel,
-            text: message,
-            unfurl_links: false
-        };
-        const postMessageUrl = "https://slack.com/api/chat.postMessage";
-        const updateMessageUrl = "https://slack.com/api/chat.update";
-        let url = postMessageUrl;
-        if (reply && state?.ts) {
-            body["thread_ts"] = state.ts;
-        } else {
-            body["ts"] = state?.ts;
-            if (state) {
-                url = updateMessageUrl;
-            }
-        }
-        const config = {
-            method: 'post',
-            url,
-            headers: {
-                'Authorization': `Bearer ${ this.token }`,
-                'Content-type': 'application/json;charset=utf-8',
-                'Accept': '*/*',
-            },
-            data: JSON.stringify(body)
-        };
-        try {
-            const result = await axios.request(config);
-            if (result.data?.error) {
-                throw new Error(result.data.error);
-            }
-            return {
-                channel: result.data.channel,
-                ts: result.data.ts
-            };
-        } catch (err) {
-            const msg = `Error posting to Slack: ${ err.message }`;
-            log(msg, err);
-            throw new Error(msg);
-        }
+        return await tryExecuteTimes(
+            `posting to slack`,
+            3,
+            async () => {
+                const body = {
+                    channel: state?.channel ?? this.channel,
+                    text: message,
+                    unfurl_links: false
+                };
+                const postMessageUrl = "https://slack.com/api/chat.postMessage";
+                const updateMessageUrl = "https://slack.com/api/chat.update";
+                let url = postMessageUrl;
+                if (reply && state?.ts) {
+                    body["thread_ts"] = state.ts;
+                } else {
+                    body["ts"] = state?.ts;
+                    if (state) {
+                        url = updateMessageUrl;
+                    }
+                }
+                const config = {
+                    method: 'post',
+                    url,
+                    headers: {
+                        'Authorization': `Bearer ${ this.token }`,
+                        'Content-type': 'application/json;charset=utf-8',
+                        'Accept': '*/*',
+                    },
+                    data: JSON.stringify(body)
+                };
+                const result = await axios.request(config);
+                if (result.data?.error) {
+                    throw new Error(result.data.error);
+                }
+                return {
+                    channel: result.data.channel,
+                    ts: result.data.ts
+                };
+            });
     }
 
     private async reactToSlackMessage(state: any, reaction: string) {
         if (!state) {
             return;
         }
-        const body = {
-            name: reaction,
-            channel: state?.channel ?? this.channel,
-            timestamp: state.ts
-        };
-        const config = {
-            method: 'post',
-            url: "https://slack.com/api/reactions.add",
-            headers: {
-                'Authorization': `Bearer ${ this.token }`,
-                'Content-type': 'application/json;charset=utf-8',
-                'Accept': '*/*',
+        return await tryExecuteTimes(
+            `reacting to slack message with ${ reaction }`,
+            3,
+            async () => {
+                const body = {
+                    name: reaction,
+                    channel: state?.channel ?? this.channel,
+                    timestamp: state.ts
+                };
+                const config = {
+                    method: 'post',
+                    url: "https://slack.com/api/reactions.add",
+                    headers: {
+                        'Authorization': `Bearer ${ this.token }`,
+                        'Content-type': 'application/json;charset=utf-8',
+                        'Accept': '*/*',
+                    },
+                    data: JSON.stringify(body)
+                };
+                await axios.request(config);
             },
-            data: JSON.stringify(body)
-        };
-        try {
-            await axios.request(config);
-        } catch (err) {
-            const msg = `Error posting to Slack: ${ err.message }`;
-            log(msg, err);
-        }
+            false);
+
     }
 }
