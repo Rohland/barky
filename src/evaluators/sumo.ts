@@ -61,7 +61,17 @@ async function tryEvaluate(app: IApp) {
         await isJobComplete(app, log);
         const results = await getSearchResult(app, log);
         app.timeTaken = stopClock(timer);
-        return validateResults(app, results, log);
+        const finalResults = validateResults(app, results, log);
+        return finalResults.length > 0
+            ? finalResults
+            : new SumoResult( // no result means OK for all identifiers!
+                app.name,
+                "*",
+                "inferred",
+                "OK",
+                app.timeTaken,
+                true,
+                app);
     } catch (err) {
         const errorInfo = new Error(err.message);
         errorInfo.stack = err.stack;
@@ -79,12 +89,12 @@ async function tryEvaluate(app: IApp) {
     }
 }
 
-function validateResults(app, data, log) {
+function validateResults(app: IApp, data, log) {
     const entries = data.records?.map(x => x.map);
     return entries.map(x => validateEntry(app, x, log));
 }
 
-function validateEntry(app, entry, _log) {
+function validateEntry(app: IApp, entry, _log) {
     const identifier = entry[app.identifier];
     if (!identifier) {
         throw new Error(`expected to find identifier field in result set named: ${ app.identifier }`);
