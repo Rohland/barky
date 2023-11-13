@@ -8,6 +8,13 @@ export function uniqueKey(item: IUniqueKey) {
     return [item.type, item.label, item.identifier].join("|");
 }
 
+export function hasWildcard(item: IUniqueKey) {
+    if (!item) {
+        return false;
+    }
+    return item.type === "*" || item.label === "*" || item.identifier === "*";
+}
+
 export function explodeUniqueKey(key: string): IUniqueKey {
     const parts = key.split("|");
     return {

@@ -43,16 +43,16 @@ describe("result", () => {
     });
 });
 
-export function getTestResult()  {
+export function getTestResult(success: boolean = false)  {
     return new Result(
         new Date(),
         "web",
         "health",
         "www.codeo.co.za",
-        false,
-        "FAIL",
+        success,
+        success? "OK": "FAIL",
         0,
-        false,
+        success,
         {
             alert: {
                 channels: ["console"]

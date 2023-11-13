@@ -6,7 +6,14 @@ import { executeAlerts } from "./alerter";
 import { ChannelConfig } from "../models/channels/base";
 import { AlertRule, AlertRuleType } from "../models/alert_configuration";
 import { DigestConfiguration } from "../models/digest";
-import { findMatchingKeyFor, findMatchingKeysFor } from "../lib/key";
+import {
+    explodeUniqueKey,
+    findMatchingKeyFor,
+    findMatchingKeysFor,
+    hasWildcard,
+    IUniqueKey,
+    uniqueKey
+} from "../lib/key";
 import { emitResults } from "../result-emitter";
 
 export async function digest(
@@ -190,8 +197,12 @@ export class DigestContext {
         return map;
     }
 
-    public getLogsFor(uniqueId: string) {
-        return this._logMap.get(uniqueId) ?? [];
+    public getLogsFor(key: IUniqueKey) {
+        if (hasWildcard(key)) {
+            const keys = findMatchingKeysFor(key, Array.from(this._logMap.keys()).map(x => explodeUniqueKey(x)));
+            return keys.flatMap(x => this._logMap.get(uniqueKey(x)) ?? []);
+        }
+        return this._logMap.get(uniqueKey(key)) ?? [];
     }
 
     public alertableSnapshots(config: DigestConfiguration): Snapshot[] {
@@ -203,7 +214,7 @@ export class DigestContext {
 export function evaluateNewResult(
     result: Result,
     context: DigestContext) {
-    const previousLogs = context.getLogsFor(result.uniqueId);
+    const previousLogs = context.getLogsFor(result);
     const rule = result.findFirstValidRule();
     if (rule.isNotValidNow) {
         result.clearAlert();

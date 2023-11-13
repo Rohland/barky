@@ -17,8 +17,8 @@ export class Snapshot implements IUniqueKey {
     public readonly type: string;
     public readonly label: string;
     public readonly identifier: string;
-    public readonly last_result: string;
-    public readonly success: Boolean;
+    public last_result: string;
+    public success: Boolean;
     public date: Date;
     public alert_config: any;
     public alert: AlertConfiguration;
