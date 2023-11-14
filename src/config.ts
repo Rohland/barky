@@ -41,10 +41,10 @@ function getAndValidateConfigFileInfo(fileName) {
 }
 
 function getConfigurationFromFile(
-    file,
+    file: string,
     fileInfo: { fileName: string; filePath: string }) {
     try {
-        return YAML.parse(file);
+        return tagConfigsWithFileMetaData(YAML.parse(file), fileInfo.filePath, true);
     } catch (err) {
         const error = `invalid yaml definition in file '${ fileInfo.filePath }'`;
         log(`error: ${ error }`);
@@ -64,10 +64,31 @@ function explodeImports(env, fileInfo: { fileName: string; filePath: any }) {
         Object.keys(EvaluatorType).forEach(type => {
             if (importConfig.env[type]) {
                 env[type] ??= {};
-                Object.assign(env[type], importConfig.env[type]);
+                Object.assign(env[type], tagConfigsWithFileMetaData(importConfig.env[type], importPath, false));
             }
         })
     });
+}
+
+function tagConfigsWithFileMetaData(config: any, path: string, isRootFile: boolean) {
+    if (!config) {
+        return null;
+    }
+    const tagWhiteList = new Map(Object.keys(EvaluatorType).map(x => [x, true]));
+    for (const key in config) {
+        const item = config[key];
+        if (typeof item === "object" && !Array.isArray(item)) {
+            if (isRootFile) {
+                if (tagWhiteList.has(key))
+                {
+                    tagConfigsWithFileMetaData(item, path, false);
+                }
+                continue;
+            }
+            item.__configPath = path;
+        }
+    }
+    return config;
 }
 
 export function getConfig(args) {

@@ -2,7 +2,7 @@ import axios from "axios";
 import { startClock, stopClock } from "../lib/profiler";
 import { MonitorFailureResult, Result, WebResult } from "../models/result";
 import { log } from "../models/logger";
-import { getAppVariations, IApp } from "../models/app";
+import { IApp } from "../models/app";
 import { BaseEvaluator, EvaluatorType } from "./base";
 import { IUniqueKey } from "../lib/key";
 
@@ -19,14 +19,7 @@ export class WebEvaluator extends BaseEvaluator {
         return await tryEvaluate(app);
     }
 
-    configureAndExpandApp(app: IApp): IApp[] {
-        return getAppVariations(app).map(variant => {
-            return {
-                ...app,
-                ...variant
-            };
-        });
-    }
+    configureApp(_app: IApp) {}
 
     protected generateSkippedAppUniqueKey(name: string): IUniqueKey {
         return {
@@ -36,11 +29,9 @@ export class WebEvaluator extends BaseEvaluator {
         };
     }
 
-
     protected async dispose(): Promise<void> {
         return;
     }
-
 
     protected isResultForApp(app: IApp, result: Result): boolean {
         return app.name === result.identifier;

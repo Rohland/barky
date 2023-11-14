@@ -1,10 +1,9 @@
 import mysql from "mysql2/promise";
-import { startClock, stopClock } from "../lib/profiler";
 import { renderTemplate } from "../lib/renderer";
 import { MonitorFailureResult, MySqlResult, Result } from "../models/result";
 import { log } from "../models/logger";
-import { getAppVariations, IApp } from "../models/app";
-import { BaseEvaluator, EvaluatorType, findTriggerRulesFor } from "./base";
+import { IApp } from "../models/app";
+import { BaseEvaluator, EvaluatorType, findTriggerRulesFor, generateValueForVariable } from "./base";
 import { IUniqueKey } from "../lib/key";
 import { IRule } from "../models/trigger";
 
@@ -17,14 +16,8 @@ export class MySqlEvaluator extends BaseEvaluator {
         return EvaluatorType.mysql;
     }
 
-    configureAndExpandApp(app: IApp): IApp[] {
-        return getAppVariations(app).map(variant => {
-            return {
-                timeout: 15000,
-                ...app,
-                ...variant,
-            };
-        });
+    public configureApp(app: IApp) {
+        app.timeout ??= 15000;
     }
 
     async tryEvaluate(app: IApp) {
@@ -51,9 +44,7 @@ export class MySqlEvaluator extends BaseEvaluator {
 async function tryEvaluate(app: IApp): Promise<Result | Result[]> {
     try {
         const connection = await getConnection(app);
-        const timer = startClock();
         const results = await runQuery(connection, app);
-        app.timeTaken = stopClock(timer);
         const finalResults = validateResults(app, results);
         return finalResults.length > 0
             ? finalResults
@@ -62,7 +53,7 @@ async function tryEvaluate(app: IApp): Promise<Result | Result[]> {
                 "*",
                 "inferred",
                 "OK",
-                app.timeTaken,
+                0,
                 true,
                 app);
     } catch (err) {
@@ -139,16 +130,6 @@ function convertRowValuesToInferredType(entry) {
         const isInt = valueAsInt == valueAsFloat;
         entry[key] = isInt ? valueAsInt : valueAsFloat.toFixed(3);
     });
-}
-
-function generateValueForVariable(value) {
-    const valueAsNumber = parseFloat(value);
-    const isNumber = !Number.isNaN(valueAsNumber);
-    if (isNumber) {
-        return valueAsNumber.toFixed(3);
-    } else {
-        return `'${ value }'`;
-    }
 }
 
 async function runQuery(connection: mysql.Connection, app) {

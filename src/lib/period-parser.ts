@@ -21,6 +21,10 @@ export function parsePeriod(input): Date {
     return applyDurationToDate(new Date(), value, unit);
 }
 
+export function parsePeriodToMillis(input): number {
+    return +parsePeriod(input) - +new Date();
+}
+
 export function parsePeriodToSeconds(input): number {
     const millis = +parsePeriod(input) - +new Date();
     return millis / 1000;

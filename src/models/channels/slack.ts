@@ -4,6 +4,7 @@ import { ChannelConfig, ChannelType } from "./base";
 import axios from "axios";
 import { pluraliseWithS, toLocalTimeString, tryExecuteTimes } from "../../lib/utility";
 import { AlertConfiguration } from "../alert_configuration";
+import * as os from "os";
 
 export class SlackChannelConfig extends ChannelConfig {
     public channel: string;
@@ -61,9 +62,14 @@ export class SlackChannelConfig extends ChannelConfig {
             parts.push(this.summary);
             parts.push("");
         }
-        parts.push(`_Last Updated: ${ toLocalTimeString(new Date()) }_`);
+        this.tagWithLastUpdated(parts);
         parts.push(this.postfix);
         return parts.join("\n");
+    }
+
+
+    private tagWithLastUpdated(parts: any[]) {
+        parts.push(`_Last Updated: *${ toLocalTimeString(new Date()) }* by ${ os.hostname() }_`);
     }
 
     private _generateHeader(alert: AlertState) {
@@ -104,7 +110,7 @@ export class SlackChannelConfig extends ChannelConfig {
             });
             parts.push("");
         }
-        parts.push(`_Last Updated: ${ toLocalTimeString(new Date()) }_`);
+        this.tagWithLastUpdated(parts);
         parts.push(this.postfix);
         return parts.join("\n");
     }

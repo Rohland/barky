@@ -1,102 +1,40 @@
-import { getAppVariations } from "./app";
+import { AppVariant } from "./app";
 
-describe("getVariations", () => {
-    describe("with no vary-by", () => {
+describe("AppVariant", () => {
+    describe("with variant", () => {
         describe.each([
-            [null],
-            [undefined],
-            [],
-            [""]
-        ])(`when given %s`, (varyBy) => {
-            it("should return app as is", async () => {
-                // arrange
-                const app = {
-                    name: "codeo.co.za",
-                    url: "https://www.codeo.co.za",
-                    "vary-by": varyBy
-                };
+            ["name"],
+            ["url"],
+            ["query"],
+            ["path"]
+        ])(`when app has %s`, (field) => {
+            describe(`when app has ${ field }`, () => {
+                it(`should transform ${ field }`, async () => {
+                    // arrange
+                    // act
+                    const sut = new AppVariant({[field]: "Test$1"}, "1")
 
-                // act
-                const result = getAppVariations(app);
-
-                // assert
-                expect(result).toEqual([{
-                    name: "codeo.co.za",
-                    url: "https://www.codeo.co.za"
-                }]);
-            });
-        });
-        describe("with app name", () => {
-            it("should keep it", async () => {
-                // arrange
-                const app = {
-                    name: "test",
-                    url: "https://www.codeo.co.za",
-                };
-
-                // act
-                const result = getAppVariations(app);
-
-                // assert
-                expect(result).toEqual([{
-                    name: "test",
-                    url: "https://www.codeo.co.za"
-                }]);
-            });
-        });
-        describe("with vary-by", () => {
-            describe("names", () => {
-                describe.each([
-                    [null, "codeo", ["codeo"]],
-                    [undefined, "codeo", ["codeo"]],
-                    [[], "codeo", ["codeo"]],
-                    [["a"], "codeo-$1", ["codeo-a"]],
-                    [["a", "b"], "codeo-$1", ["codeo-a", "codeo-b"]],
-                    [[["a", "b"]], "codeo-$1-$2", ["codeo-a-b"]],
-                ])(`when given %s`, (varyBy, name, expected) => {
-                    it("should return variant names", async () => {
-                        const app = {
-                            "vary-by": varyBy,
-                            name
-                        };
-
+                    // assert
+                    expect(sut[field]).toEqual("Test1");
+                });
+                describe("with array", () => {
+                    it("should transform name", async () => {
+                        // arrange
                         // act
-                        const result = getAppVariations(app);
+                        const sut = new AppVariant({[field]: "Test$1$2"}, ["1", "2"])
 
                         // assert
-                        const expectedResults = expected.map(x => ({
-                            name: x,
-                        }));
-                        expect(result).toEqual(expectedResults);
+                        expect(sut[field]).toEqual("Test12");
                     });
                 });
-            });
-            describe("urls", () => {
-                describe.each([
-                    [null, "www.codeo.co.za/$1", ["www.codeo.co.za/$1"]],
-                    [undefined, "www.codeo.co.za/$1", ["www.codeo.co.za/$1"]],
-                    [[], "www.codeo.co.za/$1", ["www.codeo.co.za/$1"]],
-                    [["a"], "www.codeo.co.za/$1", ["www.codeo.co.za/a"]],
-                    [["a", "b"], "www.codeo.co.za/$1", ["www.codeo.co.za/a", "www.codeo.co.za/b"]],
-                    [["a", "b"], "www.codeo.co.za/$1/$2", ["www.codeo.co.za/a/$2", "www.codeo.co.za/b/$2"]],
-                    [[["a",1], ["b",2]], "www.codeo.co.za/$1/$2", ["www.codeo.co.za/a/1", "www.codeo.co.za/b/2"]],
-                ])(`when given %s`, (varyBy, url, expected) => {
-                    it("should return expected", async () => {
-                        const app = {
-                            name: "codeo",
-                            url: url,
-                            "vary-by": varyBy
-                        };
-
+                describe("with null", () => {
+                    it("should not transform name", async () => {
+                        // arrange
                         // act
-                        const result = getAppVariations(app);
+                        const sut = new AppVariant({[field]: "Test$1"}, null);
 
                         // assert
-                        const expectedResults = expected.map(x => ({
-                            name: "codeo",
-                            url: x
-                        }));
-                        expect(result).toEqual(expectedResults);
+                        expect(sut[field]).toEqual("Test$1");
                     });
                 });
             });

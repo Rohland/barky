@@ -119,6 +119,28 @@ export class MySqlResult extends Result {
     }
 }
 
+export class ShellResult extends Result {
+    constructor(
+        label,
+        identifier,
+        result,
+        resultMsg,
+        timeTaken,
+        success,
+        app: IApp) {
+        super(
+            new Date(),
+            "shell",
+            label,
+            identifier,
+            JSON.stringify(result),
+            resultMsg?.length > 0 ? resultMsg : (success ? "OK" : "FAIL"),
+            timeTaken,
+            success,
+            app);
+    }
+}
+
 export class SumoResult extends Result {
     constructor(
         label,

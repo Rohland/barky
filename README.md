@@ -16,6 +16,7 @@ It runs a custom set of evaluators (configured in simple markup using YAML) with
 - **web**: Evaluate any accessible site and validate status code, response time and response body
 - **sumo**: Runs custom Sumo Logic queries and evaluates results based on validator configuration
 - **mysql**: Runs custom mysql queries and evaluates results based on validator configuration
+- **shell**: Runs a custom shell script and evaluates results based on validator configuration
 
 Evaluations supported:
 
@@ -352,6 +353,49 @@ The trigger.**rule** object has the following additional properties that can be 
 
 - *days* - the days of the week to apply the rule to (example: [mon, tue, wed, thu, fri]) - defaults to every day
 - *time* - the time of day to apply the rule to (example: 00:00-06:00) - defaults to all hours of the day
+
+##### Shell Configuration
+
+The example below demonstrates how to run a custom shell script.
+
+```yaml
+shell:
+  my-script:
+  timeout: 5s # defaults to 10 seconds
+  name: my-script
+  path: ./my-script.sh # relative to current yaml file (or absolute path)
+  responseType: json
+  triggers:
+    - rules:
+      - expression: "exitCode !== 0"
+        message: "Script failed with exit code {{exitCode}}"
+      - expression: failed_requests > 0
+        message: "Failed requests was {{ failed_requests }}"
+```
+
+Supported response types:
+
+- `json` - Barky expects a json string response (the raw response will be emitted into a `stdout` variable)
+- `string` - Barky expects a string response and will emit this into a `stdout` variable
+
+All environment variables are injected into the script for use.
+
+A more complex example:
+
+```yaml
+shell:
+  validate-country-$1:
+  vary-by: [za,us,gb]
+  path: ./my-script.sh # the vary-by params are passed into the script as arguments, i.e. ./script.sh $1 $2
+  responseType: json
+  triggers:
+  - match: .* # catch all (you can match on the vary-by value here (identifier is pipe delimited for more than one))
+    rules:
+      - expression: "exitCode !== 0"
+        message: "Script failed with exit code {{exitCode}}"
+      - expression: my_field > 0
+        message: "Failed requests was {{ failed_requests }}"
+```
 
 ---
 ## Digest

@@ -27,18 +27,22 @@ describe("cli", () => {
                         },
                         web: {
                             "codeo.co.za": {
-                                url: "https://codeo.co.za"
+                                url: "https://codeo.co.za",
+                                __configPath: expect.stringContaining("tests/files/importer.yaml")
                             },
                             "www.codeo.co.za": {
-                                "url": "https://www.codeo.co.za"
+                                "url": "https://www.codeo.co.za",
+                                __configPath: expect.stringContaining("tests/files/import-1.yaml")
                             },
                             "codeo.dev": {
-                                url: "https://codeo.dev"
+                                url: "https://codeo.dev",
+                                __configPath:  expect.stringContaining("tests/files/import-2.yaml")
                             }
                         },
                         mysql: {
                             "test": {
-                                connection: "test"
+                                connection: "test",
+                                __configPath: expect.stringContaining("tests/files/import-1.yaml")
                             }
                         }
                     },

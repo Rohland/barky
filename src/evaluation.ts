@@ -5,6 +5,7 @@ import { MySqlEvaluator } from "./evaluators/mysql";
 import { SumoEvaluator } from "./evaluators/sumo";
 import { startClock, stopClock } from "./lib/profiler";
 import { BaseEvaluator } from "./evaluators/base";
+import { ShellEvaluator } from "./evaluators/shell";
 
 export async function evaluate(
     config: any,
@@ -18,6 +19,7 @@ const evaluators = new Map<string, typeof BaseEvaluator>();
 evaluators.set("web", WebEvaluator);
 evaluators.set("sumo", SumoEvaluator);
 evaluators.set("mysql", MySqlEvaluator);
+evaluators.set("shell", ShellEvaluator)
 
 export async function evaluateType(type: BaseEvaluator): Promise<Result[]> {
     const timer = startClock();
