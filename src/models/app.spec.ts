@@ -11,12 +11,13 @@ describe("getVariations", () => {
             it("should return app as is", async () => {
                 // arrange
                 const app = {
+                    name: "codeo.co.za",
                     url: "https://www.codeo.co.za",
                     "vary-by": varyBy
                 };
 
                 // act
-                const result = getAppVariations(app, "codeo.co.za");
+                const result = getAppVariations(app);
 
                 // assert
                 expect(result).toEqual([{
@@ -34,7 +35,7 @@ describe("getVariations", () => {
                 };
 
                 // act
-                const result = getAppVariations(app, "codeo.co.za");
+                const result = getAppVariations(app);
 
                 // assert
                 expect(result).toEqual([{
@@ -55,11 +56,12 @@ describe("getVariations", () => {
                 ])(`when given %s`, (varyBy, name, expected) => {
                     it("should return variant names", async () => {
                         const app = {
-                            "vary-by": varyBy
+                            "vary-by": varyBy,
+                            name
                         };
 
                         // act
-                        const result = getAppVariations(app, name);
+                        const result = getAppVariations(app);
 
                         // assert
                         const expectedResults = expected.map(x => ({
@@ -81,44 +83,18 @@ describe("getVariations", () => {
                 ])(`when given %s`, (varyBy, url, expected) => {
                     it("should return expected", async () => {
                         const app = {
+                            name: "codeo",
                             url: url,
                             "vary-by": varyBy
                         };
 
                         // act
-                        const result = getAppVariations(app, "codeo");
+                        const result = getAppVariations(app);
 
                         // assert
                         const expectedResults = expected.map(x => ({
                             name: "codeo",
                             url: x
-                        }));
-                        expect(result).toEqual(expectedResults);
-                    });
-                });
-            });
-            describe("queries", () => {
-                describe.each([
-                    [null, "codeo", ["codeo"]],
-                    [undefined, "codeo", ["codeo"]],
-                    [[], "codeo", ["codeo"]],
-                    [["a"], "codeo-$1", ["codeo-a"]],
-                    [["a", "b"], "codeo-$1", ["codeo-a", "codeo-b"]],
-                    [[["a", "b"]], "codeo-$1-$2", ["codeo-a-b"]],
-                ])(`when given %s`, (varyBy, query, expected) => {
-                    it("should return variant names", async () => {
-                        const app = {
-                            "vary-by": varyBy,
-                            query
-                        };
-
-                        // act
-                        const result = getAppVariations(app, "codeo");
-
-                        // assert
-                        const expectedResults = expected.map(x => ({
-                            name: "codeo",
-                            query: x
                         }));
                         expect(result).toEqual(expectedResults);
                     });

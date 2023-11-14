@@ -1,11 +1,10 @@
 import axios from "axios";
 import { parsePeriodRange } from "../lib/period-parser";
 import { sleepMs } from "../lib/sleep";
-import { MonitorFailureResult, SumoResult } from "../models/result";
+import { MonitorFailureResult, Result, SumoResult } from "../models/result";
 import { startClock, stopClock } from "../lib/profiler";
 import { renderTemplate } from "../lib/renderer";
 import { log } from "../models/logger";
-import { EvaluatorResult } from "./types";
 import { getAppVariations, IApp } from "../models/app";
 import { BaseEvaluator, EvaluatorType, findTriggerRulesFor } from "./base";
 import { IUniqueKey } from "../lib/key";
@@ -23,8 +22,8 @@ export class SumoEvaluator extends BaseEvaluator {
         return EvaluatorType.sumo;
     }
 
-    configureAndExpandApp(app: IApp, name: string): IApp[] {
-        return getAppVariations(app, name).map(variant => {
+    configureAndExpandApp(app: IApp): IApp[] {
+        return getAppVariations(app).map(variant => {
             return {
                 timeout: 10000,
                 ...app,
@@ -34,13 +33,8 @@ export class SumoEvaluator extends BaseEvaluator {
         });
     }
 
-    async evaluate(): Promise<EvaluatorResult> {
-        const apps = this.getAppsToEvaluate();
-        const results = await Promise.all(apps.map(app => tryEvaluate(app)));
-        return {
-            results,
-            apps
-        };
+    async tryEvaluate(app: IApp) {
+        return await tryEvaluate(app);
     }
 
     protected generateSkippedAppUniqueKey(name: string): IUniqueKey {
@@ -50,23 +44,41 @@ export class SumoEvaluator extends BaseEvaluator {
             identifier: "*" // when skipped, we want to match all identifiers under the type:label
         };
     }
+
+    protected async dispose(): Promise<void> {
+        return;
+    }
+
+    protected isResultForApp(app: IApp, result: Result): boolean {
+        return app.name === result.label;
+    }
 }
 
-async function tryEvaluate(app) {
+async function tryEvaluate(app: IApp) {
     try {
         const timer = startClock();
         app.jobId = await startSearch(app, log);
         await isJobComplete(app, log);
         const results = await getSearchResult(app, log);
         app.timeTaken = stopClock(timer);
-        return validateResults(app, results, log);
+        const finalResults = validateResults(app, results, log);
+        return finalResults.length > 0
+            ? finalResults
+            : new SumoResult( // no result means OK for all identifiers!
+                app.name,
+                "*",
+                "inferred",
+                "OK",
+                app.timeTaken,
+                true,
+                app);
     } catch (err) {
         const errorInfo = new Error(err.message);
         errorInfo.stack = err.stack;
         // @ts-ignore
         errorInfo.response = {
             status: err?.response?.status,
-            data: err?.response.data
+            data: err?.response?.data
         };
         log(`error executing sumo evaluator for '${ app.name }': ${ err.message }`, errorInfo);
         return new MonitorFailureResult(
@@ -77,12 +89,12 @@ async function tryEvaluate(app) {
     }
 }
 
-function validateResults(app, data, log) {
+function validateResults(app: IApp, data, log) {
     const entries = data.records?.map(x => x.map);
     return entries.map(x => validateEntry(app, x, log));
 }
 
-function validateEntry(app, entry, _log) {
+function validateEntry(app: IApp, entry, _log) {
     const identifier = entry[app.identifier];
     if (!identifier) {
         throw new Error(`expected to find identifier field in result set named: ${ app.identifier }`);
@@ -155,8 +167,8 @@ async function startSearch(app, log) {
 }
 
 async function isJobComplete(app, log) {
-    const now = +new Date();
-    while (+new Date() - now < app.timeout) {
+    const startTime = +new Date();
+    while (+new Date() - startTime < app.timeout) {
         try {
             const status = await axios.get(`${ SumoUrl }/${ app.jobId }`, getHeaders(app.token));
             if (status.data.state.match(/done gathering results/i)) {
@@ -167,6 +179,13 @@ async function isJobComplete(app, log) {
             await deleteJob(app, log);
             throw err;
         }
+    }
+    const timedOutAfter = +new Date() - startTime;
+    // job failed
+    try {
+        await deleteJob(app, log);
+    } finally {
+        throw new Error(`timed out after ${ timedOutAfter }ms`);
     }
 }
 

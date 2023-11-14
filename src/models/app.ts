@@ -40,11 +40,10 @@ export class AppVariant {
     }
 }
 
-export function getAppVariations(app: any, name: string): AppVariant[] {
+export function getAppVariations(app: any): AppVariant[] {
     const apps = app["vary-by"]?.length > 0
         ? app["vary-by"]
         : [null];
-    app.name ??= name;
     return apps.map(variant => {
         return new AppVariant(app, variant);
     });

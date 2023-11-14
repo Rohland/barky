@@ -95,10 +95,13 @@ describe("evaluation", () => {
         describe("when called", () => {
             it("should execute evaluation and include ping info", async () => {
                 // arrange
-                const result = new WebResult(new Date(), "health", "wwww.codeo.co.za", "FAIL", "500", "500", 1, null);
+                const result = new WebResult(new Date(), "health", "www.codeo.co.za", "FAIL", "500", "500", 1, null);
                 const type = new WebEvaluator({});
                 type.evaluate = jest.fn().mockResolvedValue({
-                    apps: [{}, {}],
+                    apps: [{
+                        type: "web",
+                        name: "www.codeo.co.za"
+                    }],
                     results: [result]
                 });
 
@@ -113,8 +116,8 @@ describe("evaluation", () => {
                     type: "web",
                     label: "monitor",
                     identifier: "ping",
-                    result: 2,
-                    resultMsg: "2 evaluated",
+                    result: 1,
+                    resultMsg: "1 evaluated",
                     success: true,
                     timeTaken: expect.any(Number),
                     alert: null

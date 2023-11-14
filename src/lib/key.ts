@@ -8,6 +8,13 @@ export function uniqueKey(item: IUniqueKey) {
     return [item.type, item.label, item.identifier].join("|");
 }
 
+export function hasWildcard(item: IUniqueKey) {
+    if (!item) {
+        return false;
+    }
+    return item.type === "*" || item.label === "*" || item.identifier === "*";
+}
+
 export function explodeUniqueKey(key: string): IUniqueKey {
     const parts = key.split("|");
     return {
@@ -17,12 +24,24 @@ export function explodeUniqueKey(key: string): IUniqueKey {
     };
 }
 
+function doesKeyMatch<T extends IUniqueKey>(x: T, keyToFind: IUniqueKey) {
+    return x.type === keyToFind.type
+        && (x.label === keyToFind.label || x.label === "*" || keyToFind.label === "*")
+        && (x.identifier === keyToFind.identifier || x.identifier === "*" || keyToFind.identifier === "*");
+}
+
 export function findMatchingKeyFor<T extends IUniqueKey>(
     keyToFind: IUniqueKey,
     results: T[]): T {
     return results.find(x => {
-        return x.type === keyToFind.type
-            && (x.label === keyToFind.label || x.label === "*" || keyToFind.label === "*")
-            && (x.identifier === keyToFind.identifier || x.identifier === "*" || keyToFind.identifier === "*");
+        return doesKeyMatch(x, keyToFind);
+    });
+}
+
+export function findMatchingKeysFor<T extends IUniqueKey>(
+    keyToFind: IUniqueKey,
+    results: T[]): T[] {
+    return results.filter(x => {
+        return doesKeyMatch(x, keyToFind);
     });
 }

@@ -7,6 +7,7 @@ import { LoopMs } from "../loop";
 import { IUniqueKey } from "../lib/key";
 import { DefaultTrigger, IRule } from "../models/trigger";
 import { DayAndTimeEvaluator } from "../lib/time";
+import { MonitorFailureResult, Result } from "../models/result";
 
 const executionCounter = new Map<string, number>();
 
@@ -30,16 +31,74 @@ export abstract class BaseEvaluator {
     }
 
     public async evaluateApps(): Promise<EvaluatorResult> {
-        const results = await this.evaluate();
-        results.skippedApps = this._skippedApps;
-        return results;
+        try {
+            const results = await this.evaluate();
+            results.skippedApps ||= [];
+            results.skippedApps.push(...(this.skippedApps || []));
+            const appResults = results.results;
+            const apps = results.apps;
+            apps.forEach(app => {
+                const hasResultOrWasSkipped =
+                    appResults.find(result => this.isResultForApp(app, result))
+                    || results.skippedApps.find(x => x.name === app.name);
+                if (!hasResultOrWasSkipped) {
+                    log(`No result found for app ${ app.name }`);
+                    results.skippedApps.push({
+                        ...app,
+                        ...this.generateSkippedAppUniqueKey(app.name)
+                    });
+                }
+            });
+            return results;
+        } finally {
+            if (typeof this.dispose === "function") {
+                await this.dispose();
+            }
+        }
     }
 
-    protected abstract evaluate(): Promise<EvaluatorResult>;
+    protected abstract isResultForApp(app: IApp, result: Result): boolean;
+
+    public async evaluate(): Promise<EvaluatorResult> {
+        const apps = this.getAppsToEvaluate();
+        const results = await Promise.allSettled(apps.map(async app => {
+            try {
+                return await this.tryEvaluate(app)
+            } catch(err) {
+                try {
+                    const errorInfo = new Error(err.message);
+                    errorInfo.stack = err.stack;
+                    // @ts-ignore
+                    errorInfo.response = {
+                        status: err?.response?.status,
+                        data: err?.response.data
+                    };
+                    log(`error executing ${ app.type } evaluator for '${ app.name }': ${ err.message }`, errorInfo);
+                } catch {
+                    // no-op
+                }
+                return new MonitorFailureResult(
+                    app.type,
+                    app.name,
+                    err.message,
+                    app);
+            }
+        }));
+        // see above - we don't expect any failures, as we catch errors
+        const values = results.map(x => x.status === "fulfilled" ? x.value : null).filter(x => !!x);
+        return {
+            results: values.flat(),
+            apps
+        };
+    }
+
+    protected abstract tryEvaluate(app: IApp): Promise<Result | Result []>;
 
     protected abstract generateSkippedAppUniqueKey(name: string): IUniqueKey;
 
-    abstract configureAndExpandApp(app: IApp, name: string): IApp[];
+    protected abstract dispose(): Promise<void>;
+
+    abstract configureAndExpandApp(app: IApp): IApp[];
 
     abstract get type(): EvaluatorType;
 
@@ -56,10 +115,11 @@ export abstract class BaseEvaluator {
         const apps = [];
         for (let name of appNames) {
             const app = this.config[name];
-            const expanded = this.configureAndExpandApp(app, name);
+            app.name ??= name;
+            const expanded = this.configureAndExpandApp(app);
             expanded.forEach(x => {
                 x.type = this.type;
-                if (this.shouldEvaluateApp(x, name)) {
+                if (this.shouldEvaluateApp(x)) {
                     apps.push(x);
                 }
             });
@@ -69,23 +129,21 @@ export abstract class BaseEvaluator {
         return expanded;
     }
 
-    private shouldEvaluateApp(
-        app: IApp,
-        name: string): boolean {
+    private shouldEvaluateApp(app: IApp): boolean {
         if (!app.every) {
             return true;
         }
         const durationMs = parsePeriodToSeconds(app.every) * 1000;
         const everyCount = Math.round(durationMs / LoopMs);
-        const key = `${ this.type }-${ name }`;
+        const key = `${ this.type }-${ app.name }`;
         const count = executionCounter.get(key) ?? 0;
         const shouldEvaluate = count % everyCount === 0;
         executionCounter.set(key, count + 1);
         if (!shouldEvaluate) {
-            log(`skipping ${ this.type } check for '${ name }' - every set to: ${ app.every }`);
+            log(`skipping ${ this.type } check for '${ app.name }' - every set to: ${ app.every }`);
             this.skippedApps.push({
                 ...app,
-                ...this.generateSkippedAppUniqueKey(name)
+                ...this.generateSkippedAppUniqueKey(app.name)
             });
         }
         return shouldEvaluate;

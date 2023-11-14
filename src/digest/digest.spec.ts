@@ -53,20 +53,7 @@ describe("digest", () => {
                     // arrange
                     const logs = [generateLog(1), generateLog(2)] as MonitorLog[];
                     const context = new DigestContext([], logs);
-                    const result = new Result(
-                        new Date("2023-01-01"),
-                        "web",
-                        "health",
-                        "www.codeo.co.za",
-                        false,
-                        "OK",
-                        100,
-                        false, {
-                            alert: {
-                                channels: ["test-channel"],
-                                rules: []
-                            }
-                        });
+                    const result = getTestResult();
 
                     // act
                     evaluateNewResult(result, context);
@@ -94,23 +81,16 @@ describe("digest", () => {
                             // arrange
                             const logs = [generateLog(1), generateLog(2)] as MonitorLog[];
                             const context = new DigestContext([], logs);
-                            const result = new Result(
-                                new Date("2023-01-01"),
-                                "web",
-                                "health",
-                                "www.codeo.co.za",
-                                false,
-                                "FAIL",
-                                100,
-                                false, {
-                                    alert: {
-                                        channels: ["test-channel"],
-                                        rules: [{
-                                            count: 3,
-                                            time: ["0:00-0:00"]
-                                        }],
-                                    }
-                                });
+                            const result = getTestResult();
+                            result.alert = new AlertConfiguration(
+                                {
+                                    channels: ["test-channel"],
+                                    rules: [{
+                                        count: 3,
+                                        time: ["0:00-0:00"]
+                                    }],
+                                }
+                            );
 
                             // act
                             evaluateNewResult(result, context);
@@ -134,20 +114,13 @@ describe("digest", () => {
                         // arrange
                         const logs = [generateLog(1), generateLog(2)] as MonitorLog[];
                         const context = new DigestContext([], logs);
-                        const result = new Result(
-                            new Date("2023-01-01"),
-                            "web",
-                            "health",
-                            "www.codeo.co.za",
-                            false,
-                            "OK",
-                            100,
-                            false, {
-                                alert: {
-                                    channels: ["test-channel"],
-                                    rules: [{ count: 3 }]
-                                }
-                            });
+                        const result = getTestResult();
+                        result.alert = new AlertConfiguration(
+                            {
+                                channels: ["test-channel"],
+                                rules: [{ count: 3 }]
+                            }
+                        );
 
                         // act
                         evaluateNewResult(result, context);
@@ -194,36 +167,16 @@ describe("digest", () => {
                     describe("if there was a previous snapshot", () => {
                         it("should retain previous snapshot date", async () => {
                             // arrange
-                            const snapshot = new Snapshot({
-                                id: 1,
-                                type: "web",
-                                label: "health",
-                                identifier: "www.codeo.co.za",
-                                last_result: "last_failure",
-                                success: false,
-                                date: new Date(),
-                                alert_config: null
-                            });
+                            const snapshot = getTestSnapshot();
                             const logs = [generateLog(1), generateLog(2), generateLog(3), generateLog(4)];
                             const context = new DigestContext([snapshot], logs);
-                            const result = new Result(
-                                new Date("2023-01-01"),
-                                "web",
-                                "health",
-                                "www.codeo.co.za",
-                                false,
-                                "OK",
-                                100,
-                                false, {
-                                    alert: {
-                                        channels: ["test-channel"],
-                                        rules: [
-                                            {
-                                                count: 2
-                                            }
-                                        ]
-                                    }
-                                });
+                            const result = getTestResult();
+                            result.alert = new AlertConfiguration(
+                                {
+                                    channels: ["test-channel"],
+                                    rules: [{ count: 2 }]
+                                }
+                            );
 
                             // act
                             evaluateNewResult(result, context);
@@ -256,7 +209,7 @@ describe("digest", () => {
                     ] as MonitorLog[];
                     const context = new DigestContext([], logs);
                     const result = getTestResult();
-                    result.alert= new AlertConfiguration(
+                    result.alert = new AlertConfiguration(
                         {
                             channels: ["test-channel"],
                             rules: [
@@ -350,22 +303,7 @@ describe("digest", () => {
                     // arrange
                     const logs = [generateLog(1), generateLog(2)];
                     const context = new DigestContext([], logs);
-                    // @ts-ignore
-                    const result = new Result(
-                        new Date(),
-                        "web",
-                        "health",
-                        "www.codeo.co.za",
-                        true,
-                        "OK",
-                        100,
-                        true,
-                        {
-                            alert: {
-                                channels: ["test-channel"],
-                                rules: []
-                            }
-                        });
+                    const result = getTestResult(true);
 
                     // act
                     evaluateNewResult(result, context);
@@ -374,31 +312,36 @@ describe("digest", () => {
                     expect(context.logIdsToDelete).toEqual([1, 2]);
                     expect(context.snapshots).toEqual([]);
                 });
+                describe("even when result is wildcard", () => {
+                    it("should do the same", async () => {
+                        // arrange
+                        const logs = [generateLog(1), generateLog(2)];
+                        logs.forEach((x, i) => {
+                            x.type = "mysql";
+                            x.label = "queue-performance";
+                            x.identifier = i.toString();
+                        })
+                        const context = new DigestContext([], logs);
+                        const result = getTestResult(true);
+                        result.type = "mysql";
+                        result.label = "queue-performance";
+                        result.identifier = "*";
+
+                        // act
+                        evaluateNewResult(result, context);
+
+                        // assert
+                        expect(context.logIdsToDelete).toEqual([1, 2]);
+                        expect(context.snapshots).toEqual([]);
+                    });
+                });
             });
             describe("and type is consecutive", () => {
                 it("should schedule previous logs for deletion & append no new snapshot", async () => {
                     // arrange
                     const logs = [generateLog(1), generateLog(2)];
                     const context = new DigestContext([], logs);
-                    const result = new Result(
-                        new Date(),
-                        "web",
-                        "health",
-                        "www.codeo.co.za",
-                        true,
-                        "OK",
-                        100,
-                        true,
-                        {
-                            alert: {
-                                channels: ["test-channel"],
-                                rules: [
-                                    {
-                                        count: 1
-                                    }
-                                ]
-                            }
-                        });
+                    const result = getTestResult(true);
 
                     // act
                     evaluateNewResult(result, context);
@@ -417,26 +360,18 @@ describe("digest", () => {
                         generateLog((3))
                     ];
                     const context = new DigestContext([], logs);
-                    const result = new Result(
-                        new Date(),
-                        "web",
-                        "health",
-                        "www.codeo.co.za",
-                        true,
-                        "OK",
-                        100,
-                        true,
+                    const result = getTestResult(true);
+                    result.alert = new AlertConfiguration(
                         {
-                            alert: {
-                                channels: ["test-channel"],
-                                rules: [
-                                    {
-                                        any: 2,
-                                        window: "-10m"
-                                    }
-                                ]
-                            }
-                        });
+                            channels: ["test-channel"],
+                            rules: [
+                                {
+                                    any: 2,
+                                    window: "-10m"
+                                }
+                            ]
+                        }
+                    );
 
                     // act
                     evaluateNewResult(result, context);
@@ -445,20 +380,50 @@ describe("digest", () => {
                     expect(context.logIdsToDelete).toEqual([1, 2]);
                     expect(context.snapshots).toEqual([]);
                 });
+                describe("even when success is wildcard", () => {
+                    it("should do the same", async () => {
+                        // arrange
+                        const logs = [
+                            generateLog(1, new Date("2023-01-01")),
+                            generateLog(2, new Date("2023-01-01")),
+                            generateLog((3))
+                        ];
+                        logs.forEach((x, i) => {
+                            x.type = "mysql";
+                            x.label = "queue-performance";
+                            x.identifier = i.toString();
+                        })
+                        const context = new DigestContext([], logs);
+                        const result = getTestResult(true);
+                        result.type = "mysql";
+                        result.label = "queue-performance";
+                        result.identifier = "*";
+                        result.alert = new AlertConfiguration(
+                            {
+                                channels: ["test-channel"],
+                                rules: [
+                                    {
+                                        any: 2,
+                                        window: "-10m"
+                                    }
+                                ]
+                            }
+                        );
+
+                        // act
+                        evaluateNewResult(result, context);
+
+                        // assert
+                        expect(context.logIdsToDelete).toEqual([1, 2]);
+                        expect(context.snapshots).toEqual([]);
+                    });
+                });
             });
             describe("and type is 'any in window' and window period is failure", () => {
                 it("should delete logs older than window period and keep snapshot", async () => {
                     // arrange
-                    const snapshot = new Snapshot({
-                        id: 1,
-                        type: "web",
-                        label: "health",
-                        identifier: "www.codeo.co.za",
-                        last_result: "last_failure",
-                        success: false,
-                        date: new Date(),
-                        alert_config: null
-                    });
+                    const snapshot = getTestSnapshot();
+                    snapshot.last_result = "last_failure";
                     const logs = [
                         generateLog(1, new Date("2023-01-01")),
                         generateLog(2, new Date("2023-01-01")),
@@ -466,26 +431,16 @@ describe("digest", () => {
                         generateLog(4)
                     ];
                     const context = new DigestContext([snapshot], logs);
-                    const result = new Result(
-                        new Date(),
-                        "web",
-                        "health",
-                        "www.codeo.co.za",
-                        true,
-                        "OK",
-                        100,
-                        true,
-                        {
-                            alert: {
-                                channels: ["test-channel"],
-                                rules: [
-                                    {
-                                        any: 1,
-                                        window: "-10m"
-                                    }
-                                ]
+                    const result = getTestResult(true);
+                    result.alert = new AlertConfiguration({
+                        channels: ["test-channel"],
+                        rules: [
+                            {
+                                any: 1,
+                                window: "-10m"
                             }
-                        });
+                        ]
+                    });
 
                     // act
                     evaluateNewResult(result, context);
