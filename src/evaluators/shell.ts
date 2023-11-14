@@ -66,15 +66,7 @@ export class ShellEvaluator extends BaseEvaluator {
             exitCode: result.exitCode,
             identifier,
         };
-        let parsed = null;
-        if (/json/i.test(app.responseType ?? "")) {
-            try {
-                parsed = JSON.parse(result.stdout);
-                Object.assign(variables, parsed);
-            } catch (err) {
-                throw new Error(`Invalid JSON response from shell script: ${ result.stdout }`)
-            }
-        }
+        const parsed = this.parseResultAndMergeWithVariables(app, result, variables);
         let failure = false;
         const msgs = [];
         rules.find(rule => {
@@ -100,4 +92,19 @@ export class ShellEvaluator extends BaseEvaluator {
         );
     }
 
+    private parseResultAndMergeWithVariables(
+        app: IApp,
+        result: IShellResult,
+        variables: any) {
+        if (/json/i.test(app.responseType ?? "")) {
+            try {
+                const parsed = JSON.parse(result.stdout);
+                Object.assign(variables, parsed);
+                return parsed;
+            } catch (err) {
+                throw new Error(`Invalid JSON response from shell script: ${ result.stdout }`)
+            }
+        }
+        return null;
+    }
 }
