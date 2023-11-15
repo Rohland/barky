@@ -361,16 +361,16 @@ The example below demonstrates how to run a custom shell script.
 ```yaml
 shell:
   my-script:
-  timeout: 5s # defaults to 10 seconds
-  name: my-script
-  path: ./my-script.sh # relative to current yaml file (or absolute path)
-  responseType: json
-  triggers:
-    - rules:
-      - expression: "exitCode !== 0"
-        message: "Script failed with exit code {{exitCode}}"
-      - expression: failed_requests > 0
-        message: "Failed requests was {{ failed_requests }}"
+    timeout: 5s # defaults to 10 seconds
+    name: my-script
+    path: ./my-script.sh # relative to current yaml file (or absolute path)
+    responseType: json
+    triggers:
+      - rules:
+        - expression: "exitCode !== 0"
+          message: "Script failed with exit code {{exitCode}}"
+        - expression: failed_requests > 0
+          message: "Failed requests was {{ failed_requests }}"
 ```
 
 Supported response types:
@@ -385,17 +385,17 @@ A more complex example:
 ```yaml
 shell:
   validate-country-$1:
-  vary-by: [za,us,gb]
-  path: ./my-script.sh # the vary-by params are passed into the script as arguments, i.e. ./script.sh $1 $2
-  responseType: json
-  identifier: id
-  triggers:
-  - match: .* # catch all (you can match on the identifier field in the result set, and if missing or not set, the vary-by value will be used here (identifier is pipe delimited if multipart))
-    rules:
-      - expression: "exitCode !== 0"
-        message: "Script failed with exit code {{exitCode}}"
-      - expression: my_field > 0
-        message: "Failed requests was {{ failed_requests }}"
+    vary-by: [za,us,gb]
+    path: ./my-script.sh # the vary-by params are passed into the script as arguments, i.e. ./script.sh $1 $2
+    responseType: json
+    identifier: id
+    triggers:
+      - match: .* # catch all (you can match on the identifier field in the result set, and if missing or not set, the vary-by value will be used here (identifier is pipe delimited if multipart))
+        rules:
+          - expression: "exitCode !== 0"
+            message: "Script failed with exit code {{exitCode}}"
+          - expression: my_field > 0
+            message: "Failed requests was {{ failed_requests }}"
 ```
 
 ---
