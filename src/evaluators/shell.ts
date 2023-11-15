@@ -58,15 +58,22 @@ export class ShellEvaluator extends BaseEvaluator {
         app.timeout ??= 10000;
     }
 
-    validateShellResult(app: IApp, result: IShellResult): Result {
-        const identifier = app["vary-by"]?.join("|") ?? app.name;
-        const rules = findTriggerRulesFor(identifier, app);
+    validateShellResult(app: IApp, result: IShellResult): Result[] {
         const variables = {
             stdout: result.stdout,
             exitCode: result.exitCode,
-            identifier,
         };
-        const parsed = this.parseResultAndMergeWithVariables(app, result, variables);
+        const parsedResults = this.parseResultAndMergeWithVariables(app, result, variables);
+        return parsedResults.map(x => this.validateParsedResult(x, app));
+    }
+
+    private validateParsedResult(parsed: IParsedResult, app: IApp) {
+        let identifier = app["vary-by"]?.join("|") ?? app.name;
+        if (parsed.type === "object" && app.identifier) {
+            identifier = parsed.value[app.identifier] ?? identifier;
+        }
+        const rules = findTriggerRulesFor(identifier, app);
+        const variables = { identifier, ...parsed.variables };
         let failure = false;
         const msgs = [];
         rules.find(rule => {
@@ -78,13 +85,13 @@ export class ShellEvaluator extends BaseEvaluator {
                 msgs.push(renderTemplate(rule.message, variables, { humanizeNumbers: true }));
             }
         });
-        const resultOutput = parsed
-            ? { ...parsed, exitCode: result.exitCode }
-            : result;
+        const resultOutput = parsed.type === "object"
+            ? { ...(parsed.value as object), exitCode: parsed.variables.exitCode }
+            : { ...parsed.variables };
         return new ShellResult(
             `${ app.name }`,
             identifier,
-            resultOutput,
+            this.filterResultWithEmitConfig(app, resultOutput),
             msgs,
             app.timeTaken,
             !failure,
@@ -95,16 +102,49 @@ export class ShellEvaluator extends BaseEvaluator {
     private parseResultAndMergeWithVariables(
         app: IApp,
         result: IShellResult,
-        variables: any) {
+        variables: any): IParsedResult[] {
         if (/json/i.test(app.responseType ?? "")) {
             try {
                 const parsed = JSON.parse(result.stdout);
-                Object.assign(variables, parsed);
-                return parsed;
+                if (Array.isArray(parsed)) {
+                    return parsed.map(x => ({
+                        type: "object",
+                        value: x,
+                        variables: { ...variables, ...x }
+                    }));
+                }
+                return [{
+                    type: "object",
+                    value: parsed,
+                    variables: { ...variables, ...parsed }
+                }];
             } catch (err) {
                 throw new Error(`Invalid JSON response from shell script: ${ result.stdout }`)
             }
         }
-        return null;
+        return [
+            {
+                type: "string",
+                value: result.stdout,
+                variables
+            }
+        ]
     }
+
+    private filterResultWithEmitConfig(app: IApp, resultOutput: any): any {
+        if (!app.emit || !Array.isArray(app.emit)) {
+            return resultOutput;
+        }
+        const final = {};
+        app.emit.forEach(x => {
+            final[x] = resultOutput[x];
+        });
+        return final;
+    }
+}
+
+interface IParsedResult {
+    type: string,
+    value: string | object,
+    variables: any
 }

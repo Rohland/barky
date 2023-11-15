@@ -49,8 +49,8 @@ describe("shell evaluator", () => {
         it("should run shell evaluator", async () => {
             // arrange
             const res = {
-                exitCode: 0,
-                stdout: "hello world"
+                stdout: "hello world",
+                exitCode: 0
             };
             const app = {
                 name: "test",
@@ -101,6 +101,70 @@ describe("shell evaluator", () => {
                 expect(result.identifier).toEqual("test");
                 expect(result.result).toEqual(JSON.stringify({ ...shellResponseObj, exitCode: 0}));
                 expect(result.success).toEqual(true);
+            });
+            describe("if emit specified", () => {
+                it("should only emit specified fields", async () => {
+                    // arrange
+                    const shellResponseObj = { hello: "world" };
+                    const res = {
+                        exitCode: 0,
+                        stdout: JSON.stringify(shellResponseObj)
+                    };
+                    const app = {
+                        name: "test",
+                        path: "test.sh",
+                        timeout: 1000,
+                        emit: ["hello"],
+                        responseType: "json",
+                        __configPath: "/Users/Test/SomeDir/Hello.yaml"
+                    };
+                    (execShellScript as jest.Mock).mockResolvedValue(res);
+                    const sut = new ShellEvaluator({});
+
+                    // act
+                    const results = await sut.tryEvaluate(app);
+                    const result = [results].flat()[0];
+
+                    // assert
+                    expect(result).toBeInstanceOf(ShellResult);
+                    expect(result.label).toEqual("test");
+                    expect(result.identifier).toEqual("test");
+                    expect(result.result).toEqual(JSON.stringify({ hello: "world" }));
+                    expect(result.success).toEqual(true);
+                });
+            });
+            describe("and is an array response", () => {
+                it("should respond with multiple results", async () => {
+                    // arrange
+                    const shellResponseObj = [{ id: "a", count: 1 }, { id: "b", count: 2}];
+                    const res = {
+                        exitCode: 0,
+                        stdout: JSON.stringify(shellResponseObj)
+                    };
+                    const app = {
+                        name: "test",
+                        path: "test.sh",
+                        timeout: 1000,
+                        responseType: "json",
+                        identifier: "id",
+                        __configPath: "/Users/Test/SomeDir/Hello.yaml"
+                    };
+                    (execShellScript as jest.Mock).mockResolvedValue(res);
+                    const sut = new ShellEvaluator({});
+
+                    // act
+                    const results = [await sut.tryEvaluate(app)].flat();
+
+                    // assert
+                    expect(results.length).toEqual(2);
+                    results.forEach((result,i) => {
+                        expect(result).toBeInstanceOf(ShellResult);
+                        expect(result.label).toEqual("test");
+                        expect(result.identifier).toEqual(shellResponseObj[i].id);
+                        expect(result.result).toEqual(JSON.stringify({ ...shellResponseObj[i], exitCode: 0 }));
+                        expect(result.success).toEqual(true);
+                    });
+                });
             });
         });
         describe("with vary-by", () => {
@@ -168,6 +232,47 @@ describe("shell evaluator", () => {
                     expect(result.identifier).toEqual("test");
                     expect(result.result).toEqual(JSON.stringify({ ...shellResponseObj, exitCode: 0}));
                     expect(result.success).toEqual(true);
+                });
+                describe("when the identifier is set and is included in the result set", () => {
+                    it("should emit this as the identifier", async () => {
+                        // arrange
+                        const shellResponseObj = { id: "my-script", count: 1 };
+                        const res = {
+                            exitCode: 0,
+                            stdout: JSON.stringify(shellResponseObj)
+                        };
+                        const app = {
+                            name: "test",
+                            path: "test.sh",
+                            timeout: 1000,
+                            responseType: "json",
+                            __configPath: "/Users/Test/SomeDir/Hello.yaml",
+                            identifier: "id",
+                            triggers: [
+                                {
+                                    rules: [
+                                        {
+                                            expression: "count > 1",
+                                            message: "all good!"
+                                        }
+                                    ]
+                                }
+                            ]
+                        };
+                        (execShellScript as jest.Mock).mockResolvedValue(res);
+                        const sut = new ShellEvaluator({});
+
+                        // act
+                        // @ts-ignore
+                        const results = await sut.tryEvaluate(app);
+                        const result = [results].flat()[0];
+
+                        // assert
+                        expect(result).toBeInstanceOf(ShellResult);
+                        expect(result.label).toEqual("test");
+                        expect(result.identifier).toEqual("my-script");
+                        expect(result.result).toEqual(JSON.stringify({ ...shellResponseObj, exitCode: 0}));
+                    });
                 });
                 describe("but expression generates failure", () => {
                     it("should return failure result", async () => {

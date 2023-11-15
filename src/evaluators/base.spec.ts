@@ -8,6 +8,7 @@ import { IUniqueKey } from "../lib/key";
 import { DefaultTrigger } from "../models/trigger";
 import { initLocaleAndTimezone } from "../lib/utility";
 import { MySqlResult, Result } from "../models/result";
+import { ShellEvaluator } from "./shell";
 
 describe("base evaluator", () => {
 
@@ -19,6 +20,7 @@ describe("base evaluator", () => {
                 ["web", WebEvaluator],
                 ["mysql", MySqlEvaluator],
                 ["sumo", SumoEvaluator],
+                ["shell", ShellEvaluator]
             ])(`with %s`, (type, evaluator) => {
                 it("should set the type of each app", async () => {
                     // arrange
@@ -97,9 +99,9 @@ describe("base evaluator", () => {
                 const apps3 = evaluator.getAppsToEvaluate();
 
                 // assert
-                expect(apps1).toEqual([{ type: "custom", name: "app1" }]);
-                expect(apps2).toEqual([{ type: "custom", name: "app1" }]);
-                expect(apps3).toEqual([{ type: "custom", name: "app1" }]);
+                expect(apps1).toEqual([{ type: "custom", name: "app1", timeout: 10000 }]);
+                expect(apps2).toEqual([{ type: "custom", name: "app1", timeout: 10000 }]);
+                expect(apps3).toEqual([{ type: "custom", name: "app1", timeout: 10000 }]);
                 expect(evaluator.skippedApps).toEqual([]);
             });
         });
@@ -149,7 +151,7 @@ describe("base evaluator", () => {
                     expect(apps1).toMatchObject([app]);
                     expect(apps2).toMatchObject([]);
                     expect(apps3).toMatchObject([app]);
-                    expect(evaluator.skippedApps).toEqual([{
+                    expect(evaluator.skippedApps).toMatchObject([{
                         ...app,
                         type: "custom",
                         label: "app1",
@@ -180,7 +182,7 @@ describe("base evaluator", () => {
                     expect(apps2).toMatchObject([]);
                     expect(apps3).toMatchObject([]);
                     expect(apps4).toMatchObject([app]);
-                    expect(evaluator.skippedApps).toEqual([
+                    expect(evaluator.skippedApps).toMatchObject([
                         {
                             ...app,
                             type: "custom",

@@ -5,6 +5,23 @@ export interface IShellResult {
     stdout: string;
 }
 
+let _envVars = null;
+
+function generateEnvVars() {
+    if (_envVars) {
+        return _envVars;
+    }
+    _envVars = {};
+    for (const key in process.env) {
+        _envVars[key.replace(/[^a-z0-9_]+/g, "_")] = process.env[key];
+    }
+    return _envVars;
+}
+
+export function resetShellEnvironment() {
+    _envVars = null;
+}
+
 export async function execShellScript(
     scriptPath: string,
     timeout: number,
@@ -16,7 +33,7 @@ export async function execShellScript(
                 `bash ${ scriptPath } ${ params.map(x => `'${ x }'`).join(" ") }`,
                 {
                     env: {
-                        ...(process.env)
+                        ...generateEnvVars()
                     },
                 });
             const output = [];

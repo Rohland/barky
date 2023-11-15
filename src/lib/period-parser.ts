@@ -21,7 +21,10 @@ export function parsePeriod(input): Date {
     return applyDurationToDate(new Date(), value, unit);
 }
 
-export function parsePeriodToMillis(input): number {
+export function parsePeriodToMillis(input: string | number): number {
+    if (typeof input === "number") {
+        return input;
+    }
     return +parsePeriod(input) - +new Date();
 }
 

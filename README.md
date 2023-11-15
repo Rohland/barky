@@ -375,10 +375,10 @@ shell:
 
 Supported response types:
 
-- `json` - Barky expects a json string response (the raw response will be emitted into a `stdout` variable)
+- `json` - Barky expects a json string response (the raw response will be emitted into a `stdout` variable), note that if the result is a JSON array, multiple results will be returned
 - `string` - Barky expects a string response and will emit this into a `stdout` variable
 
-All environment variables are injected into the script for use.
+All environment variables are injected into the script for use. All non-alphanumeric and underscore characters are replaced with `_` in the variable name. Example `my-var` becomes `my_var` and can be accessed with `$my_var`.
 
 A more complex example:
 
@@ -388,8 +388,9 @@ shell:
   vary-by: [za,us,gb]
   path: ./my-script.sh # the vary-by params are passed into the script as arguments, i.e. ./script.sh $1 $2
   responseType: json
+  identifier: id
   triggers:
-  - match: .* # catch all (you can match on the vary-by value here (identifier is pipe delimited for more than one))
+  - match: .* # catch all (you can match on the identifier field in the result set, and if missing or not set, the vary-by value will be used here (identifier is pipe delimited if multipart))
     rules:
       - expression: "exitCode !== 0"
         message: "Script failed with exit code {{exitCode}}"
