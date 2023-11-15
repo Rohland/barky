@@ -105,7 +105,7 @@ export class ShellEvaluator extends BaseEvaluator {
         variables: any): IParsedResult[] {
         if (/json/i.test(app.responseType ?? "")) {
             try {
-                const parsed = JSON.parse(result.stdout);
+                const parsed = tryParseJsonResult(result);
                 if (Array.isArray(parsed)) {
                     return parsed.map(x => ({
                         type: "object",
@@ -147,4 +147,17 @@ interface IParsedResult {
     type: string,
     value: string | object,
     variables: any
+}
+
+function tryParseJsonResult(result: IShellResult) {
+    try {
+        return JSON.parse(result.stdout);
+    } catch(err) {
+        try {
+        const lines = result.stdout.split(/[\r\n]+/g);
+        return lines.map(x => JSON.parse(x));
+        } catch(err2) {
+            throw new Error(`Failed to parse JSON result as JSON & JSONL, errors: ${ err.message } and ${ err2.message }`)
+        }
+    }
 }

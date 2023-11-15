@@ -375,7 +375,7 @@ shell:
 
 Supported response types:
 
-- `json` - Barky expects a json string response (the raw response will be emitted into a `stdout` variable), note that if the result is a JSON array, multiple results will be returned
+- `json` - Barky expects a json string response (the raw response will be emitted into a `stdout` variable), note that if the result is a JSON array or JSONL, multiple results will be returned
 - `string` - Barky expects a string response and will emit this into a `stdout` variable
 
 All environment variables are injected into the script for use. All non-alphanumeric and underscore characters are replaced with `_` in the variable name. Example `my-var` becomes `my_var` and can be accessed with `$my_var`.

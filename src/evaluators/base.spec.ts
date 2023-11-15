@@ -449,6 +449,31 @@ describe("base evaluator", () => {
                 expect(results.skippedApps).toEqual([]);
                 expect(results.results).toEqual([result]);
             });
+            describe("if the results have duplicate identifiers", () => {
+                it("should add a numeric postfix to make the name unique", async () => {
+                    // arrange
+                    const app = {
+                        type: "mysql",
+                        name: "queue-performance"
+                    };
+
+                    const sut = new MyEval({});
+                    sut.addApp(app);
+                    sut.addResult(new MySqlResult(app.name, "my-queue", "test", "test", 0, true, app));
+                    sut.addResult(new MySqlResult(app.name, "my-queue", "test", "test", 0, true, app))
+                    sut.addResult(new MySqlResult(app.name, "my-queue", "test", "test", 0, true, app))
+
+                    // act
+                    const results = await sut.evaluateApps();
+
+                    // assert
+                    expect(results.skippedApps).toEqual([]);
+                    expect(results.results.length).toEqual(3);
+                    expect(results.results[0].identifier).toEqual("my-queue");
+                    expect(results.results[1].identifier).toEqual("my-queue-1");
+                    expect(results.results[2].identifier).toEqual("my-queue-2");
+                });
+            });
         });
 
         describe("when results are missing (presumably due to underlying error)", () => {

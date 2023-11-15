@@ -35,6 +35,7 @@ export abstract class BaseEvaluator {
     public async evaluateApps(): Promise<EvaluatorResult> {
         try {
             const results = await this.evaluate();
+            this.detectAnyDuplicateIdentifiers(results.results);
             results.skippedApps ||= [];
             results.skippedApps.push(...(this.skippedApps || []));
             const appResults = results.results;
@@ -67,10 +68,10 @@ export abstract class BaseEvaluator {
             try {
                 const timer = startClock();
                 const results = await this.tryEvaluate(app);
-                const timeTaken =  stopClock(timer);
+                const timeTaken = stopClock(timer);
                 [results].flat().map(x => x.timeTaken ||= timeTaken);
                 return results;
-            } catch(err) {
+            } catch (err) {
                 try {
                     const errorInfo = new Error(err.message);
                     errorInfo.stack = err.stack;
@@ -170,6 +171,20 @@ export abstract class BaseEvaluator {
                 ...app,
                 ...variant,
             };
+        });
+    }
+
+    private detectAnyDuplicateIdentifiers(results: Result | Result[]) {
+        const entries = [results].flat();
+        const lookup = new Map<string, number>();
+        entries.forEach(result => {
+            let count = 0;
+            const uniqueId = result.uniqueId;
+            if (lookup.has(uniqueId)) {
+                count = lookup.get(uniqueId) + 1;
+                result.identifier = `${ result.identifier}-${ count }`;
+            }
+            lookup.set(uniqueId, count);
         });
     }
 }

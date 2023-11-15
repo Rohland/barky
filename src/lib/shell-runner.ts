@@ -1,4 +1,5 @@
 import { exec } from "child_process";
+import * as process from "process";
 
 export interface IShellResult {
     exitCode: number;
@@ -13,6 +14,7 @@ function generateEnvVars() {
     }
     _envVars = {};
     for (const key in process.env) {
+        _envVars[key] = process.env[key];
         _envVars[key.replace(/[^a-z0-9_]+/g, "_")] = process.env[key];
     }
     return _envVars;

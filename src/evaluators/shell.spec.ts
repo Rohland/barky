@@ -166,6 +166,39 @@ describe("shell evaluator", () => {
                     });
                 });
             });
+            describe("and is a multiline response", () => {
+                it("should respond with multiple results", async () => {
+                    // arrange
+                    const shellResponseObj = [{ id: "a", count: 1 }, { id: "b", count: 2}];
+                    const res = {
+                        exitCode: 0,
+                        stdout: shellResponseObj.map(x => JSON.stringify(x)).join("\n")
+                    };
+                    const app = {
+                        name: "test",
+                        path: "test.sh",
+                        timeout: 1000,
+                        responseType: "json",
+                        identifier: "id",
+                        __configPath: "/Users/Test/SomeDir/Hello.yaml"
+                    };
+                    (execShellScript as jest.Mock).mockResolvedValue(res);
+                    const sut = new ShellEvaluator({});
+
+                    // act
+                    const results = [await sut.tryEvaluate(app)].flat();
+
+                    // assert
+                    expect(results.length).toEqual(2);
+                    results.forEach((result,i) => {
+                        expect(result).toBeInstanceOf(ShellResult);
+                        expect(result.label).toEqual("test");
+                        expect(result.identifier).toEqual(shellResponseObj[i].id);
+                        expect(result.result).toEqual(JSON.stringify({ ...shellResponseObj[i], exitCode: 0 }));
+                        expect(result.success).toEqual(true);
+                    });
+                });
+            });
         });
         describe("with vary-by", () => {
             it("should pass as args", async () => {
