@@ -55,6 +55,7 @@ typings/
 *.swp
 *.swo
 *.un~
+*.cnf
 
 # Mac OS X .DS_Store
 .DS_Store

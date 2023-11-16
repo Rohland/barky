@@ -44,14 +44,18 @@ export function configureMonitorLogsWithAlertConfiguration(
 }
 
 export async function emitAndPersistResults(results: Result[]) {
-    emitResults(results);
     try {
+        emitResults(results);
         await persistResults(results);
     } catch(err) {
         if (results.every(x => x.isConfigurationFailureResult)) {
             return;
         }
         log(`error persisting results: ${ err }`, err);
-        emitResults([MonitorFailureResult.ConfigurationError(err)]);
+        try {
+            emitResults([MonitorFailureResult.ConfigurationError(err)]);
+        } catch {
+            console.error("error emitting logs", err);
+        }
     }
 }

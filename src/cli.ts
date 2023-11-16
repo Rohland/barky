@@ -16,8 +16,13 @@ import { getConfig } from "./config";
 
 (async () => {
     const args = await getArgs();
-    const exitCode = await loop(args, () => run(args));
-    process.exit(exitCode);
+    try {
+        const exitCode = await loop(args, async () => await run(args));
+        process.exit(exitCode);
+    } catch(err) {
+        console.log("fatal error", err);
+        process.exit(-1);
+    }
 })();
 
 async function run(args) {

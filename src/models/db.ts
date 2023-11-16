@@ -17,8 +17,13 @@ export async function initConnection(name: string) {
 }
 
 export async function destroy() {
-    _connection?.destroy();
-    _connection = null;
+    try {
+        await _connection?.destroy();
+    } catch {
+        // no-op
+    } finally {
+        _connection = null;
+    }
 }
 
 export function deleteDbIfExists(file) {
@@ -36,7 +41,7 @@ export async function persistResults(results: Result[]) {
 }
 
 export async function persistSnapshots(snapshots: Snapshot[]) {
-    return saveSnapshots(_connection, snapshots);
+    return await saveSnapshots(_connection, snapshots);
 }
 
 async function saveSnapshots(conn: Knex, snapshots: Snapshot[]) {
