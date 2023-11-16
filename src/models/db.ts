@@ -7,6 +7,7 @@ import { AlertState } from "./alerts";
 import path from "path";
 
 let _connection;
+let _context;
 
 export async function initConnection(name: string) {
     if (_connection) {
@@ -22,6 +23,7 @@ export async function destroy() {
     } catch {
         // no-op
     } finally {
+        _context = null;
         _connection = null;
     }
 }
@@ -87,7 +89,9 @@ export async function mutateAndPersistSnapshotState(
     snapshots: Snapshot[],
     logIdsToDelete: number[]) {
     await _connection.transaction(async trx => {
-        logIdsToDelete?.length > 0 && await trx("logs").whereIn("id", logIdsToDelete).del();
+        if (logIdsToDelete?.length > 0) {
+            await trx("logs").whereIn("id", logIdsToDelete).del();
+        }
         await trx("snapshots").truncate();
         await saveSnapshots(trx, snapshots);
     });
@@ -194,6 +198,9 @@ async function logResults(results: Result[]) {
 
 export function getConnection(context: string): Knex {
     if (_connection) {
+        if (context !== _context) {
+            throw new Error(`Sqlite connection already established with context ${ _context } and now requesting ${ context }`);
+        }
         return _connection;
     }
     if (!context) {
@@ -206,6 +213,7 @@ export function getConnection(context: string): Knex {
     if (!fs.existsSync(fullPathToDir)){
         fs.mkdirSync(fullPathToDir);
     }
+    _context = context;
     _connection = knex({
         client: 'sqlite3',
         connection: {

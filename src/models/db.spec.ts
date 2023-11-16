@@ -51,6 +51,13 @@ describe("persistResults", () => {
             await verifySnapshotTableExists();
         });
     });
+    describe("if different context provided", () => {
+        it("should throw", async () => {
+            // arrange
+            // act
+            expect(() => getConnection("test")).toThrow("Sqlite connection already established with context dbtests and now requesting test");
+        });
+    });
     describe("persistResults", () => {
         describe("if has results", () => {
             describe.each([

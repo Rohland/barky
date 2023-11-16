@@ -149,7 +149,7 @@ describe("evaluation", () => {
                 const results = await evaluateType(type);
 
                 // assert
-                expect(results.length).toEqual(2);
+                expect(results.length).toEqual(3);
                 expect(results[0]).toMatchObject({
                     type: "web",
                     label: "monitor",
@@ -163,6 +163,17 @@ describe("evaluation", () => {
                 expect(results[1]).toMatchObject({
                     type: "web",
                     label: "*",
+                    identifier: "test",
+                    result: 1,
+                    timeTaken: 0,
+                    resultMsg: "Skipped",
+                    app: app,
+                    alert: null,
+                    success: true
+                });
+                expect(results[2]).toMatchObject({
+                    type: "web",
+                    label: "monitor",
                     identifier: "test",
                     result: 1,
                     timeTaken: 0,

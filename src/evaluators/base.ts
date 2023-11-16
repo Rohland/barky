@@ -154,6 +154,15 @@ export abstract class BaseEvaluator {
                 ...app,
                 ...this.generateSkippedAppUniqueKey(app.name)
             });
+            // since we don't run, indicate monitor failure also skipped
+            this.skippedApps.push({
+                ...app,
+                ...{
+                    type: app.type,
+                    label: "monitor",
+                    identifier: app.name
+                }
+            });
         }
         return shouldEvaluate;
     }

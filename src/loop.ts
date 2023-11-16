@@ -2,7 +2,6 @@ import { sleepMs } from "./lib/sleep";
 import { startClock, stopClock } from "./lib/profiler";
 import { canLockProcessFor } from "./lib/process-lock";
 
-
 export const LoopMs = 30000;
 
 export async function loop(
