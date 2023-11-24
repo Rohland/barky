@@ -30,7 +30,7 @@ describe("alert", () => {
             });
         });
     });
-    describe("getResolvedSnapshotList", () => {
+    describe("getResolvedOrMutedSnapshotList", () => {
         describe("when provided with issues ids", () => {
             it("should return resolved ids", async () => {
                 // arrange
@@ -58,7 +58,7 @@ describe("alert", () => {
                 alert.track(current);
 
                 // act
-                const resolved = alert.getResolvedSnapshotList([current[0].uniqueId]);
+                const resolved = alert.getResolvedOrMutedSnapshotList([current[0].uniqueId]);
 
                 // assert
                 expect(resolved.length).toEqual(1);

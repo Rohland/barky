@@ -98,7 +98,7 @@ export class AlertState {
         })
     }
 
-    public getResolvedSnapshotList(currentIssueIds: string[]): { key: IUniqueKey, lastSnapshot: ILastFailureSnapshot}[] {
+    public getResolvedOrMutedSnapshotList(currentIssueIds: string[]): { key: IUniqueKey, lastSnapshot: ILastFailureSnapshot}[] {
         const all = this.affectedKeys;
         const keys = all.filter(x => !currentIssueIds.includes(x));
         return keys.map(x => {

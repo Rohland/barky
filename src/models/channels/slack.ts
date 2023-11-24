@@ -44,10 +44,10 @@ export class SlackChannelConfig extends ChannelConfig {
             });
             parts.push("");
         }
-        const resolved = alert.getResolvedSnapshotList(snapshots.map(x => x.uniqueId));
-        if (resolved.length > 0) {
-            parts.push(`*☑️ ${ resolved.length } resolved ${ pluraliseWithS("check", resolved.length) }:*`);
-            const types = resolved.reduce((acc: Map<string, number>, x) => {
+        const resolvedOrMuted = alert.getResolvedOrMutedSnapshotList(snapshots.map(x => x.uniqueId));
+        if (resolvedOrMuted.length > 0) {
+            parts.push(`*☑️ ${ resolvedOrMuted.length } resolved ${ pluraliseWithS("check", resolvedOrMuted.length) }:*`);
+            const types = resolvedOrMuted.reduce((acc: Map<string, number>, x) => {
                 const count = acc.get(x.key.type) ?? 0;
                 acc.set(x.key.type, count + 1);
                 return acc;
@@ -101,10 +101,10 @@ export class SlackChannelConfig extends ChannelConfig {
             });
             parts.push("");
         }
-        const resolved = alert.getResolvedSnapshotList(snapshots.map(x => x.uniqueId));
-        if (resolved.length > 0) {
-            parts.push(`*☑️ ${ resolved.length } resolved/muted ${ pluraliseWithS("check", resolved.length) }:*`);
-            resolved.forEach(x => {
+        const resolvedOrMuted = alert.getResolvedOrMutedSnapshotList(snapshots.map(x => x.uniqueId));
+        if (resolvedOrMuted.length > 0) {
+            parts.push(`*☑️ ${ resolvedOrMuted.length } resolved/muted ${ pluraliseWithS("check", resolvedOrMuted.length) }:*`);
+            resolvedOrMuted.forEach(x => {
                 const lastResult = x.lastSnapshot ? `(last result before resolution: _${ x.lastSnapshot.result }_)` : "";
                 parts.push(`    • ${ x.key.type }:${ x.key.label } → ${ x.key.identifier } ${ lastResult } ${ this.generateLinks(x.lastSnapshot) }`);
             });

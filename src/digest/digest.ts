@@ -207,7 +207,10 @@ export class DigestContext {
 
     public alertableSnapshots(config: DigestConfiguration): Snapshot[] {
         return this.digestableSnapshots
-            .filter(x => !config.muteWindows.some(m => m.isMuted(x.uniqueId)));
+            .filter(x => {
+                x.muted = config.muteWindows.some(m => m.isMuted(x.uniqueId));
+                return !x.muted
+            });
     }
 }
 

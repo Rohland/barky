@@ -67,9 +67,7 @@ async function sendOngoingAlerts(
         }
         const snapshots = context.getAlertableSnapshotsForChannel(config, channel);
         if (snapshots.length === 0) {
-            // only way we can get here is if the channels alerts are muted
-            alert.setMuted();
-            await sendMutedAlert(config, alert);
+            await sendMutedOrResolvedAlert(context, config, alert);
             return;
         }
         if (channel.canSendAlert(alert)) {
@@ -98,12 +96,22 @@ async function sendResolvedAlerts(
     }));
 }
 
-async function sendMutedAlert(config: DigestConfiguration, alert: AlertState) {
+async function sendMutedOrResolvedAlert(
+    context: DigestContext,
+    config: DigestConfiguration,
+    alert: AlertState) {
     const channel = config.getChannelConfig(alert.channel);
     if (!channel) {
         return;
     }
-    await channel.sendMutedAlert(alert);
+    const currentButMutedIssues = context.digestableSnapshots.filter(x => x.muted);
+    const resolved = alert.getResolvedOrMutedSnapshotList(currentButMutedIssues.map(x => x.uniqueId));
+    if (resolved.length === 0) {
+        alert.setMuted();
+        await channel.sendMutedAlert(alert);
+        return;
+    }
+    await sendResolvedAlerts([alert], config);
 }
 
 async function triggerAlerts(
