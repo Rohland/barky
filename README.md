@@ -319,7 +319,7 @@ Example period formats
 
 The example below will execute the given mysql query, and iterate over the result set.
 
-The `triggers` define the set of rules that will trigger alerts. The first trigger that matches the value for the identifier will be selected and evaluated.
+The `triggers` define the set of rules that will trigger alerts. The first trigger that matches the value for the identifier and relevant rules will be selected and evaluated.
 The trigger's rule expression is evaluated as JavaScript.
 
 The example below does not have any alerts configured, see web example above to see what you can do with alerts.
