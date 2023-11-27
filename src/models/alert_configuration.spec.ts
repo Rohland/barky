@@ -486,7 +486,7 @@ describe("AlertConfiguration", () => {
                             const date = new Date(2023, 10, 27, 8, 0, 0);
 
                             // act
-                            const result = config.findFirstValidRule("mysql|queue-performance|my-result", date);
+                            const result = config.findFirstValidRule("my-result", date);
 
                             // assert
                             expect(result).toEqual(config.rules[1]);

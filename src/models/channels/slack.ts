@@ -97,7 +97,7 @@ export class SlackChannelConfig extends ChannelConfig {
         if (snapshots.length > 0) {
             parts.push(`*🚨 ${ snapshots.length } failing ${ pluraliseWithS("check", snapshots.length) }:*`);
             snapshots.forEach(x => {
-                parts.push(`    • ${ x.type }:${ x.label } → ${ x.identifier } \`${ x.last_result }\` ${ this.generateLinks(x) }`);
+                parts.push(`    • ${ x.type }:${ x.label } → *${ x.identifier }* \`${ x.last_result }\` ${ this.generateLinks(x) }`);
             });
             parts.push("");
         }
@@ -105,8 +105,9 @@ export class SlackChannelConfig extends ChannelConfig {
         if (resolvedOrMuted.length > 0) {
             parts.push(`*☑️ ${ resolvedOrMuted.length } resolved/muted ${ pluraliseWithS("check", resolvedOrMuted.length) }:*`);
             resolvedOrMuted.forEach(x => {
-                const lastResult = x.lastSnapshot ? `(last result before resolution: _${ x.lastSnapshot.result }_)` : "";
-                parts.push(`    • ${ x.key.type }:${ x.key.label } → ${ x.key.identifier } ${ lastResult } ${ this.generateLinks(x.lastSnapshot) }`);
+                const time = toLocalTimeString(x.lastSnapshot.date, { noSeconds: true });
+                const lastResult = x.lastSnapshot ? `(last failure at ${ time }: _${ x.lastSnapshot.result }_)` : "";
+                parts.push(`    • ${ x.key.type }:${ x.key.label } → *${ x.key.identifier }* ${ lastResult } ${ this.generateLinks(x.lastSnapshot) }`);
             });
             parts.push("");
         }
