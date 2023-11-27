@@ -131,6 +131,6 @@ export class AlertConfiguration {
         if (noDirectlyMatchedRules) {
             return this.rules.find(x => !x.match && x.isValidNow(date)) ?? null;
         }
-        return rules.find(x => !x.isNotValidNow) ?? null;
+        return rules.find(x => x.isValidNow(date)) ?? null;
     }
 }
