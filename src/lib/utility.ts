@@ -61,8 +61,8 @@ export function isToday(date: string, on?: Date): boolean {
     return inputDate.getTime() === today.getTime();
 }
 
-export function dayOfWeek(date: Date): number {
-    const day = date.toLocaleString("en-US", {
+export function dayOfWeek(date?: Date): number {
+    const day = (date || new Date()).toLocaleString("en-US", {
         timeZone: timeZone,
         weekday: 'short'
     });

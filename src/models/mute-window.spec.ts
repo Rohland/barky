@@ -93,6 +93,22 @@ describe("mute-windows", () => {
                 });
             });
         });
+        describe("can be called with null date", () => {
+            it("should infer now", async () => {
+                // arrange
+                const config = {
+                    time: "00:00-24:00",
+                    date: new Date().toISOString().split('T')[0],
+                    days: ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] };
+                const muteWindow = new MuteWindow(config);
+
+                // act
+                const isMuted = muteWindow.isMutedAt();
+
+                // assert
+                expect(isMuted).toEqual(true);
+            });
+        });
     });
     describe("with match", () => {
         describe.each([
