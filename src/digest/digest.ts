@@ -218,7 +218,7 @@ export function evaluateNewResult(
     result: Result,
     context: DigestContext) {
     const previousLogs = context.getLogsFor(result);
-    const rule = result.findFirstValidRule();
+    const rule = result.findFirstValidRule(result.uniqueId);
     if (rule.isNotValidNow) {
         result.clearAlert();
     }

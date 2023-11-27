@@ -42,8 +42,8 @@ export class Result implements IUniqueKey {
         ].join("|");
     }
 
-    findFirstValidRule(): AlertRule {
-        const matchedRule = this.alert?.findFirstValidRule();
+    findFirstValidRule(alertId: string): AlertRule {
+        const matchedRule = this.alert?.findFirstValidRule(alertId);
         if (matchedRule) {
             return matchedRule;
         }
