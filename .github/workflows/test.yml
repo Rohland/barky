@@ -25,5 +25,10 @@ jobs:
 
       - uses: bahmutov/npm-install@v1
 
+      - name: 🔧 Set Timezone
+        uses: szenius/set-timezone@v1.2
+        with:
+          timezoneLinux: "Africa/Johannesburg"
+
       - name: Run Tests
         run: npm test
