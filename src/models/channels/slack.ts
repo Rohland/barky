@@ -105,8 +105,9 @@ export class SlackChannelConfig extends ChannelConfig {
         if (resolvedOrMuted.length > 0) {
             parts.push(`*☑️ ${ resolvedOrMuted.length } resolved/muted ${ pluraliseWithS("check", resolvedOrMuted.length) }:*`);
             resolvedOrMuted.forEach(x => {
-                const time = toLocalTimeString(x.lastSnapshot.date, { noSeconds: true });
-                const lastResult = x.lastSnapshot ? `(last failure at ${ time }: _${ x.lastSnapshot.result }_)` : "";
+                const time = x.lastSnapshot?.resolvedDate ? toLocalTimeString(x.lastSnapshot.resolvedDate, { noSeconds: true }) : null;
+                const timeString = time ? `resolved at ${ time }, ` : "";
+                const lastResult = x.lastSnapshot ? `(${ timeString } last failure: _${ x.lastSnapshot.result }_)` : "";
                 parts.push(`    • ${ x.key.type }:${ x.key.label } → *${ x.key.identifier }* ${ lastResult } ${ this.generateLinks(x.lastSnapshot) }`);
             });
             parts.push("");
