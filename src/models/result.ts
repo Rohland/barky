@@ -57,6 +57,20 @@ export class Result implements IUniqueKey {
     clearAlert() {
         this.alert = null;
     }
+
+    clone() {
+        return new Result(
+            this.date,
+            this.type,
+            this.label,
+            this.identifier,
+            this.result,
+            this.resultMsg,
+            this.timeTaken,
+            this.success,
+            this.app
+        );
+    }
 }
 
 function formatValue(value: string): string {

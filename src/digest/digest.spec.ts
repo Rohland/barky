@@ -3,7 +3,7 @@ import {
     evaluateNewResult, generateDigest,
     generateResultsToEvaluate
 } from "./digest";
-import { Result, SkippedResult } from "../models/result";
+import { MySqlResult, Result, SkippedResult } from "../models/result";
 import { MonitorLog } from "../models/log";
 import { Snapshot } from "../models/snapshot";
 import {
@@ -573,6 +573,35 @@ describe("digest", () => {
 
                 // assert
                 expect(output.length).toEqual(1);
+            });
+        });
+        describe("when app result was inferred by evaluator", () => {
+            it("should still emit discrete result if failed previously", async () => {
+                // arrange
+                const snapshot = new Snapshot({
+                    id: 1,
+                    type: "mysql",
+                    label: "queue",
+                    identifier: "sms",
+                    last_result: "last_failure",
+                    success: false,
+                    date: new Date(),
+                    alert_config: new AlertConfiguration({
+                        channels: ["test-channel"],
+                        rules: []
+                    })
+                });
+                const result = new MySqlResult("queue", "*", true, "OK", 0, true, null);
+
+                // act
+                const output = generateResultsToEvaluate(
+                    [result],
+                    [snapshot]
+                );
+
+                // assert
+                expect(output.length).toEqual(1);
+                expect(console.log).toHaveBeenCalledWith(expect.stringContaining("mysql|queue|sms"));
             });
         });
     });
