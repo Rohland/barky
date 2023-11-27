@@ -4,6 +4,7 @@ import { ChannelConfig, ChannelType } from "./base";
 import axios from "axios";
 import { pluraliseWithS, toLocalTimeString, tryExecuteTimes } from "../../lib/utility";
 import { AlertConfiguration } from "../alert_configuration";
+import * as os from "os";
 
 export class SlackChannelConfig extends ChannelConfig {
     public channel: string;
@@ -43,10 +44,10 @@ export class SlackChannelConfig extends ChannelConfig {
             });
             parts.push("");
         }
-        const resolved = alert.getResolvedSnapshotList(snapshots.map(x => x.uniqueId));
-        if (resolved.length > 0) {
-            parts.push(`*☑️ ${ resolved.length } resolved ${ pluraliseWithS("check", resolved.length) }:*`);
-            const types = resolved.reduce((acc: Map<string, number>, x) => {
+        const resolvedOrMuted = alert.getResolvedOrMutedSnapshotList(snapshots.map(x => x.uniqueId));
+        if (resolvedOrMuted.length > 0) {
+            parts.push(`*☑️ ${ resolvedOrMuted.length } resolved ${ pluraliseWithS("check", resolvedOrMuted.length) }:*`);
+            const types = resolvedOrMuted.reduce((acc: Map<string, number>, x) => {
                 const count = acc.get(x.key.type) ?? 0;
                 acc.set(x.key.type, count + 1);
                 return acc;
@@ -61,9 +62,14 @@ export class SlackChannelConfig extends ChannelConfig {
             parts.push(this.summary);
             parts.push("");
         }
-        parts.push(`_Last Updated: ${ toLocalTimeString(new Date()) }_`);
+        this.tagWithLastUpdated(parts);
         parts.push(this.postfix);
         return parts.join("\n");
+    }
+
+
+    private tagWithLastUpdated(parts: any[]) {
+        parts.push(`_Last Updated: *${ toLocalTimeString(new Date()) }* by ${ os.hostname() }_`);
     }
 
     private _generateHeader(alert: AlertState) {
@@ -91,20 +97,22 @@ export class SlackChannelConfig extends ChannelConfig {
         if (snapshots.length > 0) {
             parts.push(`*🚨 ${ snapshots.length } failing ${ pluraliseWithS("check", snapshots.length) }:*`);
             snapshots.forEach(x => {
-                parts.push(`    • ${ x.type }:${ x.label } → ${ x.identifier } \`${ x.last_result }\` ${ this.generateLinks(x) }`);
+                parts.push(`    • ${ x.type }:${ x.label } → *${ x.identifier }* \`${ x.last_result }\` ${ this.generateLinks(x) }`);
             });
             parts.push("");
         }
-        const resolved = alert.getResolvedSnapshotList(snapshots.map(x => x.uniqueId));
-        if (resolved.length > 0) {
-            parts.push(`*☑️ ${ resolved.length } resolved/muted ${ pluraliseWithS("check", resolved.length) }:*`);
-            resolved.forEach(x => {
-                const lastResult = x.lastSnapshot ? `(last result before resolution: _${ x.lastSnapshot.result }_)` : "";
-                parts.push(`    • ${ x.key.type }:${ x.key.label } → ${ x.key.identifier } ${ lastResult } ${ this.generateLinks(x.lastSnapshot) }`);
+        const resolvedOrMuted = alert.getResolvedOrMutedSnapshotList(snapshots.map(x => x.uniqueId));
+        if (resolvedOrMuted.length > 0) {
+            parts.push(`*☑️ ${ resolvedOrMuted.length } resolved/muted ${ pluraliseWithS("check", resolvedOrMuted.length) }:*`);
+            resolvedOrMuted.forEach(x => {
+                const time = x.lastSnapshot?.resolvedDate ? toLocalTimeString(x.lastSnapshot.resolvedDate, { noSeconds: true }) : null;
+                const timeString = time ? `resolved at ${ time }, ` : "";
+                const lastResult = x.lastSnapshot ? `(${ timeString } last failure: _${ x.lastSnapshot.result }_)` : "";
+                parts.push(`    • ${ x.key.type }:${ x.key.label } → *${ x.key.identifier }* ${ lastResult } ${ this.generateLinks(x.lastSnapshot) }`);
             });
             parts.push("");
         }
-        parts.push(`_Last Updated: ${ toLocalTimeString(new Date()) }_`);
+        this.tagWithLastUpdated(parts);
         parts.push(this.postfix);
         return parts.join("\n");
     }

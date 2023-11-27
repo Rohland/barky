@@ -1,8 +1,38 @@
 import { AlertState } from "./alerts";
 import { toLocalTimeString } from "../lib/utility";
 import { Snapshot } from "./snapshot";
+import { getTestSnapshot } from "./snapshot.spec";
 
 describe("alert", () => {
+    describe("constructor", () => {
+        describe("when initialised", () => {
+            it("should bind all fields", async () => {
+                // arrange
+                const snapshot = getTestSnapshot();
+                const lastFailure = {
+                    date: snapshot.date,
+                    result: snapshot.last_result,
+                    alert: snapshot.alert,
+                    resolvedDate: new Date()
+                };
+
+                // act
+                const alert = new AlertState({
+                    channel: "console",
+                    start_date: new Date(new Date().getTime() - 1000 * 60 * 2),
+                    last_alert_date: new Date(new Date().getTime() - 1000 * 60 * 2),
+                    affected: JSON.stringify([["web|health|www.codeo.co.za", lastFailure]]),
+                });
+
+                // assert
+                const affected = alert.affected.get("web|health|www.codeo.co.za");
+                expect(affected.date).toEqual(lastFailure.date);
+                expect(affected.result).toEqual(lastFailure.result);
+                expect(affected.alert.getConfig()).toEqual(lastFailure.alert);
+                expect(affected.resolvedDate).toEqual(lastFailure.resolvedDate);
+            });
+        });
+    });
     describe("endTime", () => {
         describe("when called and not resolved", () => {
             it("should return null", async () => {
@@ -30,7 +60,7 @@ describe("alert", () => {
             });
         });
     });
-    describe("getResolvedSnapshotList", () => {
+    describe("getResolvedOrMutedSnapshotList", () => {
         describe("when provided with issues ids", () => {
             it("should return resolved ids", async () => {
                 // arrange
@@ -58,7 +88,7 @@ describe("alert", () => {
                 alert.track(current);
 
                 // act
-                const resolved = alert.getResolvedSnapshotList([current[0].uniqueId]);
+                const resolved = alert.getResolvedOrMutedSnapshotList([current[0].uniqueId]);
 
                 // assert
                 expect(resolved.length).toEqual(1);

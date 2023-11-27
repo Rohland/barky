@@ -42,8 +42,8 @@ export class Result implements IUniqueKey {
         ].join("|");
     }
 
-    findFirstValidRule(): AlertRule {
-        const matchedRule = this.alert?.findFirstValidRule();
+    findFirstValidRule(uniqueId: string): AlertRule {
+        const matchedRule = this.alert?.findFirstValidRule(uniqueId);
         if (matchedRule) {
             return matchedRule;
         }
@@ -109,6 +109,28 @@ export class MySqlResult extends Result {
         super(
             new Date(),
             "mysql",
+            label,
+            identifier,
+            JSON.stringify(result),
+            resultMsg?.length > 0 ? resultMsg : (success ? "OK" : "FAIL"),
+            timeTaken,
+            success,
+            app);
+    }
+}
+
+export class ShellResult extends Result {
+    constructor(
+        label,
+        identifier,
+        result,
+        resultMsg,
+        timeTaken,
+        success,
+        app: IApp) {
+        super(
+            new Date(),
+            "shell",
             label,
             identifier,
             JSON.stringify(result),

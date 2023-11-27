@@ -8,6 +8,7 @@ import { IUniqueKey } from "../lib/key";
 import { DefaultTrigger } from "../models/trigger";
 import { initLocaleAndTimezone } from "../lib/utility";
 import { MySqlResult, Result } from "../models/result";
+import { ShellEvaluator } from "./shell";
 
 describe("base evaluator", () => {
 
@@ -19,6 +20,7 @@ describe("base evaluator", () => {
                 ["web", WebEvaluator],
                 ["mysql", MySqlEvaluator],
                 ["sumo", SumoEvaluator],
+                ["shell", ShellEvaluator]
             ])(`with %s`, (type, evaluator) => {
                 it("should set the type of each app", async () => {
                     // arrange
@@ -97,9 +99,9 @@ describe("base evaluator", () => {
                 const apps3 = evaluator.getAppsToEvaluate();
 
                 // assert
-                expect(apps1).toEqual([{ type: "custom", name: "app1" }]);
-                expect(apps2).toEqual([{ type: "custom", name: "app1" }]);
-                expect(apps3).toEqual([{ type: "custom", name: "app1" }]);
+                expect(apps1).toEqual([{ type: "custom", name: "app1", timeout: 10000 }]);
+                expect(apps2).toEqual([{ type: "custom", name: "app1", timeout: 10000 }]);
+                expect(apps3).toEqual([{ type: "custom", name: "app1", timeout: 10000 }]);
                 expect(evaluator.skippedApps).toEqual([]);
             });
         });
@@ -122,9 +124,9 @@ describe("base evaluator", () => {
                     const apps3 = evaluator.getAppsToEvaluate();
 
                     // assert
-                    expect(apps1).toEqual([app]);
-                    expect(apps2).toEqual([app]);
-                    expect(apps3).toEqual([app]);
+                    expect(apps1).toMatchObject([app]);
+                    expect(apps2).toMatchObject([app]);
+                    expect(apps3).toMatchObject([app]);
                     expect(evaluator.skippedApps).toEqual([]);
                 });
             });
@@ -146,41 +148,10 @@ describe("base evaluator", () => {
                     const apps3 = evaluator.getAppsToEvaluate();
 
                     // assert
-                    expect(apps1).toEqual([app]);
-                    expect(apps2).toEqual([]);
-                    expect(apps3).toEqual([app]);
-                    expect(evaluator.skippedApps).toEqual([{
-                        ...app,
-                        type: "custom",
-                        label: "app1",
-                        identifier: "*"
-                    }]);
-                });
-            });
-            describe("if every 90s", () => {
-                it("should only be evaluated every 3rd invocation", async () => {
-                    // arrange
-                    const app = {
-                        every: "90s"
-                    };
-                    const evaluator = new CustomEvaluator({
-                        "custom": {
-                            "app1": app
-                        }
-                    });
-
-                    // act
-                    const apps1 = evaluator.getAppsToEvaluate();
-                    const apps2 = evaluator.getAppsToEvaluate();
-                    const apps3 = evaluator.getAppsToEvaluate();
-                    const apps4 = evaluator.getAppsToEvaluate();
-
-                    // assert
-                    expect(apps1).toEqual([app]);
-                    expect(apps2).toEqual([]);
-                    expect(apps3).toEqual([]);
-                    expect(apps4).toEqual([app]);
-                    expect(evaluator.skippedApps).toEqual([
+                    expect(apps1).toMatchObject([app]);
+                    expect(apps2).toMatchObject([]);
+                    expect(apps3).toMatchObject([app]);
+                    expect(evaluator.skippedApps).toMatchObject([
                         {
                             ...app,
                             type: "custom",
@@ -190,9 +161,40 @@ describe("base evaluator", () => {
                         {
                             ...app,
                             type: "custom",
-                            label: "app1",
-                            identifier: "*"
-                        }]);
+                            label: "monitor",
+                            identifier: "app1"
+                        }
+                    ]);
+                });
+            });
+            describe("if every 5m", () => {
+                it("should only be evaluated every 10th invocation", async () => {
+                    // arrange
+                    const app = {
+                        every: "5m"
+                    };
+                    const evaluator = new CustomEvaluator({
+                        "custom": {
+                            "app1": app
+                        }
+                    });
+
+                    // act
+                    const calls = 10;
+                    const results = [];
+                    for (let i = 0; i <= calls; i++) {
+                        results.push(evaluator.getAppsToEvaluate());
+                    }
+
+                    // assert
+                    expect(results[0]).toMatchObject([app]);
+                    for (let i = 1; i < calls; i++) {
+                        expect(results[i]).toMatchObject([]);
+                    }
+                    expect(results[10]).toMatchObject([app])
+                    expect(evaluator.skippedApps.length).toEqual(18);
+                    expect(evaluator.skippedApps.filter(x => x.type ==="custom" && x.label === "app1" && x.identifier === "*").length).toEqual(9);
+                    expect(evaluator.skippedApps.filter(x => x.type ==="custom" && x.label === "monitor" && x.identifier === "app1").length).toEqual(9);
                 });
             });
         });
@@ -391,8 +393,7 @@ describe("base evaluator", () => {
                 this.results.push(result);
             }
 
-            configureAndExpandApp(_app: IApp): IApp[] {
-                return [];
+            public configureApp(_app: IApp): void {
             }
 
             public async evaluate(): Promise<EvaluatorResult> {
@@ -448,6 +449,31 @@ describe("base evaluator", () => {
                 expect(results.skippedApps).toEqual([]);
                 expect(results.results).toEqual([result]);
             });
+            describe("if the results have duplicate identifiers", () => {
+                it("should add a numeric postfix to make the name unique", async () => {
+                    // arrange
+                    const app = {
+                        type: "mysql",
+                        name: "queue-performance"
+                    };
+
+                    const sut = new MyEval({});
+                    sut.addApp(app);
+                    sut.addResult(new MySqlResult(app.name, "my-queue", "test", "test", 0, true, app));
+                    sut.addResult(new MySqlResult(app.name, "my-queue", "test", "test", 0, true, app))
+                    sut.addResult(new MySqlResult(app.name, "my-queue", "test", "test", 0, true, app))
+
+                    // act
+                    const results = await sut.evaluateApps();
+
+                    // assert
+                    expect(results.skippedApps).toEqual([]);
+                    expect(results.results.length).toEqual(3);
+                    expect(results.results[0].identifier).toEqual("my-queue");
+                    expect(results.results[1].identifier).toEqual("my-queue-1");
+                    expect(results.results[2].identifier).toEqual("my-queue-2");
+                });
+            });
         });
 
         describe("when results are missing (presumably due to underlying error)", () => {
@@ -501,6 +527,118 @@ describe("base evaluator", () => {
             });
         });
     });
+
+    describe("getVariations", () => {
+        describe("with no vary-by", () => {
+            describe.each([
+                [null],
+                [undefined],
+                [],
+                [""]
+            ])(`when given %s`, (varyBy) => {
+                it("should return app as is", async () => {
+                    // arrange
+                    const app = {
+                        name: "codeo.co.za",
+                        url: "https://www.codeo.co.za",
+                        "vary-by": varyBy
+                    };
+                    const e = new CustomEvaluator({});
+
+                    // act
+                    const result = e.getAppVariations(app);
+
+                    // assert
+                    expect(result).toEqual([{
+                        name: "codeo.co.za",
+                        url: "https://www.codeo.co.za",
+                        "vary-by": varyBy,
+                    }]);
+                });
+            });
+            describe("with app name", () => {
+                it("should keep it", async () => {
+                    // arrange
+                    const app = {
+                        name: "test",
+                        url: "https://www.codeo.co.za",
+                    };
+                    const e = new CustomEvaluator({});
+
+                    // act
+                    const result = e.getAppVariations(app);
+
+                    // assert
+                    expect(result).toMatchObject([{
+                        name: "test",
+                        url: "https://www.codeo.co.za",
+                    }]);
+                });
+            });
+            describe("with vary-by", () => {
+                describe("names", () => {
+                    describe.each([
+                        [null, "codeo", ["codeo"]],
+                        [undefined, "codeo", ["codeo"]],
+                        [[], "codeo", ["codeo"]],
+                        [["a"], "codeo-$1", ["codeo-a"]],
+                        [["a", "b"], "codeo-$1", ["codeo-a", "codeo-b"]],
+                        [[["a", "b"]], "codeo-$1-$2", ["codeo-a-b"]],
+                    ])(`when given %s`, (varyBy, name, expected) => {
+                        it("should return variant names", async () => {
+                            const app = {
+                                "vary-by": varyBy,
+                                name
+                            };
+                            const e = new CustomEvaluator({});
+
+                            // act
+                            const result = e.getAppVariations(app);
+
+                            // assert
+                            const expectedResults = expected.map(x => ({
+                                name: x,
+                                "vary-by": varyBy
+                            }));
+                            expect(result).toEqual(expectedResults);
+                        });
+                    });
+                });
+                describe("urls", () => {
+                    describe.each([
+                        [null, "www.codeo.co.za/$1", ["www.codeo.co.za/$1"]],
+                        [undefined, "www.codeo.co.za/$1", ["www.codeo.co.za/$1"]],
+                        [[], "www.codeo.co.za/$1", ["www.codeo.co.za/$1"]],
+                        [["a"], "www.codeo.co.za/$1", ["www.codeo.co.za/a"]],
+                        [["a", "b"], "www.codeo.co.za/$1", ["www.codeo.co.za/a", "www.codeo.co.za/b"]],
+                        [["a", "b"], "www.codeo.co.za/$1/$2", ["www.codeo.co.za/a/$2", "www.codeo.co.za/b/$2"]],
+                        [[["a",1], ["b",2]], "www.codeo.co.za/$1/$2", ["www.codeo.co.za/a/1", "www.codeo.co.za/b/2"]],
+                    ])(`when given %s`, (varyBy, url, expected) => {
+                        it("should return expected", async () => {
+                            const app = {
+                                name: "codeo",
+                                url: url,
+                                "vary-by": varyBy
+                            };
+                            const e = new CustomEvaluator({});
+
+                            // act
+                            const result = e.getAppVariations(app);
+
+                            // assert
+                            const expectedResults = expected.map(x => ({
+                                name: "codeo",
+                                url: x,
+                                "vary-by": varyBy
+                            }));
+                            expect(result).toEqual(expectedResults);
+                        });
+                    });
+                });
+            });
+        });
+    });
+
 });
 
 class CustomEvaluator extends BaseEvaluator {
@@ -509,8 +647,7 @@ class CustomEvaluator extends BaseEvaluator {
         super(config);
     }
 
-    configureAndExpandApp(app: IApp): IApp[] {
-        return [app];
+    configureApp(_app: IApp) {
     }
 
     evaluate(): Promise<EvaluatorResult> {

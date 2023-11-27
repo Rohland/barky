@@ -6,6 +6,7 @@ import { humanizeDuration } from "../lib/time";
 import { AlertConfiguration } from "./alert_configuration";
 
 export interface ILastFailureSnapshot {
+    resolvedDate?: Date;
     date: Date;
     result: string;
     alert: AlertConfiguration;
@@ -22,14 +23,15 @@ export class AlertState {
     private _wasMuted: boolean;
 
     constructor(data: any) {
-        for(const key in data) {
-            if (key.indexOf("date")> -1){
+        for (const key in data) {
+            if (key.indexOf("date") > -1) {
                 this[key] = new Date(data[key]);
             } else if (key === "affected") {
                 const json = data[key];
                 const map = json ? new Map<string, any>(JSON.parse(json)) : new Map<string, any>();
                 for (const [key, value] of map) {
                     this.affected.set(key, {
+                        resolvedDate: value.resolvedDate ? new Date(value.resolvedDate) : value.resolvedDate,
                         date: new Date(value.date),
                         result: value.result,
                         alert: value.alert ? new AlertConfiguration(value.alert) : null
@@ -60,7 +62,7 @@ export class AlertState {
     }
 
     public get durationMinutes() {
-            return (new Date().valueOf() - this.start_date.valueOf()) / 1000 / 60;
+        return (new Date().valueOf() - this.start_date.valueOf()) / 1000 / 60;
     }
 
     public get durationHuman() {
@@ -98,14 +100,21 @@ export class AlertState {
         })
     }
 
-    public getResolvedSnapshotList(currentIssueIds: string[]): { key: IUniqueKey, lastSnapshot: ILastFailureSnapshot}[] {
+    public getResolvedOrMutedSnapshotList(currentIssueIds: string[]): {
+        key: IUniqueKey,
+        lastSnapshot: ILastFailureSnapshot
+    }[] {
         const all = this.affectedKeys;
         const keys = all.filter(x => !currentIssueIds.includes(x));
         return keys.map(x => {
-           return {
-               key: explodeUniqueKey(x),
-               lastSnapshot: this.affected.get(x)
-           }
+            const lastSnapshot = this.affected.get(x);
+            if (lastSnapshot) {
+                lastSnapshot.resolvedDate ||= new Date();
+            }
+            return {
+                key: explodeUniqueKey(x),
+                lastSnapshot: lastSnapshot
+            }
         });
     }
 

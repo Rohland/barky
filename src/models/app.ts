@@ -11,21 +11,20 @@ export interface IApp {
     every?: string;
     type?: string;
     triggers?: ITrigger[];
+    __configPath?: string;
 }
 
-export class AppVariant {
+export class AppVariant implements IApp {
     [key: string]: any;
 
     constructor(app: any, variantInfo: null | string | string[]) {
-        if (app.name) {
-            this.name = this.transform(variantInfo, app.name);
-        }
-        if (app.url) {
-            this.url = this.transform(variantInfo, app.url);
-        }
-        if (app.query) {
-            this.query = this.transform(variantInfo, app.query);
-        }
+        const fieldsToTransform = ["name", "path", "query", "url"];
+        fieldsToTransform.forEach(field => {
+            if (!app[field]) {
+                return;
+            }
+            this[field] = this.transform(variantInfo, app[field])
+        });
     }
 
     private transform(variantInfo, field) {
@@ -38,13 +37,4 @@ export class AppVariant {
         });
         return field;
     }
-}
-
-export function getAppVariations(app: any): AppVariant[] {
-    const apps = app["vary-by"]?.length > 0
-        ? app["vary-by"]
-        : [null];
-    return apps.map(variant => {
-        return new AppVariant(app, variant);
-    });
 }

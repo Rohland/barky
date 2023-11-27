@@ -308,7 +308,9 @@ describe("period parsing", () => {
                     // assert
                     const today = new Date();
                     today.setHours(0,0,0,0);
-                    const yesterday = new Date(today.setDate(today.getDate() - 1));
+                    const yesterday = new Date();
+                    yesterday.setHours(0, 0, 0, 0);
+                    yesterday.setDate(today.getDate() - 1);
                     expect(result.from).toEqual(yesterday);
                     expect(result.to).toEqual(today);
                 });

@@ -16,6 +16,7 @@ It runs a custom set of evaluators (configured in simple markup using YAML) with
 - **web**: Evaluate any accessible site and validate status code, response time and response body
 - **sumo**: Runs custom Sumo Logic queries and evaluates results based on validator configuration
 - **mysql**: Runs custom mysql queries and evaluates results based on validator configuration
+- **shell**: Runs a custom shell script and evaluates results based on validator configuration
 
 Evaluations supported:
 
@@ -104,7 +105,7 @@ In addition, each evaluator app supports the following properties:
 - `vary-by` - Array<string|string[]> - enables variations of fields like name, url or query (depending on the type of evaluator)
 - `every` - String value representing how often to evaluate the rule, defaults to "30s" - value must be multiples of 30s, examples: 60s, 90s, 10m, 1h (only applicable in loop mode)
 
-** Variation **
+###### Variations
 
 Examples of vary-by:
 
@@ -204,13 +205,17 @@ Fields:
 
 * `channels` - an array of channels to use (example: `[sms, slack]`)
 * `links` - optional array of links to include when alerts trigger
-* `rules` - an array of rules
+* `rules` - an array of rules (the first matched rule will always be used) - if `match` expression is used, only rules matching the expression will be evaluated
 	* `description` - not required
 	* `count|any` - count means trigger after defined consecutive count of errors, any means trigger after `any` count of errors in the window period defined
 	* `window` - not required, but useful to constrain `any` operator to the given window, example: `-30m` means last 30 minutes. Maximum window is `24h`. Defaults to 5 minutes if not specified
+    * `match` - an optional match expression to match against the monitor identifier (see below for format)
 	* `days` - array of days and only required if you want to constrain the trigger to specific days of week (see example)
-	* `time` - array or single range value, only required if you want to constrain the trigger to specific times of the day (times are in UTC)
+	* `time` - array or single range value, only required if you want to constrain the trigger to specific times of the day (times are in the timezone specified in the config)
 * `exception-policy` - the name of the alert policy (defined in the digest configuration) to use for monitor failures (such as timeouts or exceptions), if not set then the same alert configuration rules defined above will be used when the monitor incurs an unhandled error
+
+The match expression is composed as follows: `type|label|identifier`. For example: `web|web-performance|www.codeo.co.za`. The regular expression for match
+will thus be compared against this string value (case-insensitive).
 
 Advanced example:
 
@@ -240,13 +245,13 @@ web:
         rules:
             - description: Weekdays
               count: 2 # any consecutive 2 failures trigger alert
-              days_of_week: [mon, tue, wed, thu, fri]
+              days: [mon, tue, wed, thu, fri]
               time: [00:00-04:00, 6:00- 17:00] # local time as per timezone
             - description: Weekends
               window: -5m
               any: 3
               days: [sat, sun]
-              time: 04:00 - 17:00 # UTC
+              time: 04:00 - 17:00
 ```
 
 ##### Sumo Logic Configuration
@@ -352,6 +357,50 @@ The trigger.**rule** object has the following additional properties that can be 
 
 - *days* - the days of the week to apply the rule to (example: [mon, tue, wed, thu, fri]) - defaults to every day
 - *time* - the time of day to apply the rule to (example: 00:00-06:00) - defaults to all hours of the day
+
+##### Shell Configuration
+
+The example below demonstrates how to run a custom shell script.
+
+```yaml
+shell:
+  my-script:
+    timeout: 5s # defaults to 10 seconds
+    name: my-script
+    path: ./my-script.sh # relative to current yaml file (or absolute path)
+    responseType: json
+    triggers:
+      - rules:
+        - expression: "exitCode !== 0"
+          message: "Script failed with exit code {{exitCode}}"
+        - expression: failed_requests > 0
+          message: "Failed requests was {{ failed_requests }}"
+```
+
+Supported response types:
+
+- `json` - Barky expects a json string response (the raw response will be emitted into a `stdout` variable), note that if the result is a JSON array or JSONL, multiple results will be returned
+- `string` - Barky expects a string response and will emit this into a `stdout` variable
+
+All environment variables are injected into the script for use. All non-alphanumeric and underscore characters are replaced with `_` in the variable name. Example `my-var` becomes `my_var` and can be accessed with `$my_var`.
+
+A more complex example:
+
+```yaml
+shell:
+  validate-country-$1:
+    vary-by: [za,us,gb]
+    path: ./my-script.sh # the vary-by params are passed into the script as arguments, i.e. ./script.sh $1 $2
+    responseType: json
+    identifier: id
+    triggers:
+      - match: .* # catch all (you can match on the identifier field in the result set, and if missing or not set, the vary-by value will be used here (identifier is pipe delimited if multipart))
+        rules:
+          - expression: "exitCode !== 0"
+            message: "Script failed with exit code {{exitCode}}"
+          - expression: my_field > 0
+            message: "Failed requests was {{ failed_requests }}"
+```
 
 ---
 ## Digest

@@ -22,6 +22,7 @@ export class Snapshot implements IUniqueKey {
     public date: Date;
     public alert_config: any;
     public alert: AlertConfiguration;
+    public muted: boolean;
 
     constructor(snapshot: ISnapshot) {
         for (const key of Object.keys(snapshot)) {

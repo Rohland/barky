@@ -58,6 +58,21 @@ describe("utility functions", () => {
                 expect(result).toEqual("02:00:00");
             });
         });
+        describe("with options", () => {
+            describe("with no seconds", () => {
+                it("should return time with no seconds", async () => {
+                    // arrange
+                    initLocaleAndTimezone(null);
+                    const date = new Date("2020-01-01T00:00:00.000Z");
+
+                    // act
+                    const result = toLocalTimeString(date, { noSeconds: true });
+
+                    // assert
+                    expect(result).toEqual("02:00");
+                });
+            });
+        });
         describe("with 'C.UTF-8' locale", () => {
             it("should use en-US", async () => {
                 // arrange

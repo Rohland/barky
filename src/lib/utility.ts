@@ -28,9 +28,17 @@ export function pluraliseWithS(word: string, count: number) {
         `${ word }s`;
 }
 
-export function toLocalTimeString(date: Date) {
+export interface ILocalTimeStringOptions {
+    noSeconds?: boolean;
+}
+
+export function toLocalTimeString(date: Date, options: ILocalTimeStringOptions = null) {
     try {
-        return date.toLocaleTimeString(locale, { hour12: false, timeZone });
+        const time = date.toLocaleTimeString(locale, { hour12: false, timeZone });
+        if (options?.noSeconds) {
+            return time.substring(0, time.lastIndexOf(":"));
+        }
+        return time;
     } catch (e) {
         throw new Error(`Invalid locale or timezone (locale: '${ locale }', timezone: '${ timeZone }')`);
     }
@@ -53,8 +61,8 @@ export function isToday(date: string, on?: Date): boolean {
     return inputDate.getTime() === today.getTime();
 }
 
-export function dayOfWeek(date: Date): number {
-    const day = date.toLocaleString("en-US", {
+export function dayOfWeek(date?: Date): number {
+    const day = (date || new Date()).toLocaleString("en-US", {
         timeZone: timeZone,
         weekday: 'short'
     });

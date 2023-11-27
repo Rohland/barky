@@ -9,3 +9,7 @@ import:
 web:
   codeo.co.za:
     url: https://codeo.co.za
+
+someInvalidItem:
+  - test
+  - test2

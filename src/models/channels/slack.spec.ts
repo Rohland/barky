@@ -1,6 +1,7 @@
 import { SlackChannelConfig } from "./slack";
 import { Snapshot } from "../snapshot";
 import { AlertState } from "../alerts";
+import * as os from "os";
 
 describe("slack", () => {
     describe("generateMessage", () => {
@@ -44,6 +45,7 @@ describe("slack", () => {
                 expect(msg).toContain("*Duration:* `1 hr`");
                 expect(msg).toContain(snapshots[0].alert.links[0].label);
                 expect(msg).toContain(snapshots[0].alert.links[0].url);
+                expect(msg).toContain(os.hostname());
             });
         });
         describe("with message that does not fit into 4k chars", () => {

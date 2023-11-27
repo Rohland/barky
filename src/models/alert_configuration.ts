@@ -10,6 +10,7 @@ export interface IAlertRule {
     window?: string;
     days?: string[];
     time?: string | string[];
+    match?: string;
 }
 
 export interface IAlertLink {
@@ -38,6 +39,7 @@ export class AlertRule {
     public count?: number;
     public any?: number;
     public fromDate?: Date;
+    public match?: string;
     private _isDefault: boolean;
     private _dayAndTimeEvaluator: DayAndTimeEvaluator;
 
@@ -46,6 +48,7 @@ export class AlertRule {
         this.description = rule.description;
         this.count = rule.count;
         this.any = rule.any;
+        this.match = rule.match;
         const noTypeConfigured = !this.count && !this.any;
         if (noTypeConfigured) {
             this.count = 1;
@@ -94,6 +97,10 @@ export class AlertRule {
         const count = length - this.count;
         return count < 0 ? 0: count;
     }
+
+    isMatchFor(uniqueId: string): boolean {
+        return this.match && new RegExp(this.match, "i").test(uniqueId);
+    }
 }
 
 export class AlertConfiguration {
@@ -115,11 +122,15 @@ export class AlertConfiguration {
         return this._config;
     }
 
-    public findFirstValidRule(): AlertRule {
+    public findFirstValidRule(uniqueId: string, date: Date = null): AlertRule {
         if (!this.rules || this.rules.length === 0) {
             return AlertRule.Default();
         }
-        const result = this.rules.find(x => x.isValidNow());
-        return result ?? null;
+        const rules = this.rules.filter(x => x.isMatchFor(uniqueId));
+        const noDirectlyMatchedRules = rules.length === 0;
+        if (noDirectlyMatchedRules) {
+            return this.rules.find(x => !x.match && x.isValidNow(date)) ?? null;
+        }
+        return rules.find(x => x.isValidNow(date)) ?? null;
     }
 }

@@ -5,8 +5,8 @@ import { MonitorFailureResult, Result, SumoResult } from "../models/result";
 import { startClock, stopClock } from "../lib/profiler";
 import { renderTemplate } from "../lib/renderer";
 import { log } from "../models/logger";
-import { getAppVariations, IApp } from "../models/app";
-import { BaseEvaluator, EvaluatorType, findTriggerRulesFor } from "./base";
+import { IApp } from "../models/app";
+import { BaseEvaluator, EvaluatorType, findTriggerRulesFor, generateValueForVariable } from "./base";
 import { IUniqueKey } from "../lib/key";
 
 const SumoDomain = process.env["sumo-domain"] ?? "api.eu.sumologic.com";
@@ -22,15 +22,9 @@ export class SumoEvaluator extends BaseEvaluator {
         return EvaluatorType.sumo;
     }
 
-    configureAndExpandApp(app: IApp): IApp[] {
-        return getAppVariations(app).map(variant => {
-            return {
-                timeout: 10000,
-                ...app,
-                ...variant,
-                period: parsePeriodRange(app.period ?? "-5m to 0m"),
-            };
-        });
+    configureApp(app: IApp) {
+        app.timeout ??= 10000;
+        app.period = parsePeriodRange(app.period ?? "-5m to 0m");
     }
 
     async tryEvaluate(app: IApp) {
@@ -60,7 +54,7 @@ async function tryEvaluate(app: IApp) {
         app.jobId = await startSearch(app, log);
         await isJobComplete(app, log);
         const results = await getSearchResult(app, log);
-        app.timeTaken = stopClock(timer);
+        const timeTaken = stopClock(timer);
         const finalResults = validateResults(app, results, log);
         return finalResults.length > 0
             ? finalResults
@@ -69,7 +63,7 @@ async function tryEvaluate(app: IApp) {
                 "*",
                 "inferred",
                 "OK",
-                app.timeTaken,
+                timeTaken,
                 true,
                 app);
     } catch (err) {
@@ -137,17 +131,6 @@ function convertEntryValuesToInferredType(entry) {
         const isInt = valueAsInt == valueAsFloat;
         entry[key] = isInt ? valueAsInt : valueAsFloat.toFixed(3);
     });
-}
-
-function generateValueForVariable(value) {
-    const valueAsNumber = parseFloat(value);
-    const isNumber = !Number.isNaN(valueAsNumber);
-    ;
-    if (isNumber) {
-        return valueAsNumber.toFixed(3);
-    } else {
-        return `'${ value }'`;
-    }
 }
 
 async function startSearch(app, log) {

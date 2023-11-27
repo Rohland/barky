@@ -1,6 +1,5 @@
 import { AlertConfiguration, AlertRule, AlertRuleType, IAlertRule } from "./alert_configuration";
 import { initLocaleAndTimezone } from "../lib/utility";
-import exp = require("constants");
 
 describe("AlertRule", () => {
     describe("when constructed with consecutive count type", () => {
@@ -274,7 +273,7 @@ describe("AlertConfiguration", () => {
                 });
 
                 // act
-                const result = config.findFirstValidRule();
+                const result = config.findFirstValidRule("");
 
                 // assert
                 expect(result.count).toEqual(1);
@@ -296,10 +295,253 @@ describe("AlertConfiguration", () => {
                 });
 
                 // act
-                const result = config.findFirstValidRule();
+                const result = config.findFirstValidRule("");
 
                 // assert
                 expect(result).toEqual(config.rules[0]);
+            });
+        });
+        describe("with time of day based rule", () => {
+            describe("matches time", () => {
+                it("should use rule", async () => {
+                    const config = new AlertConfiguration({
+                        channels: [],
+                        rules: [
+                            {
+                                time: ["00:00-5:00"],
+                                count: 1
+                            },
+                            {
+                                time: ["6:00-23:00"],
+                                count: 2
+                            }
+                        ]
+                    });
+                    const date = new Date(2023, 10, 27, 8, 0, 0);
+
+                    // act
+                    const result = config.findFirstValidRule("", date);
+
+                    // assert
+                    expect(result).toEqual(config.rules[1]);
+                });
+            });
+            describe("with no match", () => {
+                it("should return null", async () => {
+                    const config = new AlertConfiguration({
+                        channels: [],
+                        rules: [
+                            {
+                                time: ["00:00-5:00"],
+                                count: 1
+                            },
+                            {
+                                time: ["6:00-23:00"],
+                                count: 2
+                            }
+                        ]
+                    });
+                    const date = new Date(2023, 10, 27, 5, 30, 0);
+
+                    // act
+                    const result = config.findFirstValidRule("", date);
+
+                    // assert
+                    expect(result).toEqual(null);
+                });
+            });
+        });
+        describe("with days of week based rule", () => {
+            describe("matches date", () => {
+                it("should use rule", async () => {
+                    const config = new AlertConfiguration({
+                        channels: [],
+                        rules: [
+                            {
+                                days: ["Sun"],
+                                count: 1
+                            },
+                            {
+                                days: ["Mon"],
+                                count: 2
+                            }
+                        ]
+                    });
+                    const date = new Date(2023, 10, 27, 8, 0, 0);
+
+                    // act
+                    const result = config.findFirstValidRule("", date);
+
+                    // assert
+                    expect(result).toEqual(config.rules[1]);
+                });
+            });
+            describe("doesnt match", () => {
+                it("should return null", async () => {
+                    const config = new AlertConfiguration({
+                        channels: [],
+                        rules: [
+                            {
+                                days: ["Sun"],
+                                count: 1
+                            }
+                        ]
+                    });
+                    const date = new Date(2023, 10, 27, 8, 0, 0);
+
+                    // act
+                    const result = config.findFirstValidRule("", date);
+
+                    // assert
+                    expect(result).toEqual(null);
+                });
+            });
+        });
+        describe("with match", () => {
+            describe("when result id matches", () => {
+                it("should return result", async () => {
+                    const config = new AlertConfiguration({
+                        channels: [],
+                        rules: [
+                            {
+                                match: "test",
+                                count: 1
+                            },
+                            {
+                                match: "my-result",
+                                count: 2
+                            }
+                        ]
+                    });
+                    const date = new Date(2023, 10, 27, 8, 0, 0);
+
+                    // act
+                    const result = config.findFirstValidRule("mysql|queue-performance|my-result", date);
+
+                    // assert
+                    expect(result).toEqual(config.rules[1]);
+                });
+                describe("when multiple rules", () => {
+                    it("should return 1st matched result", async () => {
+                        const config = new AlertConfiguration({
+                            channels: [],
+                            rules: [
+                                {
+                                    match: null,
+                                    count: 1
+                                },
+                                {
+                                    match: "my-result",
+                                    count: 2
+                                }
+                            ]
+                        });
+                        const date = new Date(2023, 10, 27, 8, 0, 0);
+
+                        // act
+                        const result = config.findFirstValidRule("mysql|queue-performance|my-result", date);
+
+                        // assert
+                        expect(result).toEqual(config.rules[1]);
+                    });
+                    describe("but no matches", () => {
+                        it("should consider the non-match rules", async () => {
+                            const config = new AlertConfiguration({
+                                channels: [],
+                                rules: [
+                                    {
+                                        match: null,
+                                        count: 1
+                                    },
+                                    {
+                                        match: "abc",
+                                        count: 2
+                                    }
+                                ]
+                            });
+                            const date = new Date(2023, 10, 27, 8, 0, 0);
+
+                            // act
+                            const result = config.findFirstValidRule("mysql|queue-performance|my-result", date);
+
+                            // assert
+                            expect(result).toEqual(config.rules[0]);
+                        });
+                    });
+                    describe("when match not used in conjunction with match", () => {
+                        it("should only consider the matched entries", async () => {
+                            const config = new AlertConfiguration({
+                                channels: [],
+                                rules: [
+                                    {
+                                        match: null,
+                                        count: 1,
+                                    },
+                                    {
+                                        match: "my-result",
+                                        count: 2
+                                    }
+                                ]
+                            });
+                            const date = new Date(2023, 10, 27, 8, 0, 0);
+
+                            // act
+                            const result = config.findFirstValidRule("my-result", date);
+
+                            // assert
+                            expect(result).toEqual(config.rules[1]);
+                        });
+                        describe("even when not valid now", () => {
+                            it("should only consider the matched entries", async () => {
+                                const config = new AlertConfiguration({
+                                    channels: [],
+                                    rules: [
+                                        {
+                                            match: null,
+                                            count: 1,
+                                        },
+                                        {
+                                            match: "my-result",
+                                            count: 2,
+                                            time: ["00:00-1:00"]
+                                        }
+                                    ]
+                                });
+                                const date = new Date(2023, 10, 27, 8, 0, 0);
+
+                                // act
+                                const result = config.findFirstValidRule("mysql|queue-performance|my-result", date);
+
+                                // assert
+                                expect(result).toEqual(null);
+                            });
+                        });
+                    });
+                });
+            });
+            describe("when no match", () => {
+                it("should return null", async () => {
+                    const config = new AlertConfiguration({
+                        channels: [],
+                        rules: [
+                            {
+                                match: "test",
+                                count: 1
+                            },
+                            {
+                                match: "my-result",
+                                count: 2
+                            }
+                        ]
+                    });
+                    const date = new Date(2023, 10, 27, 8, 0, 0);
+
+                    // act
+                    const result = config.findFirstValidRule("abc", date);
+
+                    // assert
+                    expect(result).toEqual(null);
+                });
             });
         });
     });

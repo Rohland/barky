@@ -19,6 +19,7 @@ import { AlertConfiguration, AlertRule } from "../models/alert_configuration";
 import mockConsole from "jest-mock-console";
 import { getTestResult } from "../models/result.spec";
 import { getTestSnapshot } from "../models/snapshot.spec";
+import { MuteWindow } from "../models/mute-window";
 
 describe("digest", () => {
 
@@ -940,6 +941,38 @@ describe("digest", () => {
                         expect(context.snapshots).toEqual([]);
                     });
                 });
+            });
+        });
+    });
+
+    describe("DigestContext", () => {
+        describe("alertableSnapshots", () => {
+            it("should return digestable and unmuted alerts, and tag the muted alerts as muted", async () => {
+                // arrange
+                const result = getTestResult();
+                const result2 = getTestResult();
+                result2.identifier = "2" + result.identifier;
+                const digest = new DigestContext([], []);
+                digest.addSnapshotForResult(result);
+                digest.addSnapshotForResult(result2);
+
+                // act
+                // @ts-ignore
+                const alertable = digest.alertableSnapshots({
+                    muteWindows: [
+                        new MuteWindow({
+                            match: "2www.codeo.co.za",
+                            time: "0:00-23:59"
+                        })
+                    ]
+                });
+
+                // assert
+                const snapshot1 = digest.snapshots.find(x => x.identifier === result.identifier);
+                const snapshot2 = digest.snapshots.find(x => x.identifier === result2.identifier);
+                expect(alertable).toEqual([snapshot1]);
+                expect(snapshot1.muted).toEqual(false);
+                expect(snapshot2.muted).toEqual(true);
             });
         });
     });

@@ -1,13 +1,14 @@
 import { EvaluatorResult } from "./types";
-import { IApp } from "../models/app";
+import { AppVariant, IApp } from "../models/app";
 import { flatten } from "../lib/utility";
 import { log } from "../models/logger";
-import { parsePeriodToSeconds } from "../lib/period-parser";
+import { parsePeriodToMillis, parsePeriodToSeconds } from "../lib/period-parser";
 import { LoopMs } from "../loop";
 import { IUniqueKey } from "../lib/key";
 import { DefaultTrigger, IRule } from "../models/trigger";
 import { DayAndTimeEvaluator } from "../lib/time";
 import { MonitorFailureResult, Result } from "../models/result";
+import { startClock, stopClock } from "../lib/profiler";
 
 const executionCounter = new Map<string, number>();
 
@@ -18,7 +19,8 @@ export function resetExecutionCounter() {
 export enum EvaluatorType {
     "web" = "web",
     "mysql" = "mysql",
-    "sumo" = "sumo"
+    "sumo" = "sumo",
+    "shell" = "shell"
 };
 
 export abstract class BaseEvaluator {
@@ -33,6 +35,7 @@ export abstract class BaseEvaluator {
     public async evaluateApps(): Promise<EvaluatorResult> {
         try {
             const results = await this.evaluate();
+            this.detectAnyDuplicateIdentifiers(results.results);
             results.skippedApps ||= [];
             results.skippedApps.push(...(this.skippedApps || []));
             const appResults = results.results;
@@ -63,8 +66,12 @@ export abstract class BaseEvaluator {
         const apps = this.getAppsToEvaluate();
         const results = await Promise.allSettled(apps.map(async app => {
             try {
-                return await this.tryEvaluate(app)
-            } catch(err) {
+                const timer = startClock();
+                const results = await this.tryEvaluate(app);
+                const timeTaken = stopClock(timer);
+                [results].flat().map(x => x.timeTaken ||= timeTaken);
+                return results;
+            } catch (err) {
                 try {
                     const errorInfo = new Error(err.message);
                     errorInfo.stack = err.stack;
@@ -98,7 +105,7 @@ export abstract class BaseEvaluator {
 
     protected abstract dispose(): Promise<void>;
 
-    abstract configureAndExpandApp(app: IApp): IApp[];
+    abstract configureApp(app: IApp): void;
 
     abstract get type(): EvaluatorType;
 
@@ -116,8 +123,10 @@ export abstract class BaseEvaluator {
         for (let name of appNames) {
             const app = this.config[name];
             app.name ??= name;
-            const expanded = this.configureAndExpandApp(app);
+            const expanded = this.getAppVariations(app);
             expanded.forEach(x => {
+                this.configureApp(x);
+                x.timeout = parsePeriodToMillis(x.timeout ?? 10000);
                 x.type = this.type;
                 if (this.shouldEvaluateApp(x)) {
                     apps.push(x);
@@ -145,8 +154,47 @@ export abstract class BaseEvaluator {
                 ...app,
                 ...this.generateSkippedAppUniqueKey(app.name)
             });
+            // since we don't run, indicate monitor failure also skipped
+            this.skippedApps.push({
+                ...app,
+                ...{
+                    type: app.type,
+                    label: "monitor",
+                    identifier: app.name
+                }
+            });
         }
         return shouldEvaluate;
+    }
+
+    public getAppVariations(app: any): IApp[] {
+        if (!app) {
+            return [];
+        }
+        const variations = app["vary-by"]?.length > 0
+            ? app["vary-by"]
+            : [null];
+        return variations.map(instance => {
+            const variant = new AppVariant(app, instance);
+            return {
+                ...app,
+                ...variant,
+            };
+        });
+    }
+
+    private detectAnyDuplicateIdentifiers(results: Result | Result[]) {
+        const entries = [results].flat();
+        const lookup = new Map<string, number>();
+        entries.forEach(result => {
+            let count = 0;
+            const uniqueId = result.uniqueId;
+            if (lookup.has(uniqueId)) {
+                count = lookup.get(uniqueId) + 1;
+                result.identifier = `${ result.identifier}-${ count }`;
+            }
+            lookup.set(uniqueId, count);
+        });
     }
 }
 
@@ -175,4 +223,17 @@ function findMatchingTriggerRulesValidRightNow(
         const dayAndTimeEvaluator = new DayAndTimeEvaluator(rule.days, rule.time);
         return dayAndTimeEvaluator.isValidNow(date);
     });
+}
+
+export function generateValueForVariable(value: string | number) {
+    // @ts-ignore
+    const valueAsNumber = parseFloat(value);
+    const isNumber = !Number.isNaN(valueAsNumber);
+    if (isNumber) {
+        // @ts-ignore
+        const isRound = parseInt(value) === valueAsNumber;
+        return isRound ? valueAsNumber : valueAsNumber.toFixed(3);
+    } else {
+        return JSON.stringify(value);
+    }
 }

@@ -21,6 +21,13 @@ export function parsePeriod(input): Date {
     return applyDurationToDate(new Date(), value, unit);
 }
 
+export function parsePeriodToMillis(input: string | number): number {
+    if (typeof input === "number") {
+        return input;
+    }
+    return +parsePeriod(input) - +new Date();
+}
+
 export function parsePeriodToSeconds(input): number {
     const millis = +parsePeriod(input) - +new Date();
     return millis / 1000;
@@ -53,7 +60,9 @@ function tryParseNamedPeriodRange(input: string): IPeriod {
             };
         case "yesterday":
             today.setHours(0, 0, 0, 0);
-            const yesterday = new Date(today.setDate(today.getDate() - 1));
+            const yesterday = new Date();
+            yesterday.setHours(0, 0, 0, 0);
+            yesterday.setDate(today.getDate() - 1);
             return {
                 from: yesterday,
                 to: today
