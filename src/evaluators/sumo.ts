@@ -11,7 +11,11 @@ import { IUniqueKey } from "../lib/key";
 
 const SumoDomain = process.env["sumo-domain"] ?? "api.eu.sumologic.com";
 const SumoUrl = `https://${ SumoDomain }/api/v1/search/jobs`;
+
 const JobPollMillis = 1000;
+// sumo logic queries tend to be quite slow (upwards of 2-3s+), so no point in polling every second right from the outset
+// that may lead to rate limits being reached
+const JobInitialPollMillis = 3000;
 
 export class SumoEvaluator extends BaseEvaluator {
     constructor(config: any) {
@@ -151,13 +155,15 @@ async function startSearch(app, log) {
 
 async function isJobComplete(app, log) {
     const startTime = +new Date();
+    let pollCount = 0;
     while (+new Date() - startTime < app.timeout) {
         try {
             const status = await axios.get(`${ SumoUrl }/${ app.jobId }`, getHeaders(app.token));
             if (status.data.state.match(/done gathering results/i)) {
                 return status.data;
             }
-            await sleepMs(JobPollMillis);
+            await sleepMs(pollCount === 0 ? JobInitialPollMillis : JobPollMillis);
+            pollCount++;
         } catch (err) {
             await deleteJob(app, log);
             throw err;
