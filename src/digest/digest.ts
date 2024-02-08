@@ -49,6 +49,13 @@ export function generateResultsToEvaluate(
     snapshots.forEach(snapshot => {
         const matchedResult = findMatchingKeyFor(snapshot, results);
         if (matchedResult) {
+            const wasInferredByEvaluator = matchedResult.identifier === "*" || matchedResult.label === "*";
+            if (wasInferredByEvaluator) {
+                const clone = matchedResult.clone();
+                clone.label = snapshot.label;
+                clone.identifier = snapshot.identifier;
+                inferred.push(clone);
+            }
             return;
         }
         const ok = generateInferredOKResultFor(snapshot);
