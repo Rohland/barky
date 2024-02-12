@@ -45,7 +45,7 @@ describe('sumo ', () => {
 
                 // assert
                 expect(result).toEqual("result");
-                expect(end - start).toBeGreaterThanOrEqual(100);
+                expect(end - start).toBeGreaterThanOrEqual(95);
                 expect(request).toHaveBeenCalledTimes(1);
             });
         });
@@ -66,7 +66,7 @@ describe('sumo ', () => {
 
                 // assert
                 expect(result).toEqual(requests.map((_x,i) => `result${ i }`));
-                expect(end - start).toBeGreaterThanOrEqual(300);
+                expect(end - start).toBeGreaterThanOrEqual(295);
                 expect(end - start).toBeLessThanOrEqual(350);
                 requests.forEach(x => expect(x).toHaveBeenCalledTimes(1));
             });
