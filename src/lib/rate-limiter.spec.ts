@@ -53,7 +53,30 @@ describe('rate-limiter', () => {
             });
         });
         describe("when multiple requests sent", () => {
-            it("should queue them and only execute 5 per second", async () => {
+            it("should queue them only execute x in parallel", async () => {
+                const maxPerSec = 100;
+                const maxConcurrent = 1;
+                const sut = getSut(maxPerSec, maxConcurrent);
+                const count = 3;
+                const requests = [];
+                for (let i = 0; i < count; i++) {
+                    const req = jest.fn().mockImplementation(() => new Promise(resolve => {
+                        setTimeout(() => resolve(`result${ i }`), 500)
+                    }));
+                    requests.push(req);
+                }
+
+                // act
+                const start = performance.now();
+                const result = await Promise.all(requests.map(x => sut.execute(x)));
+                const end = performance.now();
+
+                // assert
+                expect(result).toEqual(requests.map((_x,i) => `result${ i }`));
+                expect(end - start).toBeGreaterThanOrEqual(1500);
+                requests.forEach(x => expect(x).toHaveBeenCalledTimes(1));
+            });
+            it("should queue them and only execute x per second", async () => {
                 // arrange
                 const maxPerSec = 5;
                 const sut = getSut(maxPerSec);

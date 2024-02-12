@@ -60,10 +60,10 @@ export class RateLimiter {
 
     private async waitUntilCanExecute() {
         while (true) {
-            const currentSecond = new Date().getSeconds();
-            const countInCurrentSecond = this.rateLimiter.get(currentSecond) ?? 0;
-            if (countInCurrentSecond < this.maxRatePerSecond) {
-                this.rateLimiter.set(currentSecond, countInCurrentSecond + 1);
+            const currentSlot = this.getCurrentSlot();
+            const countInCurrentSlot = this.rateLimiter.get(currentSlot) ?? 0;
+            if (countInCurrentSlot < this.maxRatePerSecond) {
+                this.rateLimiter.set(currentSlot, countInCurrentSlot + 1);
                 break;
             }
             await sleepMs(10);
@@ -71,8 +71,12 @@ export class RateLimiter {
     }
 
     private clearOutOldRateLimitEntries() {
-        const currentSecond = new Date().getSeconds();
-        const oldSeconds = Array.from(this.rateLimiter.keys()).filter(x => x !== currentSecond);
+        const currentSlot = this.getCurrentSlot();
+        const oldSeconds = Array.from(this.rateLimiter.keys()).filter(x => x !== currentSlot);
         oldSeconds.forEach(x => this.rateLimiter.delete(x));
+    }
+
+    private getCurrentSlot() {
+        return Math.round(performance.now() / 1000);
     }
 }
