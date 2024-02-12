@@ -1,14 +1,15 @@
-import { executeSumoRequest } from "./sumo";
+import { RateLimiter } from "./rate-limiter";
 
-describe('sumo ', () => {
-    describe('executeSumoRequest', () => {
+describe('rate-limiter', () => {
+    describe('execute', () => {
         describe("when executed with success", () => {
             it("should return result", async () => {
                 // arrange
                 const request = jest.fn().mockResolvedValue("result");
+                const sut = getSut();;
 
                 // act
-                const result = await executeSumoRequest("test", request);
+                const result = await sut.execute(request);
 
                 // assert
                 expect(result).toEqual("result");
@@ -19,11 +20,12 @@ describe('sumo ', () => {
             it("should throw error", async () => {
                 // arrange
                 const request = jest.fn().mockRejectedValue(new Error("error"));
+                const sut = getSut();;
 
                 // act
                 let error;
                 try {
-                    await executeSumoRequest("test", request);
+                    await sut.execute(request);
                 } catch (err) {
                     error = err;
                 }
@@ -36,11 +38,12 @@ describe('sumo ', () => {
         describe("when request takes some time", () => {
             it("should wait", async () => {
                 // arrange
+                const sut = getSut();;
                 const request = jest.fn().mockImplementation(() => new Promise(resolve => setTimeout(() => resolve("result"), 100)));
 
                 // act
                 const start = performance.now();
-                const result = await executeSumoRequest("test", request);
+                const result = await sut.execute(request);
                 const end = performance.now();
 
                 // assert
@@ -52,6 +55,8 @@ describe('sumo ', () => {
         describe("when multiple requests sent", () => {
             it("should queue them and only execute 5 per second", async () => {
                 // arrange
+                const maxPerSec = 5;
+                const sut = getSut(maxPerSec);
                 const count = 20;
                 const requests = [];
                 const countPerSecond = new Map<number, number>();
@@ -67,7 +72,7 @@ describe('sumo ', () => {
 
                 // act
                 const start = performance.now();
-                const result = await Promise.all(requests.map(x => executeSumoRequest("test", x)));
+                const result = await Promise.all(requests.map(x => sut.execute(x)));
                 const end = performance.now();
 
                 // assert
@@ -76,9 +81,12 @@ describe('sumo ', () => {
                 expect(end - start).toBeLessThanOrEqual(4000);
                 requests.forEach(x => expect(x).toHaveBeenCalledTimes(1));
                 countPerSecond.forEach((value, _) => {
-                    expect(value).toBeLessThanOrEqual(5);
+                    expect(value).toBeLessThanOrEqual(maxPerSec);
                 });
             });
         });
     });
+    function getSut(perSecond = null, concurrent = null) {
+        return new RateLimiter(perSecond ?? 5, concurrent ?? 3);
+    }
 });
