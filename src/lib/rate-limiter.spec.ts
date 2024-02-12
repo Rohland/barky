@@ -85,7 +85,7 @@ describe('rate-limiter', () => {
                 const countPerSecond = new Map<number, number>();
                 for (let i = 0; i < count; i++) {
                     const req = jest.fn().mockImplementation(() => new Promise(resolve => {
-                        const time = new Date().getSeconds();
+                        const time = Math.round(performance.now() / 1000);
                         const count = countPerSecond.get(time) ?? 0;
                         countPerSecond.set(time, count + 1);
                         setTimeout(() => resolve(`result${ i }`), 100)
