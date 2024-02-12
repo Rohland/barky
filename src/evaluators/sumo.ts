@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios, { AxiosRequestConfig } from "axios";
 import { parsePeriodRange } from "../lib/period-parser";
 import { sleepMs } from "../lib/sleep";
 import { MonitorFailureResult, Result, SumoResult } from "../models/result";
@@ -145,10 +145,11 @@ async function startSearch(app, log) {
         timeZone: "UTC",
         autoParsingMode: "intelligent"
     };
-    const result = await axios.post(
+    const result = await executeSumoRequest(() => axios.post(
         SumoUrl,
         search,
-        getHeaders(app.token));
+        getRequestConfig(app.token))
+    );
     log(`started sumo job search for '${ app.name }'`, result.data);
     return result.data.id;
 }
@@ -158,7 +159,7 @@ async function isJobComplete(app, log) {
     let pollCount = 0;
     while (+new Date() - startTime < app.timeout) {
         try {
-            const status = await axios.get(`${ SumoUrl }/${ app.jobId }`, getHeaders(app.token));
+            const status = await executeSumoRequest(() => axios.get(`${ SumoUrl }/${ app.jobId }`, getRequestConfig(app.token)));
             if (status.data.state.match(/done gathering results/i)) {
                 return status.data;
             }
@@ -180,7 +181,7 @@ async function isJobComplete(app, log) {
 
 async function getSearchResult(app, log) {
     try {
-        const result = await axios.get(`${ SumoUrl }/${ app.jobId }/records?offset=0&limit=100`, getHeaders(app.token));
+        const result = await executeSumoRequest(() => axios.get(`${ SumoUrl }/${ app.jobId }/records?offset=0&limit=100`, getRequestConfig(app.token)));
         log(`successfully completed sumo job search for '${ app.name }', result:`, result.data);
         return result.data;
     } catch(err) {
@@ -191,18 +192,19 @@ async function getSearchResult(app, log) {
 
 async function deleteJob(app, log) {
     try {
-        await axios.delete(`${ SumoUrl }/${ app.jobId }`, getHeaders(app.token));
+        await executeSumoRequest(() => axios.delete(`${ SumoUrl }/${ app.jobId }`, getRequestConfig(app.token)));
     } catch (error) {
         log("error: could not delete job", { app, error });
         // no-op
     }
 }
 
-function getHeaders(tokenName) {
+function getRequestConfig(tokenName): AxiosRequestConfig {
     if (!process.env[tokenName]) {
         throw new Error(`missing sumo logic env var with name '${ tokenName }'`);
     }
     return {
+        timeout: 10000,
         headers: {
             "Content-Type": "application/json",
             Accept: "application/json",
@@ -211,6 +213,52 @@ function getHeaders(tokenName) {
     };
 }
 
-function toSumoTime(date) {
+function toSumoTime(date: Date): string {
     return date.toISOString().split(".")[0];
+}
+
+
+
+interface ISumoRequest {
+    request: () => Promise<any>;
+    resolve: (res: any) => void;
+    reject: (err: Error) => void;
+}
+
+const MAX_SUMO_CONCURRENCY = 3; // sumo logic has strict concurrency rules, limited to 10 per key - let's be cautious
+const sumoRequestQueue: ISumoRequest[] = [];
+const sumoExecutingRequests: ISumoRequest[] = [];
+
+export async function executeSumoRequest<T>(request: () => Promise<T>): Promise<T> {
+    let resolve, reject;
+    const promise = new Promise<T>((res, rej) => {
+        resolve = res;
+        reject = rej;
+    });
+    sumoRequestQueue.push({
+        request,
+        resolve,
+        reject
+    });
+    rateLimitSumoRequests();
+    return await promise;
+}
+
+function rateLimitSumoRequests() {
+    const requests = sumoRequestQueue.splice(0, MAX_SUMO_CONCURRENCY - sumoExecutingRequests.length);
+    if (requests.length === 0) {
+        return;
+    }
+    sumoExecutingRequests.push(...requests);
+    requests.map(x => x.request()
+        .then((res) => {
+            x.resolve(res);
+            sumoExecutingRequests.splice(sumoExecutingRequests.indexOf(x), 1);
+            rateLimitSumoRequests();
+        })
+        .catch((err: Error) => {
+            x.reject(err);
+            sumoExecutingRequests.splice(sumoExecutingRequests.indexOf(x), 1);
+            rateLimitSumoRequests();
+    }));
 }
