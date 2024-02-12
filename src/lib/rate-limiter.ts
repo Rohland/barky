@@ -6,7 +6,6 @@ interface IRequest {
     reject: (err: Error) => void;
 }
 
-// Rate limiter that assumes requests take less than 1 minute to execute
 export class RateLimiter {
 
     private maxRatePerSecond: number;
