@@ -124,7 +124,7 @@ describe("web evaluator", () => {
             const timestamp = new Date(parseInt(response.data.args.__barky));
             const timeDiff = +new Date() - +timestamp;
             expect(timeDiff).toBeLessThan(10000);
-        });
+        }, 10000); // httpbin isn't the fastest
         describe("without http method", () => {
             it("should default to get", async () => {
                 // arrange
@@ -137,7 +137,7 @@ describe("web evaluator", () => {
 
                 // assert
                 expect(response.status).toEqual(200);
-            });
+            }, 10000); // httpbin isn't the fastest
         });
         describe("with ssl url", () => {
             describe("and default tls configuration", () => {
