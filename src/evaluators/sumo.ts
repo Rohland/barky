@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios, { AxiosRequestConfig } from "axios";
 import { parsePeriodRange } from "../lib/period-parser";
 import { sleepMs } from "../lib/sleep";
 import { MonitorFailureResult, Result, SumoResult } from "../models/result";
@@ -8,6 +8,7 @@ import { log } from "../models/logger";
 import { IApp } from "../models/app";
 import { BaseEvaluator, EvaluatorType, findTriggerRulesFor, generateValueForVariable } from "./base";
 import { IUniqueKey } from "../lib/key";
+import { RateLimiter } from "../lib/rate-limiter";
 
 const SumoDomain = process.env["sumo-domain"] ?? "api.eu.sumologic.com";
 const SumoUrl = `https://${ SumoDomain }/api/v1/search/jobs`;
@@ -16,6 +17,10 @@ const JobPollMillis = 1000;
 // sumo logic queries tend to be quite slow (upwards of 2-3s+), so no point in polling every second right from the outset
 // that may lead to rate limits being reached
 const JobInitialPollMillis = 3000;
+
+// sumo logic has strict concurrency rules, limited to 10 per key - let's be cautious
+const MaxSumoConcurrency = 3;
+const MaxSumoRequestsPerSecond = 5;
 
 export class SumoEvaluator extends BaseEvaluator {
     constructor(config: any) {
@@ -145,10 +150,11 @@ async function startSearch(app, log) {
         timeZone: "UTC",
         autoParsingMode: "intelligent"
     };
-    const result = await axios.post(
+    const result = await executeSumoRequest(app.token, () => axios.post(
         SumoUrl,
         search,
-        getHeaders(app.token));
+        getRequestConfig(app.token))
+    );
     log(`started sumo job search for '${ app.name }'`, result.data);
     return result.data.id;
 }
@@ -156,13 +162,14 @@ async function startSearch(app, log) {
 async function isJobComplete(app, log) {
     const startTime = +new Date();
     let pollCount = 0;
+    await sleepMs(JobInitialPollMillis);
     while (+new Date() - startTime < app.timeout) {
         try {
-            const status = await axios.get(`${ SumoUrl }/${ app.jobId }`, getHeaders(app.token));
+            const status = await executeSumoRequest(app.token, () => axios.get(`${ SumoUrl }/${ app.jobId }`, getRequestConfig(app.token)));
             if (status.data.state.match(/done gathering results/i)) {
                 return status.data;
             }
-            await sleepMs(pollCount === 0 ? JobInitialPollMillis : JobPollMillis);
+            await sleepMs(JobPollMillis);
             pollCount++;
         } catch (err) {
             await deleteJob(app, log);
@@ -170,6 +177,7 @@ async function isJobComplete(app, log) {
         }
     }
     const timedOutAfter = +new Date() - startTime;
+    await sleepMs(JobPollMillis);
     // job failed
     try {
         await deleteJob(app, log);
@@ -180,7 +188,7 @@ async function isJobComplete(app, log) {
 
 async function getSearchResult(app, log) {
     try {
-        const result = await axios.get(`${ SumoUrl }/${ app.jobId }/records?offset=0&limit=100`, getHeaders(app.token));
+        const result = await executeSumoRequest(app.token, () => axios.get(`${ SumoUrl }/${ app.jobId }/records?offset=0&limit=100`, getRequestConfig(app.token)));
         log(`successfully completed sumo job search for '${ app.name }', result:`, result.data);
         return result.data;
     } catch(err) {
@@ -191,18 +199,19 @@ async function getSearchResult(app, log) {
 
 async function deleteJob(app, log) {
     try {
-        await axios.delete(`${ SumoUrl }/${ app.jobId }`, getHeaders(app.token));
+        await executeSumoRequest(app.token, () => axios.delete(`${ SumoUrl }/${ app.jobId }`, getRequestConfig(app.token)));
     } catch (error) {
         log("error: could not delete job", { app, error });
         // no-op
     }
 }
 
-function getHeaders(tokenName) {
+function getRequestConfig(tokenName): AxiosRequestConfig {
     if (!process.env[tokenName]) {
         throw new Error(`missing sumo logic env var with name '${ tokenName }'`);
     }
     return {
+        timeout: 10000,
         headers: {
             "Content-Type": "application/json",
             Accept: "application/json",
@@ -211,6 +220,17 @@ function getHeaders(tokenName) {
     };
 }
 
-function toSumoTime(date) {
+function toSumoTime(date: Date): string {
     return date.toISOString().split(".")[0];
 }
+
+const rateLimiters = new Map<string, RateLimiter>();
+
+export async function executeSumoRequest<T>(
+    key: string,
+    request: () => Promise<T>): Promise<T> {
+    let limiter = rateLimiters.get(key) ?? new RateLimiter(MaxSumoRequestsPerSecond, MaxSumoConcurrency);
+    rateLimiters.set(key, limiter);
+    return await limiter.execute(request);
+}
+
