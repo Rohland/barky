@@ -10,7 +10,7 @@ export interface IPeriod {
     to: Date
 }
 
-export function parsePeriod(input): Date {
+export function parsePeriod(input: string): Date {
     if (!input || !ValidPeriodRegex.test(input.trim())) {
         throw new Error(InvalidPeriodError);
     }
@@ -35,6 +35,10 @@ export function parsePeriodToSeconds(input): number {
 
 export function parsePeriodToMinutes(input): number {
     return parsePeriodToSeconds(input) / 60;
+}
+
+export function parsePeriodToHours(input: string): number {
+    return parsePeriodToMinutes(input) / 60;
 }
 
 export function parsePeriodRange(input: string): IPeriod {

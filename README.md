@@ -13,7 +13,7 @@ The noise and complexity of standard alerting solutions. When things go south, y
 
 It runs a custom set of evaluators (configured in simple markup using YAML) with (current) support for the following checks:
 
-- **web**: Evaluate any accessible site and validate status code, response time and response body
+- **web**: Evaluate any accessible site and validate status code, response time, TLS certificate (including upcoming expiry) and optionally response content
 - **sumo**: Runs custom Sumo Logic queries and evaluates results based on validator configuration
 - **mysql**: Runs custom mysql queries and evaluates results based on validator configuration
 - **shell**: Runs a custom shell script and evaluates results based on validator configuration
@@ -131,7 +131,7 @@ web:
     vary-by: 
       - [za, zar]
       - [com, usd]
-    url: https://www.codeo.co.$1/currency=$2 
+    url: https://www.codeo.co.$1/currency=$2
 ```
 
 This would generate 2 apps to be evaluated with:
@@ -196,8 +196,13 @@ Additional values that can be configured:
 - `timeout` defaults to 5000 (5 seconds)
 - `headers` - a custom set of headers (see example below) - these can include environment variables using $ prefix
 - `vary-by` - enables variations of a given url, an instance for each variation is monitored
-- `validators` - enables a set of custom validators (expect values to be truthy to pass)
+- `validators` - a list of custom response validators (expect values to be truthy to pass)
+  - `text` - a string to search for in the response body (case-insensitive)
+  - `message` - the message to display if the text is not found
 - `alert` - defines the alert rules, see below
+- `tls` - if property is missing, the defaults below apply
+  - `verifiy` - defaults to true, set to false to disable all certificate verification
+  - `expiry` - defaults to `7d` (7 days) - will alert if certificate expires within this period
 
 **Alerts**
 
