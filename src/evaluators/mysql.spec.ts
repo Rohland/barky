@@ -1,3 +1,4 @@
+import { Result } from "../models/result";
 
 const mysqlMock = {
     createConnection: jest.fn()
@@ -6,6 +7,7 @@ jest.doMock("mysql2/promise", () => {
     return mysqlMock;
 });
 import { disposeConnections, getConnection, validateResults } from "./mysql";
+import { IApp } from "../models/app";
 
 describe("mysql", () => {
     describe("validateResults", () => {
@@ -27,9 +29,10 @@ describe("mysql", () => {
                             }
                         ]
                     };
+                    // @ts-ignore
                     const row = {
                         id: "123"
-                    };
+                    } as Result;
 
                     // act
                     const result = validateResults(app, [row]);
@@ -52,6 +55,7 @@ describe("mysql", () => {
                 };
 
                 // act
+                // @ts-ignore
                 const results = validateResults(app, [row]);
 
                 // assert
@@ -90,13 +94,15 @@ describe("mysql", () => {
                             }
                         ]
                     };
+                    // @ts-ignore
                     const row = {
                         id: "123",
                         name: "test"
                     };
 
                     // act
-                    const results = validateResults(app, [row]);
+                    // @ts-ignore
+                    const results = validateResults(app as IApp, [row]);
 
                     // assert
                     expect(results.length).toEqual(1);
@@ -129,7 +135,8 @@ describe("mysql", () => {
                     };
 
                     // act
-                    const results = validateResults(app, [row]);
+                    // @ts-ignore
+                    const results = validateResults(app as IApp, [row]);
 
                     // assert
                     expect(results.length).toEqual(1);
@@ -164,7 +171,8 @@ describe("mysql", () => {
                         };
 
                         // act
-                        const results = validateResults(app, [row]);
+                        // @ts-ignore
+                        const results = validateResults(app as IApp, [row]);
 
                         // assert
                         expect(results.length).toEqual(1);
