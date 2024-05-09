@@ -4,6 +4,9 @@ import * as https from "node:https";
 import { IApp } from "../models/app";
 import { WebResult } from "../models/result";
 
+const second = 1000;
+jest.setTimeout(10 * second);
+
 describe("web evaluator", () => {
     describe("isFailureWebResult", () => {
         describe("when no validator", () => {
@@ -166,7 +169,7 @@ describe("web evaluator", () => {
 
                         // act && assert
                         await expect(() => execWebRequest(app)).rejects.toThrow(/does not match certificate's altnames/);
-                    });
+                    }, 10000);
                 });
                 describe("with expired certificate", () => {
                     it("should throw", async () => {
@@ -177,7 +180,7 @@ describe("web evaluator", () => {
 
                         // act && assert
                         await expect(() => execWebRequest(app)).rejects.toThrow(/certificate has expired/);
-                    });
+                    }, 10000);
                 });
                 describe("but with verify set to false", () => {
                     it("should not throw", async () => {
@@ -194,7 +197,7 @@ describe("web evaluator", () => {
 
                         // assert
                         expect(result.status).toEqual(200);
-                    });
+                    }, 10000);
                 });
             });
         });
