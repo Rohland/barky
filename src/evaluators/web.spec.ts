@@ -5,7 +5,7 @@ import { IApp } from "../models/app";
 import { WebResult } from "../models/result";
 
 const second = 1000;
-jest.setTimeout(10 * second);
+jest.setTimeout(10 * second); // httpbin and badssl aren't the fastest
 
 describe("web evaluator", () => {
     describe("isFailureWebResult", () => {
@@ -127,7 +127,7 @@ describe("web evaluator", () => {
             const timestamp = new Date(parseInt(response.data.args.__barky));
             const timeDiff = +new Date() - +timestamp;
             expect(timeDiff).toBeLessThan(10000);
-        }, 10000); // httpbin isn't the fastest
+        });
         describe("without http method", () => {
             it("should default to get", async () => {
                 // arrange
@@ -140,7 +140,7 @@ describe("web evaluator", () => {
 
                 // assert
                 expect(response.status).toEqual(200);
-            }, 10000); // httpbin isn't the fastest
+            });
         });
         describe("with ssl url", () => {
             describe("and default tls configuration", () => {
@@ -169,7 +169,7 @@ describe("web evaluator", () => {
 
                         // act && assert
                         await expect(() => execWebRequest(app)).rejects.toThrow(/does not match certificate's altnames/);
-                    }, 10000);
+                    });
                 });
                 describe("with expired certificate", () => {
                     it("should throw", async () => {
@@ -180,7 +180,7 @@ describe("web evaluator", () => {
 
                         // act && assert
                         await expect(() => execWebRequest(app)).rejects.toThrow(/certificate has expired/);
-                    }, 10000);
+                    });
                 });
                 describe("but with verify set to false", () => {
                     it("should not throw", async () => {
@@ -197,7 +197,7 @@ describe("web evaluator", () => {
 
                         // assert
                         expect(result.status).toEqual(200);
-                    }, 10000);
+                    });
                 });
             });
         });
