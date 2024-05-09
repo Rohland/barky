@@ -27,14 +27,14 @@ describe("renderTemplate", () => {
         });
     });
     describe.each([
-        ["Test {{value}}", {value: "123"}, "Test 123"],
-        ["Test {{ value  }}", {value: "123"}, "Test 123"],
-        ["Test {{VALUE}}", {value: "123"}, "Test 123"],
-        ["Test {{value}}", {VALUE: "123"}, "Test 123"],
-        ["Test {{value}}", {value: null}, "Test null"],
-        ["Test {{value}}", {value: undefined}, "Test undefined"],
-        ["Test {{value}}", {value: "123", other: "456"}, "Test 123"],
-        ["Test {{value}} {{value}} {value}", {value: "123", other: "456"}, "Test 123 123 {value}"],
+        ["Test {{value}}", { value: "123" }, "Test 123"],
+        ["Test {{ value  }}", { value: "123" }, "Test 123"],
+        ["Test {{VALUE}}", { value: "123" }, "Test 123"],
+        ["Test {{value}}", { VALUE: "123" }, "Test 123"],
+        ["Test {{value}}", { value: null }, "Test null"],
+        ["Test {{value}}", { value: undefined }, "Test undefined"],
+        ["Test {{value}}", { value: "123", other: "456" }, "Test 123"],
+        ["Test {{value}} {{value}} {value}", { value: "123", other: "456" }, "Test 123 123 {value}"],
     ])(`with valid template and data`, (template, data, expected) => {
         it("should return expected", async () => {
             // arrange
@@ -69,6 +69,8 @@ describe("renderTemplate", () => {
             ["Test {{ value }}", { value: 10540000 }, "Test 10.54M"],
             ["Test {{ value }}", { value: -10540000 }, "Test -10.54M"],
             ["Test {{ value }}", { value: 100540000 }, "Test 100.54M"],
+            ["Test {{ value }}", { value: "hello" }, "Test hello"],
+            ["Test {{ value }}", { value: "192.168.0.1" }, "Test 192.168.0.1"]
         ])(`with template %s`, (template, data, expected) => {
             it("should return expected", async () => {
                 // arrange

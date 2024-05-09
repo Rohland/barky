@@ -4,6 +4,9 @@ import * as https from "node:https";
 import { IApp } from "../models/app";
 import { WebResult } from "../models/result";
 
+const second = 1000;
+jest.setTimeout(10 * second); // httpbin and badssl aren't the fastest
+
 describe("web evaluator", () => {
     describe("isFailureWebResult", () => {
         describe("when no validator", () => {
@@ -124,7 +127,7 @@ describe("web evaluator", () => {
             const timestamp = new Date(parseInt(response.data.args.__barky));
             const timeDiff = +new Date() - +timestamp;
             expect(timeDiff).toBeLessThan(10000);
-        }, 10000); // httpbin isn't the fastest
+        });
         describe("without http method", () => {
             it("should default to get", async () => {
                 // arrange
@@ -137,7 +140,7 @@ describe("web evaluator", () => {
 
                 // assert
                 expect(response.status).toEqual(200);
-            }, 10000); // httpbin isn't the fastest
+            });
         });
         describe("with ssl url", () => {
             describe("and default tls configuration", () => {

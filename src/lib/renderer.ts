@@ -25,10 +25,11 @@ export function renderTemplate(
 }
 
 function nFormatter(num, digits) {
-    const number = parseFloat(num);
-    if (isNaN(number)){
+    const isNumber = /^[-+]?\d*\.?\d+$/.test(num || "");
+    if (!isNumber) {
         return num;
     }
+    const number = parseFloat(num);
     const absolute = Math.abs(number);
     const sign = Math.sign(number);
     const lookup = [
