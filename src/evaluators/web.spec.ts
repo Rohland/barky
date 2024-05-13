@@ -46,6 +46,22 @@ describe("web evaluator", () => {
                         expect(result).toEqual(expected);
                     });
                 });
+                describe("when data is an object", () => {
+                    it("should serialise to json then inspect", async () => {
+                        // arrange
+                        const web = { data: { test: 123 } } as AxiosResponse;
+
+                        // act
+                        const result = isFailureWebResult(
+                            web,
+                            {
+                                text: "123"
+                            });
+
+                        // assert
+                        expect(result).toEqual(false);
+                    });
+                });
             });
         });
     });

@@ -255,7 +255,10 @@ export function isFailureWebResult(
     webResult: AxiosResponse,
     validator: IWebValidator) {
     if (validator?.text) {
-        if (!webResult.data.toLowerCase().includes(validator.text.toString().toLowerCase())) {
+        const text = typeof(webResult.data) === "object"
+            ? JSON.stringify(webResult.data)
+            : webResult.data;
+        if (!text.toLowerCase().includes(validator.text.toString().toLowerCase())) {
             return true;
         }
     }
