@@ -141,10 +141,14 @@ export class SlackChannelConfig extends ChannelConfig {
         const link = this.workspace && channel
             ? `<https://${ this.workspace }.slack.com/archives/${ channel }/p${ timestamp }|See above ☝️>`
             : "See above ☝️";
-        const msg = `🔥 <!channel> Woof! Alert ongoing: \`${ snapshots.length } problems\` for \`${ alert.durationHuman }\`. ${ link }`;
-        await this.postToSlack(
-            msg,
-            null);
+        const problems = pluraliseWithS("problem", snapshots.length);
+        const msg = `🔥 <!channel> Woof! Alert ongoing: \`${ snapshots.length } ${ problems }\` for \`${ alert.durationHuman }\`. ${ link }`;
+        await Promise.all([
+            this.pingAboutOngoingAlert(snapshots, alert),
+            this.postToSlack(
+                msg,
+                null)
+        ]);
     }
 
     public async pingAboutOngoingAlert(

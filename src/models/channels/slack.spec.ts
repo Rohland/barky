@@ -163,6 +163,7 @@ describe("slack", () => {
                 });
                 const before = JSON.stringify(alertState);
                 sut.postToSlack = jest.fn();
+                sut.pingAboutOngoingAlert = jest.fn();
 
                 // act
                 await sut.sendOngoingAlert(snapshots, alertState);
@@ -173,6 +174,7 @@ describe("slack", () => {
                 expect(sut.postToSlack).toHaveBeenCalledWith(
                     '🔥 <!channel> Woof! Alert ongoing: `40 problems` for `1 hr`. See above ☝️',
                     null);
+                expect(sut.pingAboutOngoingAlert).toHaveBeenCalledWith(snapshots, alertState);
             });
         });
         describe("with workspace info", () => {
@@ -203,6 +205,7 @@ describe("slack", () => {
                 });
                 const before = JSON.stringify(alertState);
                 sut.postToSlack = jest.fn();
+                sut.pingAboutOngoingAlert = jest.fn();
 
                 // act
                 await sut.sendOngoingAlert(snapshots, alertState);
@@ -213,6 +216,7 @@ describe("slack", () => {
                 expect(sut.postToSlack).toHaveBeenCalledWith(
                     '🔥 <!channel> Woof! Alert ongoing: `40 problems` for `1 hr`. <https://codeo.slack.com/archives/reply-channel/p123|See above ☝️>',
                     null);
+                expect(sut.pingAboutOngoingAlert).toHaveBeenCalledWith(snapshots, alertState);
             });
         });
     });
