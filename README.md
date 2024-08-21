@@ -464,6 +464,7 @@ channels:
     interval: 1h # how often to post updates as a new message
     token: slack-token # we expect an environment variable with this name
     channel: "#ops"
+    workspace: "acme" # this is your workspace name in slack (optional)
 ```
 
 A note on templates: Slack prevents message updates from exceeding 4k characters, so if the Slack notification exceeds this, a
@@ -537,3 +538,13 @@ Example resolution:
 
 > ✅ @channel Previous outage resolved at 10:11:08. Duration was 1 minute.
 > See above for more details about affected services.
+
+## Integration Testing
+
+Configure a local `.env` file with the configuration as outlined in the documentation above, and then execute
+as follows:
+
+```bash
+# this expects that you have a subfolder called path and files called config.yml and digest.yml
+npm start --loop ./path/config --eval=web --digest=./path/digest --debug
+```

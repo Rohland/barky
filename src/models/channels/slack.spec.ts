@@ -139,4 +139,105 @@ describe("slack", () => {
             });
         });
     });
+    describe("sendOngoingAlert", () => {
+        describe("without workspace info", () => {
+            it("should post an update without mutating state", async () => {
+                // arrange
+                const sut = new SlackChannelConfig(null, {
+                    channel: "my-channel",
+                    template: {
+                        summary: "my-summary!"
+                    }
+                });
+                const snapshot = generateSnapshot();
+                const snapshots = [];
+                for (let i = 0; i < 40; i++) {
+                    snapshots.push(snapshot);
+                }
+                let dt = new Date();
+                dt = new Date(dt.setHours(dt.getHours() - 1));
+                const alertState = new AlertState({
+                    channel: "channel",
+                    start_date: dt,
+                    end_date: null,
+                });
+                const before = JSON.stringify(alertState);
+                sut.postToSlack = jest.fn();
+                sut.pingAboutOngoingAlert = jest.fn();
+
+                // act
+                await sut.sendOngoingAlert(snapshots, alertState);
+
+                // assert
+                const after = JSON.stringify(alertState);
+                expect(after).toEqual(before);
+                expect(sut.postToSlack).toHaveBeenCalledWith(
+                    '🔥 <!channel> Woof! Alert ongoing: `40 problems` for `1 hr`. See above ☝️',
+                    null);
+                expect(sut.pingAboutOngoingAlert).toHaveBeenCalledWith(snapshots, alertState);
+            });
+        });
+        describe("with workspace info", () => {
+            it("should post an update without mutating state", async () => {
+                // arrange
+                const sut = new SlackChannelConfig(null, {
+                    channel: "my-channel",
+                    workspace: "codeo",
+                    template: {
+                        summary: "my-summary!"
+                    }
+                });
+                const snapshot = generateSnapshot();
+                const snapshots = [];
+                for (let i = 0; i < 40; i++) {
+                    snapshots.push(snapshot);
+                }
+                let dt = new Date();
+                dt = new Date(dt.setHours(dt.getHours() - 1));
+                const alertState = new AlertState({
+                    channel: "channel",
+                    start_date: dt,
+                    end_date: null,
+                    state: JSON.stringify({
+                        ts: 123,
+                        channel: 'reply-channel'
+                    })
+                });
+                const before = JSON.stringify(alertState);
+                sut.postToSlack = jest.fn();
+                sut.pingAboutOngoingAlert = jest.fn();
+
+                // act
+                await sut.sendOngoingAlert(snapshots, alertState);
+
+                // assert
+                const after = JSON.stringify(alertState);
+                expect(after).toEqual(before);
+                expect(sut.postToSlack).toHaveBeenCalledWith(
+                    '🔥 <!channel> Woof! Alert ongoing: `40 problems` for `1 hr`. <https://codeo.slack.com/archives/reply-channel/p123|See above ☝️>',
+                    null);
+                expect(sut.pingAboutOngoingAlert).toHaveBeenCalledWith(snapshots, alertState);
+            });
+        });
+    });
+
+    function generateSnapshot() {
+        const snapshot =  new Snapshot({
+            date: new Date(),
+            type: "web",
+            label: "health",
+            identifier: "www.codeo.co.za",
+            success: false,
+            last_result: "Expected 200, got 500",
+            alert_config: {
+                links: [
+                    {
+                        label: "View",
+                        url: "https://www.notion.so"
+                    }
+                ]
+            }
+        });
+        return snapshot;
+    }
 });
