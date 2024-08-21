@@ -9,12 +9,14 @@ import * as os from "os";
 export class SlackChannelConfig extends ChannelConfig {
     public channel: string;
     public token: string;
+    public workspace: string;
 
     constructor(name: string, config: any) {
         super(name, config);
         this.type = ChannelType.Slack;
         this.channel = config.channel;
         this.token = process.env[config.token];
+        this.workspace = config.workspace;
     }
 
     public generateMessage(
@@ -131,10 +133,17 @@ export class SlackChannelConfig extends ChannelConfig {
             alert.state);
     }
 
-    public async sendOngoingAlert(snapshots: Snapshot[], alert: AlertState): Promise<void> {
-        // send a brand-new message here
-        alert.state = await this.postToSlack(
-            this.generateMessage(snapshots, alert),
+    public async sendOngoingAlert(
+        snapshots: Snapshot[],
+        alert: AlertState): Promise<void> {
+        const timestamp = alert.state?.ts?.toString()?.replace('.', '');
+        const channel = alert.state?.channel;
+        const link = this.workspace && channel
+            ? `<https://${ this.workspace }.slack.com/archives/${ channel }/p${ timestamp }|See above ☝️>`
+            : "See above ☝️";
+        const msg = `🔥 <!channel> Woof! Alert ongoing: \`${ snapshots.length } problems\` for \`${ alert.durationHuman }\`. ${ link }`;
+        await this.postToSlack(
+            msg,
             null);
     }
 
