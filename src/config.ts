@@ -13,20 +13,26 @@ function getFileNamePart(fileName: string) {
     return nameParts.join(".");
 }
 
-function getConfigFileInfo(file) {
-    const yamlFilePath = file.toLowerCase().endsWith(".yaml") ? file : `${ file }.yaml`;
+function getConfigFileInfo(file: string, defaultExtension: string) {
+    const hasYmlExtension = /\.ya?ml$/i.test(file);
+    const yamlFilePath = hasYmlExtension ? file : `${ file }.${defaultExtension}`;
     const currentDir = process.cwd();
-    const filePath = yamlFilePath.startsWith("/") ? yamlFilePath : path.join(currentDir, yamlFilePath);
+    const filePath = yamlFilePath.startsWith("/")
+        ? yamlFilePath
+        : path.join(currentDir, yamlFilePath);
     const fileName = getFileNamePart(yamlFilePath);
     return {
         filePath,
         fileName
-    }
+    };
 }
 
-function getAndValidateConfigFileInfo(fileName) {
+function getAndValidateConfigFileInfo(fileName: string) {
     let file = null;
-    const fileInfo = getConfigFileInfo(fileName);
+    let fileInfo = getConfigFileInfo(fileName, "yaml");
+    if (!fs.existsSync(fileInfo.filePath)) {
+        fileInfo = getConfigFileInfo(fileName, "yml");
+    }
     try {
         file = fs.readFileSync(fileInfo.filePath, 'utf8');
         if (!file) {

@@ -1,7 +1,26 @@
 import { getConfig } from "./config";
 
 describe("cli", () => {
-    describe("getConfig", () => {
+    describe("getConfig", () =>{
+        describe.each([
+            ["importer", "yaml"],
+            ["importer_yml", "yml"]
+        ])(`with file %s and extension %s`, (file) => {
+            it("should be able to parse and validate config", async () => {
+                // arrange
+                const rel = `./tests/files/${file}`;
+                const args = {
+                    rules: rel
+                };
+                console.log(__dirname);
+
+                // act
+                const config = getConfig(args);
+
+                // assert
+                expect(config).toMatchObject(args);
+            });
+        });
         describe("when includes import tag", () => {
             it("should iterate and include rules from other files", async () => {
                 // arrange
