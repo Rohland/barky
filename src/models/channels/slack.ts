@@ -5,6 +5,7 @@ import axios from "axios";
 import { pluraliseWithS, toLocalTimeString, tryExecuteTimes } from "../../lib/utility";
 import { AlertConfiguration } from "../alert_configuration";
 import * as os from "os";
+import { getEnvVar } from "../../lib/env";
 
 export class SlackChannelConfig extends ChannelConfig {
     public channel: string;
@@ -15,7 +16,7 @@ export class SlackChannelConfig extends ChannelConfig {
         super(name, config);
         this.type = ChannelType.Slack;
         this.channel = config.channel;
-        this.token = process.env[config.token];
+        this.token = getEnvVar(config.token);
         this.workspace = config.workspace;
     }
 

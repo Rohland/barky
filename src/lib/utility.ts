@@ -1,13 +1,14 @@
 import * as crypto from "crypto";
 import { log } from "../models/logger";
 import { sleepMs } from "./sleep";
+import { getEnvVar } from "./env";
 
 Error.stackTraceLimit = Infinity;
 
-export const DefaultLocale = process.env.LC_ALL
-    || process.env.LC_MESSAGES
-    || process.env.LANG
-    || process.env.LANGUAGE;
+export const DefaultLocale = getEnvVar("LC_ALL")
+    || getEnvVar("LC_MESSAGES")
+    || getEnvVar("LANG")
+    || getEnvVar("LANGUAGE");
 const defaultTimeZone = "Africa/Johannesburg";
 let locale = correctCUTF8Locale(DefaultLocale || "en-US");
 let timeZone = defaultTimeZone;

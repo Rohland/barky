@@ -6,6 +6,7 @@ import { IApp } from "../models/app";
 import { BaseEvaluator, EvaluatorType, findTriggerRulesFor, generateValueForVariable } from "./base";
 import { IUniqueKey } from "../lib/key";
 import { IRule } from "../models/trigger";
+import { getEnvVar } from "../lib/env";
 
 export class MySqlEvaluator extends BaseEvaluator {
     constructor(config: any) {
@@ -152,7 +153,7 @@ async function runQuery(connection: mysql.Connection, app) {
 let connections: mysql.Connection[] = [];
 
 function configureSSLForConnection(app, config: any) {
-    const sslDisabledValue = process.env[`mysql-${ app.connection }-ssl-disabled`];
+    const sslDisabledValue = getEnvVar(`mysql-${ app.connection }-ssl-disabled`);
     if (!sslDisabledValue) {
         return;
     }
@@ -166,11 +167,11 @@ function configureSSLForConnection(app, config: any) {
 
 export async function getConnection(app): Promise<mysql.Connection> {
     const config = {
-        host: process.env[`mysql-${ app.connection }-host`],
-        user: process.env[`mysql-${ app.connection }-user`],
-        password: process.env[`mysql-${ app.connection }-password`],
-        port: process.env[`mysql-${ app.connection }-port`],
-        database: process.env[`mysql-${ app.connection }-database`],
+        host: getEnvVar(`mysql-${ app.connection }-host`),
+        user: getEnvVar(`mysql-${ app.connection }-user`),
+        password: getEnvVar(`mysql-${ app.connection }-password`),
+        port: getEnvVar(`mysql-${ app.connection }-port`),
+        database: getEnvVar(`mysql-${ app.connection }-database`),
         timezone: 'Z',
         multipleStatements: true
     };
