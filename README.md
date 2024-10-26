@@ -541,8 +541,8 @@ Example resolution:
 
 ## Integration Testing
 
-Configure a local `.env` file with the configuration as outlined in the documentation above, and then execute
-as follows:
+Configure a local `.env.local` file with the configuration as outlined in the documentation above, and then execute
+as follows. Note, Barky will prioritise `.env.local` over entries in a `.env` file.
 
 ```bash
 # this expects that you have a subfolder called path and files called config.yml and digest.yml
