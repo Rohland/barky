@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 import * as Dotenv from "dotenv";
 
-Dotenv.config();
+const envPath = ['.env.local', '.env'];
+Dotenv.config({ path: envPath });
+
 import yargs from "yargs/yargs";
 import { hideBin } from "yargs/helpers";
 import fs from 'fs';
