@@ -9,8 +9,9 @@ import { IApp } from "../models/app";
 import { BaseEvaluator, EvaluatorType, findTriggerRulesFor, generateValueForVariable } from "./base";
 import { IUniqueKey } from "../lib/key";
 import { RateLimiter } from "../lib/rate-limiter";
+import { getEnvVar } from "../lib/env";
 
-const SumoDomain = process.env["sumo-domain"] ?? "api.eu.sumologic.com";
+const SumoDomain = getEnvVar("sumo-domain") ?? "api.eu.sumologic.com";
 const SumoUrl = `https://${ SumoDomain }/api/v1/search/jobs`;
 
 const JobPollMillis = 1000;
@@ -207,7 +208,7 @@ async function deleteJob(app, log) {
 }
 
 function getRequestConfig(tokenName): AxiosRequestConfig {
-    if (!process.env[tokenName]) {
+    if (!getEnvVar(tokenName)) {
         throw new Error(`missing sumo logic env var with name '${ tokenName }'`);
     }
     return {
@@ -215,7 +216,7 @@ function getRequestConfig(tokenName): AxiosRequestConfig {
         headers: {
             "Content-Type": "application/json",
             Accept: "application/json",
-            Authorization: `Basic ${ Buffer.from(process.env[tokenName]).toString('base64') }`
+            Authorization: `Basic ${ Buffer.from(getEnvVar(tokenName)).toString('base64') }`
         }
     };
 }

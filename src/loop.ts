@@ -27,7 +27,11 @@ function validateNoOtherInstancesRunningFor(args) {
         args.rules,
         args.eval,
         args.digest].join(";").toLowerCase();
-    return canLockProcessFor(key);
+    const canLock = canLockProcessFor(key);
+    if (!canLock) {
+        console.log("another instance is running with this configuration, aborting... (inspect .barky.*.lock files)");
+    }
+    return canLock;
 }
 
 async function doLoop(args, runner: () => Promise<number>): Promise<number> {

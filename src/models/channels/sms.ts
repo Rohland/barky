@@ -4,6 +4,7 @@ import axios from "axios";
 import { pluraliseWithS } from "../../lib/utility";
 import { ChannelConfig, ChannelType } from "./base";
 import FormData from "form-data";
+import { getEnvVar } from "../../lib/env";
 
 export interface SMSContact {
     name: string;
@@ -53,9 +54,9 @@ export class SMSChannelConfig extends ChannelConfig {
     private async sendSMSToAllContacts(message: string): Promise<void> {
         try {
             const data = new FormData();
-            data.append('user', process.env["clickatell-user"]);
-            data.append('password', process.env["clickatell-password"]);
-            data.append('api_id', process.env["clickatell-key"]);
+            data.append('user', getEnvVar("clickatell-user"));
+            data.append('password', getEnvVar("clickatell-password"));
+            data.append('api_id', getEnvVar("clickatell-key"));
             data.append('to', this.contacts.map(x => x.mobile).join(","));
             data.append('text', message);
             const config = {

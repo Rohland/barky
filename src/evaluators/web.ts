@@ -7,6 +7,7 @@ import { BaseEvaluator, EvaluatorType } from "./base";
 import { IUniqueKey } from "../lib/key";
 import * as https from "node:https";
 import { parsePeriodToHours } from "../lib/period-parser";
+import { getEnvVar } from "../lib/env";
 
 export class WebEvaluator extends BaseEvaluator {
     constructor(config: any) {
@@ -241,11 +242,11 @@ export function getCustomHeaders(headers: any): any {
         const value = (headers[key] ?? "").toString();
         const match = value.match(/^\$(.*)$/);
         if (match) {
-            const envVar = process.env[match[1]];
+            const envVar = getEnvVar(match[1]);
             if (!envVar) {
                 log(`warning: environment variable used in custom header, '${ match[1] }' not found`)
             }
-            headers[key] = process.env[match[1]] ?? value;
+            headers[key] = getEnvVar(match[1], value);
         }
     }
     return headers;
