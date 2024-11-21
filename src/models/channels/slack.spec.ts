@@ -209,7 +209,6 @@ describe("slack", () => {
                         }
                     })
                 });
-                const before = JSON.stringify(alertState);
                 sut.postToSlack = jest.fn().mockResolvedValue({ channel: "reply-channel", ts: 999 });
                 sut.pingAboutOngoingAlert = jest.fn();
                 sut.deleteMessage = jest.fn();
