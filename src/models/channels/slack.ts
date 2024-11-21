@@ -143,13 +143,46 @@ export class SlackChannelConfig extends ChannelConfig {
             ? `<https://${ this.workspace }.slack.com/archives/${ channel }/p${ timestamp }|See above ☝️>`
             : "See above ☝️";
         const problems = pluraliseWithS("problem", snapshots.length);
-        const msg = `🔥 <!channel> Woof! Alert ongoing: \`${ snapshots.length } ${ problems }\` for \`${ alert.durationHuman }\`. ${ link }`;
+        const msg = `🔥 <!channel> Alert ongoing: \`${ snapshots.length } ${ problems }\` for \`${ alert.durationHuman }\`. ${ link } \n_please do not reply to this msg_`;
         await Promise.all([
             this.pingAboutOngoingAlert(snapshots, alert),
-            this.postToSlack(
+            this.replaceLastMessageAboutOngoingAlert(
                 msg,
-                null)
+                alert)
         ]);
+    }
+
+    public async replaceLastMessageAboutOngoingAlert(msg: string, alert: AlertState) {
+        const result = await this.postToSlack(
+            msg,
+            null);
+        if (alert?.state?.ongoing) {
+            const { channel, ts } = alert.state.ongoing;
+            await this.deleteMessage(channel, ts);
+        }
+        if (alert?.state) {
+            alert.state.ongoing = result;
+        }
+    }
+
+    public async deleteMessage(channel: string, ts: number) {
+        try {
+            await axios.post(
+                'https://slack.com/api/chat.delete',
+                {
+                    channel: channel,
+                    ts: ts
+                },
+                {
+                    headers: {
+                        Authorization: `Bearer ${ this.token }`,
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
+        } catch {
+            // no-op
+        }
     }
 
     public async pingAboutOngoingAlert(
@@ -170,7 +203,8 @@ export class SlackChannelConfig extends ChannelConfig {
                 alert.state,
                 true
             ),
-            this.reactToSlackMessage(alert.state, "white_check_mark")
+            this.reactToSlackMessage(alert.state, "white_check_mark"),
+            this.deleteOngoingAlert(alert)
         ]);
     }
 
@@ -184,13 +218,22 @@ export class SlackChannelConfig extends ChannelConfig {
                 alert.state,
                 true
             ),
-            this.reactToSlackMessage(alert.state, "no_bell")
+            this.reactToSlackMessage(alert.state, "no_bell"),
+            this.deleteOngoingAlert(alert)
         ]);
+    }
+
+    private async deleteOngoingAlert(alert: AlertState) {
+        if (!alert.state?.ongoing) {
+            return;
+        }
+        const { channel, ts } = alert.state.ongoing;
+        await this.deleteMessage(channel, ts);
     }
 
     async postToSlack(
         message: string,
-        state?: any,
+        state?: { channel: string, ts: number },
         reply: boolean = false): Promise<any> {
         return await tryExecuteTimes(
             `posting to slack`,

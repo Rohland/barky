@@ -546,5 +546,5 @@ as follows. Note, Barky will prioritise `.env.local` over entries in a `.env` fi
 
 ```bash
 # this expects that you have a subfolder called path and files called config.yml and digest.yml
-npm start --loop ./path/config --eval=web --digest=./path/digest --debug
+npm start -- loop ./path/config --eval=web --digest=./path/digest --debug
 ```
