@@ -120,5 +120,6 @@ function getDigestConfiguration(args) {
     const { file, fileInfo } = getAndValidateConfigFileInfo(args.digest);
     const config = getConfigurationFromFile(file, fileInfo);
     config.title ??= args.title ?? "";
+    // todo: merge mute-windows from local temp files and clean up (delete) old files
     return config;
 }

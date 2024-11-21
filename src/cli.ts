@@ -32,6 +32,8 @@ async function run(args) {
     try {
         const config = getConfig(args);
         await initConnection(config.fileName);
+        // todo: start web server if not started
+        // share current config with web server (can be used for shared state)
         log(`starting ${ args.eval } evaluators`);
         await execute(
             config,

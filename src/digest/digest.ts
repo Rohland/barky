@@ -20,6 +20,7 @@ export async function digest(
     config: DigestConfiguration,
     results: Result[]) {
     const context = await generateDigest(results);
+    // context.alertableSnapshots(config); // generate global state to support ui
     if (context.state === DigestState.OK) {
         return;
     }
