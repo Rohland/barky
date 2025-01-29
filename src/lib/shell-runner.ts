@@ -32,7 +32,7 @@ export async function execShellScript(
         try {
             const params = [args ?? []].flat();
             const worker = exec(
-                `bash ${ scriptPath } ${ params.map(x => `'${ x }'`).join(" ") }`,
+                `${ scriptPath } ${ params.map(x => `'${ x }'`).join(" ") }`,
                 {
                     env: {
                         ...generateEnvVars()
