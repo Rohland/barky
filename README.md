@@ -211,12 +211,12 @@ Fields:
 * `channels` - an array of channels to use (example: `[sms, slack]`)
 * `links` - optional array of links to include when alerts trigger
 * `rules` - an array of rules (the first matched rule will always be used) - if `match` expression is used, only rules matching the expression will be evaluated
-	* `description` - not required
-	* `count|any` - count means trigger after defined consecutive count of errors, any means trigger after `any` count of errors in the window period defined
-	* `window` - not required, but useful to constrain `any` operator to the given window, example: `-30m` means last 30 minutes. Maximum window is `24h`. Defaults to 5 minutes if not specified
-    * `match` - an optional match expression to match against the monitor identifier (see below for format)
-	* `days` - array of days and only required if you want to constrain the trigger to specific days of week (see example)
-	* `time` - array or single range value, only required if you want to constrain the trigger to specific times of the day (times are in the timezone specified in the config)
+  * `description` - not required
+  * `count|any` - count means trigger after defined consecutive count of errors, any means trigger after `any` count of errors in the window period defined
+  * `window` - not required, but useful to constrain `any` operator to the given window, example: `-30m` means last 30 minutes. Maximum window is `24h`. Defaults to 5 minutes if not specified
+  * `match` - an optional match expression to match against the monitor identifier (see below for format)
+  * `days` - array of days and only required if you want to constrain the trigger to specific days of week (see example)
+  * `time` - array or single range value, only required if you want to constrain the trigger to specific times of the day (times are in the timezone specified in the config)
 * `exception-policy` - the name of the alert policy (defined in the digest configuration) to use for monitor failures (such as timeouts or exceptions), if not set then the same alert configuration rules defined above will be used when the monitor incurs an unhandled error
 
 The match expression is composed as follows: `type|label|identifier`. For example: `web|web-performance|www.codeo.co.za`. The regular expression for match
@@ -249,10 +249,12 @@ web:
             url: "https://notion.so"
         rules:
             - description: Weekdays
+              match: .*
               count: 2 # any consecutive 2 failures trigger alert
               days: [mon, tue, wed, thu, fri]
               time: [00:00-04:00, 6:00- 17:00] # local time as per timezone
             - description: Weekends
+              match: .*
               window: -5m
               any: 3
               days: [sat, sun]
