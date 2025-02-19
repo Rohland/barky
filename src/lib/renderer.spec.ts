@@ -30,12 +30,14 @@ describe("renderTemplate", () => {
         ["Test {{value}}", { value: "123" }, "Test 123"],
         ["Test {{ value  }}", { value: "123" }, "Test 123"],
         ["Test {{VALUE}}", { value: "123" }, "Test 123"],
+        ["Test {{VALUE}}", { VALUE: "321", value: "123" }, "Test 321"],
         ["Test {{value}}", { VALUE: "123" }, "Test 123"],
         ["Test {{value}}", { value: null }, "Test null"],
         ["Test {{value}}", { value: undefined }, "Test undefined"],
         ["Test {{value}}", { value: "123", other: "456" }, "Test 123"],
         ["Test {{value}} {{value}} {value}", { value: "123", other: "456" }, "Test 123 123 {value}"],
-    ])(`with valid template and data`, (template, data, expected) => {
+        ["Test {{value.sub_value}}", { value: { sub_value: "99"} }, "Test 99"],
+    ])(`with valid template %p and data %p`, (template, data, expected) => {
         it("should return expected", async () => {
             // arrange
             // act

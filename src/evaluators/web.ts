@@ -8,6 +8,7 @@ import { IUniqueKey } from "../lib/key";
 import * as https from "node:https";
 import { parsePeriodToHours } from "../lib/period-parser";
 import { getEnvVar } from "../lib/env";
+import { renderTemplate } from "../lib/renderer";
 
 export class WebEvaluator extends BaseEvaluator {
     constructor(config: any) {
@@ -44,8 +45,11 @@ export class WebEvaluator extends BaseEvaluator {
     }
 }
 
+
 interface IWebValidator {
     text?: string;
+    match?: string;
+    json?: string;
     message?: string;
 }
 
@@ -106,7 +110,7 @@ export function validateCertificateExpiry(
     }
     const hrsToExpiry = expiringInHours.toFixed(2);
     const daysToExpiry = expiringInHours / 24;
-    const msg = `certificate expiring in ${ expiringInHours < 24 ? hrsToExpiry + " hours" : daysToExpiry.toFixed(1) + " days"}`;
+    const msg = `certificate expiring in ${ expiringInHours < 24 ? hrsToExpiry + " hours" : daysToExpiry.toFixed(1) + " days" }`;
     results.push(new WebResult(
         date,
         "cert-expiring",
@@ -225,7 +229,7 @@ function evaluateResult(
     }
 
     let failure;
-    if (validators && validators.length > 0) {
+    if (validators?.length > 0) {
         const failedValidator = validators.find(validator => isFailureWebResult(webResult, validator));
         failure = failedValidator ? (failedValidator?.message ?? "failed validator") : null;
     }
@@ -256,10 +260,42 @@ export function isFailureWebResult(
     webResult: AxiosResponse,
     validator: IWebValidator) {
     if (validator?.text) {
-        const text = typeof(webResult.data) === "object"
+        const text = typeof (webResult.data) === "object"
             ? JSON.stringify(webResult.data)
             : webResult.data;
         if (!text.toLowerCase().includes(validator.text.toString().toLowerCase())) {
+            return true;
+        }
+    }
+    if (validator?.match) {
+        const text = typeof (webResult.data) === "object"
+            ? JSON.stringify(webResult.data)
+            : webResult.data;
+        if (!text.match(validator.match)) {
+            return true;
+        }
+    }
+    if (validator?.json) {
+        const json = webResult.data;
+        if (!json) {
+            return true;
+        }
+        const keys = Object.keys(json);
+        const variables = keys
+            .map(key => {
+                const safeKey = key.replace(/[^a-zA-Z0-9]/g, "_");
+                return `const ${ safeKey } = ${ JSON.stringify(json[key]) };`
+            }).join("\n");
+        try {
+            const match = eval(variables + validator.json);
+            if (!match) {
+                const obj = {};
+                keys.forEach(key => obj[key] = json[key]);
+                validator.message = renderTemplate(validator.message, obj, { humanizeNumbers: true })
+                return true;
+            }
+        } catch {
+            validator.message = `invalid json expression or unexpected result (${ JSON.stringify(json) })`;
             return true;
         }
     }

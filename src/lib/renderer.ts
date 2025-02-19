@@ -12,11 +12,20 @@ export function renderTemplate(
     if (!data) {
         return template;
     }
-    const dataWithLoweredKeys = Object.fromEntries(
-        Object.entries(data ?? {})
-            .map(([k, v]) => [k.toLowerCase(), v]));
+
+    const dataWithKeys = {};
+    Object.entries(data ?? {}).forEach(([k, v]) => {
+        dataWithKeys[k.toLowerCase()] = v;
+        dataWithKeys[k] = v;
+    });
+
+    const getValue = (obj: object, key: string) => key
+        .split('.')
+        .reduce((acc, curr) => acc?.[curr], obj);
+
     return template.replace(/{{([^}]*)}}/g, (_, v) => {
-        const value = dataWithLoweredKeys[v.toLowerCase().trim()];
+        const key = v.trim();
+        const value = getValue(dataWithKeys, key) ?? getValue(dataWithKeys, key.toLowerCase());
         if (options?.humanizeNumbers) {
             return nFormatter(value, 2);
         }
