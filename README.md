@@ -245,7 +245,7 @@ web:
       # either match, text or json can be used (in conjunction if necessary)
       - text: ok # this checks the response contains the text "ok"
         message: Expected to find text "ok" in response but didn't
-      - match: "\d+" # this checks the response matches the regex
+      - match: "\\d+" # this checks the response matches the regex
         message: Expected to find a numeric valid in the response, but didn't
       # for json responses, the response is parsed and the expression is evaluated against the parsed object
       # for example a response of { "result": 123 } could be evaluated with `result > 100`
