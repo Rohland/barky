@@ -253,7 +253,8 @@ web:
       # { "my-key": 123 } would be accessed with `my_key`; note that sub-properties can also
       # be dereferenced using normat notation (i.e. `my_key.sub_key > 123`)
       - json: someKey.result > 100  # this checks the response is valid json and matches the expression
-        message: "Expected someKey.result to be greater than 100 but was {{someKey.result}}"
+        # note that the message can include an evaluation of properties on the json result, see below
+        message: "Expected someKey.result to be greater than 100 but was {{someKey?.result ?? 'unknown'}}"
     alert: 
         channels: [sms, slack]
         links:
@@ -409,7 +410,7 @@ A more complex example:
 shell:
   validate-country-$1:
     vary-by: [za,us,gb]
-    path: ./my-script.sh # the vary-by params are passed into the script as arguments, i.e. ./script.sh $1 $2
+    path: ./my-script.sh # each fanned out vary-by result will have the variation passed as an argument, i.e. ./my-script.sh za
     responseType: json
     identifier: id
     triggers:

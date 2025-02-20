@@ -99,9 +99,9 @@ describe("base evaluator", () => {
                 const apps3 = evaluator.getAppsToEvaluate();
 
                 // assert
-                expect(apps1).toEqual([{ type: "custom", name: "app1", timeout: 10000 }]);
-                expect(apps2).toEqual([{ type: "custom", name: "app1", timeout: 10000 }]);
-                expect(apps3).toEqual([{ type: "custom", name: "app1", timeout: 10000 }]);
+                expect(apps1).toEqual([{ type: "custom", name: "app1", timeout: 10000, variation: null }]);
+                expect(apps2).toEqual([{ type: "custom", name: "app1", timeout: 10000, variation: null }]);
+                expect(apps3).toEqual([{ type: "custom", name: "app1", timeout: 10000, variation: null }]);
                 expect(evaluator.skippedApps).toEqual([]);
             });
         });
@@ -553,6 +553,7 @@ describe("base evaluator", () => {
                         name: "codeo.co.za",
                         url: "https://www.codeo.co.za",
                         "vary-by": varyBy,
+                        "variation": null
                     }]);
                 });
             });
@@ -572,6 +573,7 @@ describe("base evaluator", () => {
                     expect(result).toMatchObject([{
                         name: "test",
                         url: "https://www.codeo.co.za",
+                        "variation": null
                     }]);
                 });
             });
@@ -596,9 +598,10 @@ describe("base evaluator", () => {
                             const result = e.getAppVariations(app);
 
                             // assert
-                            const expectedResults = expected.map(x => ({
+                            const expectedResults = expected.map((x, index) => ({
                                 name: x,
-                                "vary-by": varyBy
+                                "vary-by": varyBy,
+                                "variation": varyBy?.length > 0 ? varyBy[index] : null
                             }));
                             expect(result).toEqual(expectedResults);
                         });
@@ -626,10 +629,11 @@ describe("base evaluator", () => {
                             const result = e.getAppVariations(app);
 
                             // assert
-                            const expectedResults = expected.map(x => ({
+                            const expectedResults = expected.map((x,index) => ({
                                 name: "codeo",
                                 url: x,
-                                "vary-by": varyBy
+                                "vary-by": varyBy,
+                                "variation": varyBy?.length > 0 ? varyBy[index] : null
                             }));
                             expect(result).toEqual(expectedResults);
                         });

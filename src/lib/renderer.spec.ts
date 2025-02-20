@@ -36,7 +36,7 @@ describe("renderTemplate", () => {
         ["Test {{value}}", { value: undefined }, "Test undefined"],
         ["Test {{value}}", { value: "123", other: "456" }, "Test 123"],
         ["Test {{value}} {{value}} {value}", { value: "123", other: "456" }, "Test 123 123 {value}"],
-        ["Test {{value.sub_value}}", { value: { sub_value: "99"} }, "Test 99"],
+        ["Test {{value.sub_value}}", { value: { sub_value: "99" } }, "Test 99"],
     ])(`with valid template %p and data %p`, (template, data, expected) => {
         it("should return expected", async () => {
             // arrange
@@ -44,6 +44,23 @@ describe("renderTemplate", () => {
             const result = renderTemplate(template, data);
             // assert
             expect(result).toEqual(expected);
+        });
+    });
+    describe("with expression that can be evaluated", () => {
+        it("is evaluated", async () => {
+            const template = "Test {{value + value2 + 5}}"
+            const data = { value: 1, value2: 2 };
+            expect(renderTemplate(template, data)).toEqual("Test 8");
+        });
+        it("can support sub-objects", async () => {
+            const template = "Test {{value.sub_value}}"
+            const data = { value: { sub_value: 321 } };
+            expect(renderTemplate(template, data)).toEqual("Test 321");
+        });
+        it("can support coalesce", async () => {
+            const template = "Test {{value?.test ?? '123'}}"
+            const data = { value: null };
+            expect(renderTemplate(template, data)).toEqual("Test 123");
         });
     });
     describe("with humanizeNumbers turned on", () => {

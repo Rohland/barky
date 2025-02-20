@@ -256,46 +256,69 @@ export function getCustomHeaders(headers: any): any {
     return headers;
 }
 
+function failsTextCheck(
+    webResult: AxiosResponse,
+    validator: IWebValidator) {
+    if (!validator?.text) {
+        return false;
+    }
+    const text = typeof (webResult.data) === "object"
+        ? JSON.stringify(webResult.data)
+        : webResult.data;
+    return !text
+        .toLowerCase()
+        .includes(validator.text.toString().toLowerCase());
+}
+
+function failsMatchCheck(
+    webResult: AxiosResponse,
+    validator: IWebValidator) {
+    if (!validator?.match) {
+        return false;
+    }
+    const text = typeof (webResult.data) === "object"
+        ? JSON.stringify(webResult.data)
+        : webResult.data;
+    return !text.match(validator.match);
+}
+
+function failsJsonCheck(
+    webResult: AxiosResponse,
+    validator: IWebValidator) {
+    if (!validator?.json) {
+        return false;
+    }
+    const json = webResult.data;
+    if (!json) {
+        return true;
+    }
+    const keys = Object.keys(json);
+    const variables = keys
+        .map(key => {
+            const safeKey = key.replace(/[^a-zA-Z0-9]/g, "_");
+            return `const ${ safeKey } = ${ JSON.stringify(json[key]) };`
+        }).join("\n");
+    try {
+        const match = eval(variables + validator.json);
+        if (!match) {
+            const obj = {};
+            keys.forEach(key => obj[key] = json[key]);
+            validator.message = renderTemplate(validator.message, obj, { humanizeNumbers: true })
+            return true;
+        }
+    } catch {
+        validator.message = `invalid json expression or unexpected result (${ JSON.stringify(json) })`;
+        return true;
+    }
+    return false;
+}
+
 export function isFailureWebResult(
     webResult: AxiosResponse,
     validator: IWebValidator) {
-    if (validator?.text) {
-        const text = typeof (webResult.data) === "object"
-            ? JSON.stringify(webResult.data)
-            : webResult.data;
-        if (!text.toLowerCase().includes(validator.text.toString().toLowerCase())) {
-            return true;
-        }
-    }
-    if (validator?.match) {
-        const text = typeof (webResult.data) === "object"
-            ? JSON.stringify(webResult.data)
-            : webResult.data;
-        if (!text.match(validator.match)) {
-            return true;
-        }
-    }
-    if (validator?.json) {
-        const json = webResult.data;
-        if (!json) {
-            return true;
-        }
-        const keys = Object.keys(json);
-        const variables = keys
-            .map(key => {
-                const safeKey = key.replace(/[^a-zA-Z0-9]/g, "_");
-                return `const ${ safeKey } = ${ JSON.stringify(json[key]) };`
-            }).join("\n");
-        try {
-            const match = eval(variables + validator.json);
-            if (!match) {
-                const obj = {};
-                keys.forEach(key => obj[key] = json[key]);
-                validator.message = renderTemplate(validator.message, obj, { humanizeNumbers: true })
-                return true;
-            }
-        } catch {
-            validator.message = `invalid json expression or unexpected result (${ JSON.stringify(json) })`;
+    const checks = [failsTextCheck, failsMatchCheck, failsJsonCheck];
+    for (const check of checks) {
+        if (check(webResult, validator)) {
             return true;
         }
     }
