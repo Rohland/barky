@@ -198,6 +198,8 @@ Additional values that can be configured:
 - `vary-by` - enables variations of a given url, an instance for each variation is monitored
 - `validators` - a list of custom response validators (expect values to be truthy to pass)
   - `text` - a string to search for in the response body (case-insensitive)
+  - `json`- a JavaScript expression to evaluate on the JSON data returned by the request 
+  - `match` - a regular expression to match against the response body
   - `message` - the message to display if the text is not found
 - `alert` - defines the alert rules, see below
 - `tls` - if property is missing, the defaults below apply
@@ -240,8 +242,19 @@ web:
       Authorization: $my-auth-token # uses environment variable my-auth-token
       x-my-custom-value: "123"
     validators:
-      - text: ok
+      # either match, text or json can be used (in conjunction if necessary)
+      - text: ok # this checks the response contains the text "ok"
         message: Expected to find text "ok" in response but didn't
+      - match: "\d+" # this checks the response matches the regex
+        message: Expected to find a numeric valid in the response, but didn't
+      # for json responses, the response is parsed and the expression is evaluated against the parsed object
+      # for example a response of { "result": 123 } could be evaluated with `result > 100`
+      # if the key has non-alpha-numeric values, these are replaced with underscore, i.e. 
+      # { "my-key": 123 } would be accessed with `my_key`; note that sub-properties can also
+      # be dereferenced using normat notation (i.e. `my_key.sub_key > 123`)
+      - json: someKey.result > 100  # this checks the response is valid json and matches the expression
+        # note that the message can include an evaluation of properties on the json result, see below
+        message: "Expected someKey.result to be greater than 100 but was {{someKey?.result ?? 'unknown'}}"
     alert: 
         channels: [sms, slack]
         links:
@@ -397,7 +410,7 @@ A more complex example:
 shell:
   validate-country-$1:
     vary-by: [za,us,gb]
-    path: ./my-script.sh # the vary-by params are passed into the script as arguments, i.e. ./script.sh $1 $2
+    path: ./my-script.sh # each fanned out vary-by result will have the variation passed as an argument, i.e. ./my-script.sh za
     responseType: json
     identifier: id
     triggers:

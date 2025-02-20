@@ -25,13 +25,14 @@ export class AppVariant implements IApp {
             }
             this[field] = this.transform(variantInfo, app[field])
         });
+        this["variation"] = variantInfo ?? null;
     }
 
-    private transform(variantInfo, field) {
+    private transform(variantInfo: string | string[], field: string) {
         if (!variantInfo) {
             return field;
         }
-        const parts = flatten([variantInfo]);
+        const parts: string[] = flatten([variantInfo]);
         parts.forEach((part, index) => {
             field = field?.replaceAll(`$${ index + 1 }`, part);
         });

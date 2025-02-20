@@ -212,7 +212,7 @@ describe("shell evaluator", () => {
                     name: "test",
                     path: "test.sh",
                     timeout: 1000,
-                    "vary-by": ["a", "b"],
+                    "variation": ["a", "b"],
                     __configPath: "/Users/Test/SomeDir/Hello.yaml"
                 };
                 (execShellScript as jest.Mock).mockResolvedValue(res);

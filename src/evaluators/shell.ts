@@ -31,7 +31,7 @@ export class ShellEvaluator extends BaseEvaluator {
             const result = await execShellScript(
                 scriptPath,
                 app.timeout,
-                app["vary-by"]);
+                app.variation);
             return this.validateShellResult(app, result);
         } catch (err) {
             const errorInfo = new Error(err.message);
