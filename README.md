@@ -7,7 +7,7 @@ Barky is intended to run custom monitoring in a simple and effective way, using 
 
 **What problem does this solve?**
 
-The noise and complexity of standard alerting solutions. When things go south, you don't want to be bombarded with hundreds of notifications. Barky's digest feature allows you to configure alerts in a way that you can be notified of an outage, and then be notified when the outage is resolved. It also allows you to configure alerts to only trigger during specific times of the day, and only on specific days of the week.
+Standard alerting systems can be noisy and overwhelming, sending hundreds of notifications when issues arise. With Barky’s digest feature, you get a single alert with all the key details and updates as the situation changes. You’ll be notified when the issue is resolved and receive updates at a frequency you control, keeping you informed without the overload.
 
 **What does this do?**
 
