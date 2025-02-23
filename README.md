@@ -13,10 +13,10 @@ Standard alerting systems can be noisy and overwhelming, sending hundreds of not
 
 It runs a custom set of evaluators (configured in simple markup using YAML) with (current) support for the following checks:
 
-- **web**: Evaluate any accessible site and validate status code, response time, TLS certificate (including upcoming expiry) and optionally response content
+- **web**: Evaluate any accessible site and validate status code, response time, TLS certificate (including upcoming expiry) and optionally response content (response includes, regular expression matches and JSON evaluation)
 - **sumo**: Runs custom Sumo Logic queries and evaluates results based on validator configuration
-- **mysql**: Runs custom mysql queries and evaluates results based on validator configuration
-- **shell**: Runs a custom shell script and evaluates results based on validator configuration
+- **mysql**: Runs custom mysql queries and evaluates results based on trigger configuration
+- **shell**: Runs a custom shell script and evaluates results based on trigger configuration
 
 Evaluations supported:
 
@@ -76,6 +76,7 @@ The following high level keys are supported (note, it is case sensitive):
 - web
 - sumo
 - mysql
+- shell
 
 For convenience, you can store rules in separate yaml files and include them as follows. Note that paths should be relative to parent.
 
@@ -200,7 +201,6 @@ Additional values that can be configured:
   - `text` - a string to search for in the response body (case-insensitive)
   - `json`- a JavaScript expression to evaluate on the JSON data returned by the request 
   - `match` - a regular expression to match against the response body
-  - `message` - the message to display if the text is not found
 - `alert` - defines the alert rules, see below
 - `tls` - if property is missing, the defaults below apply
   - `verifiy` - defaults to true, set to false to disable all certificate verification
