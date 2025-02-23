@@ -268,6 +268,9 @@ function failsTextCheck(
     const text = typeof (webResult.data) === "object"
         ? JSON.stringify(webResult.data)
         : webResult.data;
+    if (!validator.message) {
+        validator.message = `expected response to contain '${ validator.text }' but didnt`;
+    }
     return !text
         .toLowerCase()
         .includes(validator.text.toString().toLowerCase());
@@ -282,6 +285,9 @@ function failsMatchCheck(
     const text = typeof (webResult.data) === "object"
         ? JSON.stringify(webResult.data)
         : webResult.data;
+    if (!validator.message) {
+        validator.message = `expected response to match regex '${ validator.match }' but didnt`;
+    }
     return !text.match(validator.match);
 }
 
