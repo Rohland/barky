@@ -6,7 +6,7 @@ import { IApp } from "../models/app";
 import { BaseEvaluator, EvaluatorType, findTriggerRulesFor, generateValueForVariable } from "./base";
 import { IUniqueKey } from "../lib/key";
 import { IRule } from "../models/trigger";
-import { getEnvVar } from "../lib/env";
+import { getEnvVar, getEnvVarAsBoolean } from "../lib/env";
 
 export class MySqlEvaluator extends BaseEvaluator {
     constructor(config: any) {
@@ -91,7 +91,7 @@ function generateVariablesAndValues(row, app: IApp) {
 export function validateRow(
     app: IApp,
     identifier: string,
-    row,
+    row: object,
     rules: IRule[]): MySqlResult {
     if (!rules || rules.length === 0) {
         throw new Error(`trigger for app '${ app.name }' has no rules`);
@@ -133,7 +133,9 @@ function convertRowValuesToInferredType(entry) {
     });
 }
 
-async function runQuery(connection: mysql.Connection, app) {
+async function runQuery(
+    connection: mysql.Connection,
+    app: IApp) {
     const timeout = app.timeout ?? 15000;
     const timeoutSeconds = Math.round(timeout / 1000);
     const query = `set innodb_lock_wait_timeout=${ timeoutSeconds }; ${ app.query }`;
@@ -152,17 +154,13 @@ async function runQuery(connection: mysql.Connection, app) {
 
 let connections: mysql.Connection[] = [];
 
-function configureSSLForConnection(app, config: any) {
-    const sslDisabledValue = getEnvVar(`mysql-${ app.connection }-ssl-disabled`);
+function configureSSLForConnection(app: IApp, config: any) {
+    const sslDisabledValue = getEnvVarAsBoolean(`mysql-${ app.connection }-ssl-disabled`);
     if (!sslDisabledValue) {
         return;
     }
-    const disabledValues = ["1", "true"];
-    const disabled = disabledValues.includes(sslDisabledValue.toLowerCase().trim());
-    if (disabled) {
-        config.ssl ??= {};
-        config.ssl["rejectUnauthorized"] = false;
-    }
+    config.ssl ??= {};
+    config.ssl["rejectUnauthorized"] = false;
 }
 
 export async function getConnection(app): Promise<mysql.Connection> {
@@ -186,4 +184,3 @@ export async function disposeConnections() {
     await Promise.allSettled(connections.map(x => x.end()));
     connections = [];
 }
-

@@ -1,4 +1,4 @@
-import { getEnvVar } from "./env";
+import { getEnvVar, getEnvVarAsBoolean } from "./env";
 
 describe("env", () => {
     describe("with null/undefined key", () => {
@@ -34,6 +34,28 @@ describe("env", () => {
             process.env["testing-a1-b2"] = "value";
             const val = getEnvVar("testing_a1_b2");
             expect(val).toBe("value");
+        });
+    });
+    describe("getEnvVarAsBoolean", () => {
+        describe.each([
+            [undefined, false],
+            ["", false],
+            ["0", false],
+            ["1", true],
+            ["false", false],
+            ["true", true],
+            ["false", false],
+            ["TRUE", true],
+            ["y", true],
+            ["Y", true],
+            [" Y ", true],
+            ["n", false]
+        ])("with value %p", (value, expected) => {
+            it(`should return ${ expected }`, () => {
+                process.env["testing"] = value;
+                const val = getEnvVarAsBoolean("testing");
+                expect(val).toBe(expected);
+            });
         });
     });
 });
