@@ -66,8 +66,8 @@ async function tryEvaluate(app: IApp) {
 }
 
 function transformWebResult(
-    statusResult: number,
-    expectedStatus: number,
+    statusResult: string,
+    expectedStatus: string,
     webResult: AxiosResponse<any, any>,
     app: IApp,
     date: Date,
@@ -76,7 +76,7 @@ function transformWebResult(
         statusResult,
         expectedStatus,
         webResult,
-        app.validators);
+        app.triggers ?? app.validators); // validators are what it used to be called, now deprecated
     const result = new WebResult(
         date,
         "health",
@@ -86,7 +86,8 @@ function transformWebResult(
         msg,
         timeTaken,
         app);
-    log(`${ success === true ? "OK: " : "FAIL: " } ${ app.name } - ${ app.url } [${ timeTaken.toFixed(2) }ms]`);
+    const output = `${ success === true ? "OK: " : "FAIL: " } ${ app.name } - ${ app.url } [${ timeTaken.toFixed(2) }ms]`;
+    log(output);
     return result;
 }
 
@@ -131,16 +132,18 @@ async function evaluate(app: IApp) {
         log(`error: ${ error })`);
         throw new Error(error);
     }
-    const expectedStatus = app.status ?? 200;
-    let statusResult, webResult: AxiosResponse;
+    const expectedStatus = (app.status ?? 200).toString();
+    let statusResult: string, webResult: AxiosResponse;
     const timer = startClock();
     const date = new Date();
     try {
         webResult = await execWebRequest(app);
-        statusResult = webResult.status;
+        statusResult = webResult.status?.toString();
     } catch (err) {
         const isTimeout = err.code === "ECONNABORTED" && stopClock(timer) >= app.timeout;
-        statusResult = isTimeout ? `Timed out after ${ app.timeout }ms` : err.response?.status || (err.code ?? err.name ?? err.toString());
+        statusResult = isTimeout
+            ? `Timed out after ${ app.timeout }ms`
+            : err.response?.status || (err.code ?? err.name ?? err.toString());
     }
     const timeTaken = stopClock(timer);
     const results = [transformWebResult(
@@ -217,10 +220,10 @@ function getCertInfo(tlsCert: any) {
 }
 
 function evaluateResult(
-    status: number,
-    expectedStatus: number,
+    status: string,
+    expectedStatus: string,
     webResult: AxiosResponse,
-    validators: IWebValidator[]) {
+    triggers: IWebValidator[]) {
     if (status != expectedStatus) {
         return {
             success: false,
@@ -229,8 +232,8 @@ function evaluateResult(
     }
 
     let failure;
-    if (validators?.length > 0) {
-        const failedValidator = validators.find(validator => isFailureWebResult(webResult, validator));
+    if (triggers?.length > 0) {
+        const failedValidator = triggers.find(trigger => isFailureWebResult(webResult, trigger));
         failure = failedValidator ? (failedValidator?.message ?? "failed validator") : null;
     }
 
@@ -265,6 +268,9 @@ function failsTextCheck(
     const text = typeof (webResult.data) === "object"
         ? JSON.stringify(webResult.data)
         : webResult.data;
+    if (!validator.message) {
+        validator.message = `expected response to contain '${ validator.text }' but didnt`;
+    }
     return !text
         .toLowerCase()
         .includes(validator.text.toString().toLowerCase());
@@ -279,6 +285,9 @@ function failsMatchCheck(
     const text = typeof (webResult.data) === "object"
         ? JSON.stringify(webResult.data)
         : webResult.data;
+    if (!validator.message) {
+        validator.message = `expected response to match regex '${ validator.match }' but didnt`;
+    }
     return !text.match(validator.match);
 }
 
@@ -315,10 +324,10 @@ function failsJsonCheck(
 
 export function isFailureWebResult(
     webResult: AxiosResponse,
-    validator: IWebValidator) {
+    trigger: IWebValidator) {
     const checks = [failsTextCheck, failsMatchCheck, failsJsonCheck];
     for (const check of checks) {
-        if (check(webResult, validator)) {
+        if (check(webResult, trigger)) {
             return true;
         }
     }

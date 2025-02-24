@@ -251,7 +251,7 @@ web:
       # for example a response of { "result": 123 } could be evaluated with `result > 100`
       # if the key has non-alpha-numeric values, these are replaced with underscore, i.e. 
       # { "my-key": 123 } would be accessed with `my_key`; note that sub-properties can also
-      # be dereferenced using normat notation (i.e. `my_key.sub_key > 123`)
+      # be dereferenced using normal notation (i.e. `my_key.sub_key > 123`)
       - json: someKey.result > 100  # this checks the response is valid json and matches the expression
         # note that the message can include an evaluation of properties on the json result, see below
         message: "Expected someKey.result to be greater than 100 but was {{someKey?.result ?? 'unknown'}}"
@@ -371,6 +371,8 @@ mysql:
         rules:
           - expression: minutes_to_process >= 10
             message: "Queue is backlogged with {{ unprocessed }} msgs & will take {{ minutes_to_process }} minutes to catch up"
+    alert:
+      # see web evaluator for example alert configuration
 ```
 
 The trigger.**rule** object has the following additional properties that can be set:
@@ -395,6 +397,8 @@ shell:
           message: "Script failed with exit code {{exitCode}}"
         - expression: failed_requests > 0
           message: "Failed requests was {{ failed_requests }}"
+    alert:
+      # see web evaluator for example alert configuration
 ```
 
 Supported response types:
@@ -420,6 +424,8 @@ shell:
             message: "Script failed with exit code {{exitCode}}"
           - expression: my_field > 0
             message: "Failed requests was {{ failed_requests }}"
+    alert:
+      # see web evaluator for example alert configuration
 ```
 
 ---

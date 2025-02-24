@@ -63,7 +63,7 @@ describe("web evaluator", () => {
                             const result = isFailureWebResult(
                                 web,
                                 validator
-                                );
+                            );
                             expect(result).toEqual(true);
                             expect(validator.message).toEqual("number was 123");
                         });
@@ -112,18 +112,34 @@ describe("web evaluator", () => {
                     [undefined, "", false]
                 ])(`when given %s and %s`, (text, validator, expected) => {
                     it(`should return ${ expected }`, async () => {
-                        // arrange
                         const web = { data: text } as AxiosResponse;
-
-                        // act
+                        const trigger = {
+                            match: validator,
+                            message: null
+                        };
                         const result = isFailureWebResult(
                             web,
-                            {
-                                match: validator
-                            });
-
-                        // assert
+                            trigger
+                        );
                         expect(result).toEqual(expected);
+                        if (validator) {
+                            expect(trigger.message).toEqual(`expected response to match regex '${ validator }' but didnt`);
+                        }
+                    });
+                });
+                describe("with failure and with custom message", () => {
+                    it("should use custom message", async () => {
+                        const web = { data: "abc" } as AxiosResponse;
+                        const trigger = {
+                            match: "cba",
+                            message: "bleh"
+                        };
+                        const result = isFailureWebResult(
+                            web,
+                            trigger
+                        );
+                        expect(result).toEqual(true);
+                        expect(trigger.message).toEqual("bleh");
                     });
                 });
                 describe("when data is an object", () => {
@@ -169,18 +185,34 @@ describe("web evaluator", () => {
                     [undefined, "", false]
                 ])(`when given %s and %s`, (text, validator, expected) => {
                     it(`should return ${ expected }`, async () => {
-                        // arrange
                         const web = { data: text } as AxiosResponse;
-
-                        // act
+                        const trigger = {
+                            text: validator,
+                            message: null
+                        };
                         const result = isFailureWebResult(
                             web,
-                            {
-                                text: validator
-                            });
-
-                        // assert
+                            trigger
+                        );
                         expect(result).toEqual(expected);
+                        if (validator) {
+                            expect(trigger.message).toEqual(`expected response to contain '${ validator }' but didnt`);
+                        }
+                    });
+                });
+                describe("with failure and with custom message", () => {
+                    it("should use custom message", async () => {
+                        const web = { data: "abc" } as AxiosResponse;
+                        const trigger = {
+                            text: "cba",
+                            message: "bleh"
+                        };
+                        const result = isFailureWebResult(
+                            web,
+                            trigger
+                        );
+                        expect(result).toEqual(true);
+                        expect(trigger.message).toEqual("bleh");
                     });
                 });
                 describe("when data is an object", () => {
