@@ -197,7 +197,7 @@ Additional values that can be configured:
 - `timeout` defaults to 5000 (5 seconds)
 - `headers` - a custom set of headers (see example below) - these can include environment variables using $ prefix
 - `vary-by` - enables variations of a given url, an instance for each variation is monitored
-- `validators` - a list of custom response validators (expect values to be truthy to pass)
+- `triggers` - a list of custom response triggers (expect values to be truthy to pass)
   - `text` - a string to search for in the response body (case-insensitive)
   - `json`- a JavaScript expression to evaluate on the JSON data returned by the request 
   - `match` - a regular expression to match against the response body
@@ -241,7 +241,7 @@ web:
     headers:
       Authorization: $my-auth-token # uses environment variable my-auth-token
       x-my-custom-value: "123"
-    validators:
+    triggers:
       # either match, text or json can be used (in conjunction if necessary)
       - text: ok # this checks the response contains the text "ok"
         message: Expected to find text "ok" in response but didn't
