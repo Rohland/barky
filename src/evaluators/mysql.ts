@@ -163,7 +163,7 @@ function configureSSLForConnection(app: IApp, config: any) {
     config.ssl["rejectUnauthorized"] = false;
 }
 
-export async function getConnection(app): Promise<mysql.Connection> {
+export async function getConnection(app: IApp): Promise<mysql.Connection> {
     const config = {
         host: getEnvVar(`mysql-${ app.connection }-host`),
         user: getEnvVar(`mysql-${ app.connection }-user`),
