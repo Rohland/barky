@@ -4,7 +4,7 @@ import { flatten } from "../lib/utility";
 import { log } from "../models/logger";
 import { parsePeriodToMillis, parsePeriodToSeconds } from "../lib/period-parser";
 import { LoopMs } from "../loop";
-import { IUniqueKey } from "../lib/key";
+import { findMatchingKeyFor, IUniqueKey } from "../lib/key";
 import { DefaultTrigger, IRule } from "../models/trigger";
 import { DayAndTimeEvaluator } from "../lib/time";
 import { MonitorFailureResult, Result } from "../models/result";
@@ -144,27 +144,45 @@ export abstract class BaseEvaluator {
         }
         const durationMs = parsePeriodToSeconds(app.every) * 1000;
         const everyCount = Math.round(durationMs / LoopMs);
-        const key = `${ this.type }-${ app.name }`;
+        const key = `${ this.type }-${ app.name }${ app.variation ? `-${ app.variation }` : "" }`;
         const count = executionCounter.get(key) ?? 0;
         const shouldEvaluate = count % everyCount === 0;
         executionCounter.set(key, count + 1);
         if (!shouldEvaluate) {
             log(`skipping ${ this.type } check for '${ app.name }' - every set to: ${ app.every }`);
-            this.skippedApps.push({
-                ...app,
-                ...this.generateSkippedAppUniqueKey(app.name)
-            });
-            // since we don't run, indicate monitor failure also skipped
-            this.skippedApps.push({
-                ...app,
-                ...{
-                    type: app.type,
-                    label: "monitor",
-                    identifier: app.name
-                }
-            });
+            this.tryAddSkippedApp(app);
+            this.tryAddSkippedMonitor(app); // since we don't run, indicate monitor failure also skipped
         }
         return shouldEvaluate;
+    }
+
+    private tryAddSkippedMonitor(app: IApp) {
+        const monitorUniqueKey = {
+            type: app.type,
+            label: "monitor",
+            identifier: app.name
+        };
+        const monitorAlreadySkipped = this._skippedApps.find(x =>
+            x.label === monitorUniqueKey.label
+            && x.type === app.type
+            && x.identifier === app.name);
+        if (!monitorAlreadySkipped) {
+            this.skippedApps.push({
+                ...app,
+                ...monitorUniqueKey
+            });
+        }
+    }
+
+    private tryAddSkippedApp(app: IApp) {
+        const uniqueKey = this.generateSkippedAppUniqueKey(app.name);
+        const alreadySkipped = findMatchingKeyFor(uniqueKey, this._skippedApps);
+        if (!alreadySkipped) {
+            this.skippedApps.push({
+                ...app,
+                ...uniqueKey
+            });
+        }
     }
 
     public getAppVariations(app: any): IApp[] {
@@ -191,7 +209,7 @@ export abstract class BaseEvaluator {
             const uniqueId = result.uniqueId;
             if (lookup.has(uniqueId)) {
                 count = lookup.get(uniqueId) + 1;
-                result.identifier = `${ result.identifier}-${ count }`;
+                result.identifier = `${ result.identifier }-${ count }`;
             }
             lookup.set(uniqueId, count);
         });

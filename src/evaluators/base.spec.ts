@@ -166,6 +166,50 @@ describe("base evaluator", () => {
                         }
                     ]);
                 });
+                describe("with variations", () => {
+                    it("should ensure that every count evaluates all", async () => {
+                        // arrange
+                        const app = {
+                            every: "60s",
+                            "vary-by": ["a", "b"]
+                        };
+                        const evaluator = new CustomEvaluator({
+                            "custom": {
+                                "app1": app
+                            }
+                        });
+
+                        // act
+                        const apps1 = evaluator.getAppsToEvaluate();
+                        const apps2 = evaluator.getAppsToEvaluate();
+                        const apps3 = evaluator.getAppsToEvaluate();
+
+                        // assert
+                        const first = structuredClone(app);
+                        // @ts-ignore
+                        first.variation = "a";
+                        const second = structuredClone(app);
+                        // @ts-ignore
+                        second.variation = "b";
+                        expect(apps1).toMatchObject([first, second]);
+                        expect(apps2).toMatchObject([]);
+                        expect(apps3).toMatchObject([first, second]);
+                        expect(evaluator.skippedApps).toMatchObject([
+                            {
+                                ...app,
+                                type: "custom",
+                                label: "app1",
+                                identifier: "*"
+                            },
+                            {
+                                ...app,
+                                type: "custom",
+                                label: "monitor",
+                                identifier: "app1"
+                            }
+                        ]);
+                    });
+                });
             });
             describe("if every 5m", () => {
                 it("should only be evaluated every 10th invocation", async () => {
@@ -192,9 +236,9 @@ describe("base evaluator", () => {
                         expect(results[i]).toMatchObject([]);
                     }
                     expect(results[10]).toMatchObject([app])
-                    expect(evaluator.skippedApps.length).toEqual(18);
-                    expect(evaluator.skippedApps.filter(x => x.type ==="custom" && x.label === "app1" && x.identifier === "*").length).toEqual(9);
-                    expect(evaluator.skippedApps.filter(x => x.type ==="custom" && x.label === "monitor" && x.identifier === "app1").length).toEqual(9);
+                    expect(evaluator.skippedApps.length).toEqual(2);
+                    expect(evaluator.skippedApps.filter(x => x.type ==="custom" && x.label === "app1" && x.identifier === "*").length).toEqual(1);
+                    expect(evaluator.skippedApps.filter(x => x.type ==="custom" && x.label === "monitor" && x.identifier === "app1").length).toEqual(1);
                 });
             });
         });

@@ -99,7 +99,7 @@ describe("shell evaluator", () => {
                 expect(result).toBeInstanceOf(ShellResult);
                 expect(result.label).toEqual("test");
                 expect(result.identifier).toEqual("test");
-                expect(result.result).toEqual(JSON.stringify({ ...shellResponseObj, exitCode: 0}));
+                expect(result.result).toEqual(JSON.stringify({ ...shellResponseObj, exitCode: 0 }));
                 expect(result.success).toEqual(true);
             });
             describe("if emit specified", () => {
@@ -136,7 +136,7 @@ describe("shell evaluator", () => {
             describe("and is an array response", () => {
                 it("should respond with multiple results", async () => {
                     // arrange
-                    const shellResponseObj = [{ id: "a", count: 1 }, { id: "b", count: 2}];
+                    const shellResponseObj = [{ id: "a", count: 1 }, { id: "b", count: 2 }];
                     const res = {
                         exitCode: 0,
                         stdout: JSON.stringify(shellResponseObj)
@@ -157,7 +157,7 @@ describe("shell evaluator", () => {
 
                     // assert
                     expect(results.length).toEqual(2);
-                    results.forEach((result,i) => {
+                    results.forEach((result, i) => {
                         expect(result).toBeInstanceOf(ShellResult);
                         expect(result.label).toEqual("test");
                         expect(result.identifier).toEqual(shellResponseObj[i].id);
@@ -169,7 +169,7 @@ describe("shell evaluator", () => {
             describe("and is a multiline response", () => {
                 it("should respond with multiple results", async () => {
                     // arrange
-                    const shellResponseObj = [{ id: "a", count: 1 }, { id: "b", count: 2}];
+                    const shellResponseObj = [{ id: "a", count: 1 }, { id: "b", count: 2 }];
                     const res = {
                         exitCode: 0,
                         stdout: shellResponseObj.map(x => JSON.stringify(x)).join("\n")
@@ -190,7 +190,7 @@ describe("shell evaluator", () => {
 
                     // assert
                     expect(results.length).toEqual(2);
-                    results.forEach((result,i) => {
+                    results.forEach((result, i) => {
                         expect(result).toBeInstanceOf(ShellResult);
                         expect(result.label).toEqual("test");
                         expect(result.identifier).toEqual(shellResponseObj[i].id);
@@ -201,14 +201,13 @@ describe("shell evaluator", () => {
             });
         });
         describe("with vary-by", () => {
-            it("should pass as args", async () => {
+            it("should pass as args and use args as default identifier", async () => {
                 // arrange
                 const res = {
                     exitCode: 0,
                     stdout: "hello world"
                 };
                 const app = {
-
                     name: "test",
                     path: "test.sh",
                     timeout: 1000,
@@ -219,10 +218,40 @@ describe("shell evaluator", () => {
                 const sut = new ShellEvaluator({});
 
                 // act
-                await sut.tryEvaluate(app);
+                const result = await sut.tryEvaluate(app);
 
                 // assert
                 expect(execShellScript).toHaveBeenCalledWith("/Users/Test/SomeDir/test.sh", 1000, ["a", "b"]);
+                // with a missing identifier in the response, the identifier should be the variation
+                expect(result[0].identifier).toEqual("a,b");
+            });
+            describe("with custom identifier", () => {
+                it("should use that", async () => {
+                    // arrange
+                    const shellResult = { id: "one" };
+                    const res = {
+                        exitCode: 0,
+                        stdout: JSON.stringify(shellResult)
+                    };
+                    const app = {
+                        name: "test",
+                        path: "test.sh",
+                        timeout: 1000,
+                        identifier: "id",
+                        responseType: "json",
+                        "variation": ["a", "b"],
+                        __configPath: "/Users/Test/SomeDir/Hello.yaml"
+                    };
+                    (execShellScript as jest.Mock).mockResolvedValue(res);
+                    const sut = new ShellEvaluator({});
+
+                    // act
+                    const result = await sut.tryEvaluate(app);
+
+                    // assert
+                    expect(execShellScript).toHaveBeenCalledWith("/Users/Test/SomeDir/test.sh", 1000, ["a", "b"]);
+                    expect(result[0].identifier).toEqual("one");
+                });
             });
         });
         describe("with rules", () => {
@@ -263,7 +292,7 @@ describe("shell evaluator", () => {
                     expect(result).toBeInstanceOf(ShellResult);
                     expect(result.label).toEqual("test");
                     expect(result.identifier).toEqual("test");
-                    expect(result.result).toEqual(JSON.stringify({ ...shellResponseObj, exitCode: 0}));
+                    expect(result.result).toEqual(JSON.stringify({ ...shellResponseObj, exitCode: 0 }));
                     expect(result.success).toEqual(true);
                 });
                 describe("when the identifier is set and is included in the result set", () => {
@@ -304,7 +333,7 @@ describe("shell evaluator", () => {
                         expect(result).toBeInstanceOf(ShellResult);
                         expect(result.label).toEqual("test");
                         expect(result.identifier).toEqual("my-script");
-                        expect(result.result).toEqual(JSON.stringify({ ...shellResponseObj, exitCode: 0}));
+                        expect(result.result).toEqual(JSON.stringify({ ...shellResponseObj, exitCode: 0 }));
                     });
                 });
                 describe("but expression generates failure", () => {
@@ -362,6 +391,7 @@ describe("shell evaluator", () => {
                                 timeout: 1000,
                                 responseType: "json",
                                 "vary-by": ["abc"],
+                                variation: ["abc"],
                                 triggers: [
                                     {
                                         match: "abc",
@@ -405,6 +435,7 @@ describe("shell evaluator", () => {
                                     timeout: 1000,
                                     responseType: "json",
                                     "vary-by": ["abc"],
+                                    variation: ["abc"],
                                     triggers: [
                                         {
                                             match: "none",
