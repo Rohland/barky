@@ -68,7 +68,7 @@ export class ShellEvaluator extends BaseEvaluator {
     }
 
     private validateParsedResult(parsed: IParsedResult, app: IApp) {
-        let identifier = app["vary-by"]?.join("|") ?? app.name;
+        let identifier = app["variation"]?.join(",") ?? app.name;
         if (parsed.type === "object" && app.identifier) {
             identifier = parsed.value[app.identifier] ?? identifier;
         }
