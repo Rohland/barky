@@ -228,7 +228,7 @@ describe("shell evaluator", () => {
                         expect(result.success).toEqual(false);
                         expect(result.result).toEqual("FAIL");
                         expect(result.resultMsg).toMatch("Invalid JSON result from shell script");
-                        expect(result.resultMsg).toMatch("Unexpected token x in JSON at position 0");
+                        expect(result.resultMsg).toMatch("Unexpected token 'x' in JSON at position 0");
                     });
                 });
             });
