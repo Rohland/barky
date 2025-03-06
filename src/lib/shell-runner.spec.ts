@@ -54,6 +54,22 @@ describe("execShellScript", () => {
             expect(result.exitCode).toEqual(0);
         });
     });
+    describe("with script with large buffer output", () => {
+        it("should capture output", async () => {
+            // arrange
+            const file = "../../tests/shell/long_buffer.sh";
+            const timeout = 1000;
+
+            // act
+            const result = await execShellScript(
+                path.resolve(__dirname, file),
+                timeout);
+
+            // assert
+            expect(result.exitCode).toEqual(0);
+            expect(result.stdout.length).toEqual(16000);
+        });
+    })
     describe("with script with error", () => {
         it("should execute and return error", async () => {
             // arrange

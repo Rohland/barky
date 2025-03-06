@@ -56,7 +56,7 @@ export async function execShellScript(
                 clearTimeout(timeoutHandle);
                 resolver({
                     exitCode: code,
-                    stdout: output.join("\n").trim()
+                    stdout: output.join("").trim()
                 });
                 return;
             });
