@@ -75,7 +75,7 @@ export function validateResults(app: IApp, results: Result[]): Result[] {
     });
 }
 
-function generateVariablesAndValues(row, app: IApp) {
+function generateVariablesAndValues(row: any, app: IApp) {
     const variables = Object.keys(row).filter(x => x !== app.identifier);
     const values = {};
     const emit: Array<string> = app.emit ?? [];
