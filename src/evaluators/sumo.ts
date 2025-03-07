@@ -12,7 +12,8 @@ import { RateLimiter } from "../lib/rate-limiter";
 import { getEnvVar } from "../lib/env";
 
 const SumoDomain = getEnvVar("sumo-domain") ?? "api.eu.sumologic.com";
-const SumoUrl = `https://${ SumoDomain }/api/v1/search/jobs`;
+const SumoLogsUrl = `https://${ SumoDomain }/api/v1/search/jobs`;
+const SumoMetricsUrl = `https://${ SumoDomain }/api/v1/metrics/results`;
 
 const JobPollMillis = 1000;
 // sumo logic queries tend to be quite slow (upwards of 2-3s+), so no point in polling every second right from the outset
@@ -35,10 +36,7 @@ export class SumoEvaluator extends BaseEvaluator {
     configureApp(app: IApp) {
         app.timeout ??= 10000;
         app.period = parsePeriodRange(app.period ?? "-5m to 0m");
-    }
-
-    async tryEvaluate(app: IApp) {
-        return await tryEvaluate(app);
+        app.mode ??= "logs";
     }
 
     protected generateSkippedAppUniqueKey(name: string): IUniqueKey {
@@ -56,158 +54,233 @@ export class SumoEvaluator extends BaseEvaluator {
     protected isResultForApp(app: IApp, result: Result): boolean {
         return app.name === result.label;
     }
-}
 
-async function tryEvaluate(app: IApp) {
-    try {
-        const timer = startClock();
-        app.jobId = await startSearch(app, log);
-        await isJobComplete(app, log);
-        const results = await getSearchResult(app, log);
-        const timeTaken = stopClock(timer);
-        const finalResults = validateResults(app, results, log);
-        return finalResults.length > 0
-            ? finalResults
-            : new SumoResult( // no result means OK for all identifiers!
+    async tryEvaluate(app: IApp) {
+        try {
+            const timer = startClock();
+            app.job = await this.startSearch(app);
+            await this.isJobComplete(app);
+            const results = await this.getSearchResult(app);
+            const timeTaken = stopClock(timer);
+            const finalResults = this.validateResults(app, results);
+            return finalResults.length > 0
+                ? finalResults
+                : new SumoResult( // no result means OK for all identifiers!
+                    app.name,
+                    "*",
+                    "inferred",
+                    "OK",
+                    timeTaken,
+                    true,
+                    app);
+        } catch (err) {
+            const errorInfo = new Error(err.message);
+            errorInfo.stack = err.stack;
+            // @ts-ignore
+            errorInfo.response = {
+                status: err?.response?.status,
+                data: err?.response?.data
+            };
+            log(`error executing sumo evaluator for '${ app.name }': ${ err.message }`, errorInfo);
+            return new MonitorFailureResult(
+                "sumo",
                 app.name,
-                "*",
-                "inferred",
-                "OK",
-                timeTaken,
-                true,
+                err.message,
                 app);
-    } catch (err) {
-        const errorInfo = new Error(err.message);
-        errorInfo.stack = err.stack;
-        // @ts-ignore
-        errorInfo.response = {
-            status: err?.response?.status,
-            data: err?.response?.data
-        };
-        log(`error executing sumo evaluator for '${ app.name }': ${ err.message }`, errorInfo);
-        return new MonitorFailureResult(
-            "sumo",
-            app.name,
-            err.message,
-            app);
-    }
-}
-
-function validateResults(app: IApp, data, log) {
-    const entries = data.records?.map(x => x.map);
-    return entries.map(x => validateEntry(app, x, log));
-}
-
-function validateEntry(app: IApp, entry, _log) {
-    const identifier = entry[app.identifier];
-    if (!identifier) {
-        throw new Error(`expected to find identifier field in result set named: ${ app.identifier }`);
-    }
-    convertEntryValuesToInferredType(entry);
-    const rules = findTriggerRulesFor(identifier, app);
-    let failure = false;
-    const variables = Object.keys(entry).filter(x => x !== app.identifier);
-    const values = {};
-    variables.forEach(x => values[x] = entry[x]);
-    const msgs = [];
-    rules.forEach(rule => {
-        const variableDefinitions = variables.map(x => `const ${ x } = ${ generateValueForVariable(entry[x]) }`).join(";");
-        const expression = `;${ rule.expression }`;
-        const fail = eval(variableDefinitions + expression);
-        failure ||= fail;
-        if (fail) {
-            msgs.push(renderTemplate(rule.message, entry, { humanizeNumbers: true }));
         }
-    });
-    return new SumoResult(
-        `${ app.name }`,
-        identifier,
-        values,
-        msgs,
-        app.timeTaken,
-        !failure,
-        app
-    );
-}
+    }
 
-function convertEntryValuesToInferredType(entry) {
-    Object.entries(entry).forEach(([key, value]) => {
-        const valueAsFloat = parseFloat(value as string);
-        const isFloat = !Number.isNaN(valueAsFloat);
-        if (!isFloat) {
+    validateResults(app: IApp, data: any) {
+        const entries = Array.isArray(data)
+            ? data
+            : data.records?.map(x => x.map)
+        return entries.map(x => this.validateEntry(app, x));
+    }
+
+    public validateEntry(app: IApp, entry: any) {
+        const identifier = entry[app.identifier];
+        if (!identifier) {
+            throw new Error(`expected to find identifier field in result set named: ${ app.identifier }`);
+        }
+        this.convertEntryValuesToInferredType(entry);
+        const rules = findTriggerRulesFor(identifier, app);
+        let failure = false;
+        const variables = Object.keys(entry).filter(x => x !== app.identifier);
+        const values = {};
+        variables.forEach(x => values[x] = entry[x]);
+        const msgs = [];
+        rules.forEach(rule => {
+            const variableDefinitions = this.generateVariableJsDefinitions(variables, entry);
+            const expression = `;${ rule.expression }`;
+            const script = variableDefinitions + expression;
+            const fail = eval(script);
+            failure ||= fail;
+            if (fail) {
+                msgs.push(renderTemplate(rule.message, entry, { humanizeNumbers: true }));
+            }
+        });
+        const emit = Array.isArray(app.emit)
+            ? app.emit.reduce((acc, x) => { acc[x] = values[x]; return acc; }, {})
+            : values;
+        return new SumoResult(
+            `${ app.name }`,
+            identifier,
+            emit,
+            msgs,
+            app.timeTaken,
+            !failure,
+            app
+        );
+    }
+
+    generateVariableJsDefinitions(variables: string[], entry: any) {
+        const usedKeys = new Set();
+        const vars = variables.map(key => {
+            const varValue = generateValueForVariable(entry[key]);
+            usedKeys.add(key);
+            return `let ${ key } = ${ varValue };`;
+        });
+        variables.forEach(key => {
+            const loweredKey = key.toLowerCase();
+            if (usedKeys.has(loweredKey)) {
+                return;
+            }
+            usedKeys.add(loweredKey);
+            const value = generateValueForVariable(entry[key]);
+            vars.push(`let ${ loweredKey } = ${ value };`);
+        });
+        const variableString = vars.join("\n");
+        return variableString;
+    }
+
+    convertEntryValuesToInferredType(entry) {
+        Object.entries(entry).forEach(([key, value]) => {
+            const valueAsFloat = parseFloat(value as string);
+            const isFloat = !Number.isNaN(valueAsFloat);
+            if (!isFloat) {
+                return;
+            }
+            const valueAsInt = parseInt(value as string);
+            const isInt = valueAsInt == valueAsFloat;
+            entry[key] = isInt ? valueAsInt : valueAsFloat.toFixed(3);
+        });
+    }
+
+    async startSearch(app: IApp) {
+        if (this.isLogsMode(app)) {
+            return this.startLogSearch(app);
+        }
+        if (this.isMetricsMode(app)) {
+            return this.startMetricSearch(app);
+        }
+        throw new Error(`unsupported sumo mode: ${ app.mode }`);
+    }
+
+    async startLogSearch(app: IApp) {
+        const search = {
+            query: app.query,
+            from: toSumoTime(app.period.from),
+            to: toSumoTime(app.period.to),
+            timeZone: "UTC",
+            autoParsingMode: "intelligent"
+        };
+        const result = await executeSumoRequest(app.token, () => axios.post(
+            SumoLogsUrl,
+            search,
+            getRequestConfig(app.token))
+        );
+        log(`started sumo job search for '${ app.name }'`, result.data);
+        return result.data.id;
+    }
+
+    async startMetricSearch(app: IApp) {
+        const search = {
+            query: [
+                {
+                    query: app.query,
+                    rowId: "result"
+                }],
+            // metrics endpoint expects epoch
+            endTime: +app.period.to,
+            startTime: +app.period.from,
+        };
+        const result = await executeSumoRequest(app.token, () => axios.post(
+            SumoMetricsUrl,
+            search,
+            getRequestConfig(app.token))
+        );
+        log(`started sumo metric search for '${ app.name }'`, result.data);
+        const response = result.data?.response;
+        if (!response || response.length === 0) {
+            throw new Error(`unsupported sumo metric response for ${app.name}, response: ${ JSON.stringify(result.data) }`);
+        }
+        log(`raw metrics result: ${ JSON.stringify(result.data) }`);
+        return parseMetricResults(response[0].results);
+    }
+
+    async isJobComplete(app: IApp) {
+        if (!this.isLogsMode(app)) {
             return;
         }
-        const valueAsInt = parseInt(value as string);
-        const isInt = valueAsInt == valueAsFloat;
-        entry[key] = isInt ? valueAsInt : valueAsFloat.toFixed(3);
-    });
-}
-
-async function startSearch(app, log) {
-    const search = {
-        query: app.query,
-        from: toSumoTime(app.period.from),
-        to: toSumoTime(app.period.to),
-        timeZone: "UTC",
-        autoParsingMode: "intelligent"
-    };
-    const result = await executeSumoRequest(app.token, () => axios.post(
-        SumoUrl,
-        search,
-        getRequestConfig(app.token))
-    );
-    log(`started sumo job search for '${ app.name }'`, result.data);
-    return result.data.id;
-}
-
-async function isJobComplete(app, log) {
-    const startTime = +new Date();
-    let pollCount = 0;
-    await sleepMs(JobInitialPollMillis);
-    while (+new Date() - startTime < app.timeout) {
-        try {
-            const status = await executeSumoRequest(app.token, () => axios.get(`${ SumoUrl }/${ app.jobId }`, getRequestConfig(app.token)));
-            if (status.data.state.match(/done gathering results/i)) {
-                return status.data;
+        const startTime = +new Date();
+        let pollCount = 0;
+        await sleepMs(JobInitialPollMillis);
+        while (+new Date() - startTime < app.timeout) {
+            try {
+                const status = await executeSumoRequest(app.token, () => axios.get(`${ SumoLogsUrl }/${ app.job }`, getRequestConfig(app.token)));
+                if (status.data.state.match(/done gathering results/i)) {
+                    return status.data;
+                }
+                await sleepMs(JobPollMillis);
+                pollCount++;
+            } catch (err) {
+                await this.deleteJob(app);
+                throw err;
             }
-            await sleepMs(JobPollMillis);
-            pollCount++;
+        }
+        const timedOutAfter = +new Date() - startTime;
+        await sleepMs(JobPollMillis);
+        // job failed
+        try {
+            await this.deleteJob(app);
+        } finally {
+            throw new Error(`timed out after ${ timedOutAfter }ms`);
+        }
+    }
+
+    async getSearchResult(app: IApp) {
+        if (this.isMetricsMode(app)) {
+            return app.job;
+        }
+        try {
+            const result = await executeSumoRequest(app.token, () => axios.get(`${ SumoLogsUrl }/${ app.job }/records?offset=0&limit=100`, getRequestConfig(app.token)));
+            log(`successfully completed sumo job search for '${ app.name }', result:`, result.data);
+            return result.data;
         } catch (err) {
-            await deleteJob(app, log);
+            log(`failed to complete sumo job search for '${ app.name }', result:`, err.response?.data);
             throw err;
         }
     }
-    const timedOutAfter = +new Date() - startTime;
-    await sleepMs(JobPollMillis);
-    // job failed
-    try {
-        await deleteJob(app, log);
-    } finally {
-        throw new Error(`timed out after ${ timedOutAfter }ms`);
+
+    async deleteJob(app: IApp) {
+        try {
+            await executeSumoRequest(app.token, () => axios.delete(`${ SumoLogsUrl }/${ app.job }`, getRequestConfig(app.token)));
+        } catch (error) {
+            log("error: could not delete job", { app, error });
+            // no-op
+        }
+    }
+
+    private isLogsMode(app: IApp) {
+        return /logs/i.test(app.mode);
+    }
+
+    private isMetricsMode(app: IApp) {
+        return /metric/i.test(app.mode);
     }
 }
 
-async function getSearchResult(app, log) {
-    try {
-        const result = await executeSumoRequest(app.token, () => axios.get(`${ SumoUrl }/${ app.jobId }/records?offset=0&limit=100`, getRequestConfig(app.token)));
-        log(`successfully completed sumo job search for '${ app.name }', result:`, result.data);
-        return result.data;
-    } catch(err) {
-        log(`failed to complete sumo job search for '${ app.name }', result:`, err.response?.data);
-        throw err;
-    }
-}
-
-async function deleteJob(app, log) {
-    try {
-        await executeSumoRequest(app.token, () => axios.delete(`${ SumoUrl }/${ app.jobId }`, getRequestConfig(app.token)));
-    } catch (error) {
-        log("error: could not delete job", { app, error });
-        // no-op
-    }
-}
-
-function getRequestConfig(tokenName): AxiosRequestConfig {
+function getRequestConfig(tokenName: string): AxiosRequestConfig {
     if (!getEnvVar(tokenName)) {
         throw new Error(`missing sumo logic env var with name '${ tokenName }'`);
     }
@@ -235,3 +308,16 @@ export async function executeSumoRequest<T>(
     return await limiter.execute(request);
 }
 
+export function parseMetricResults(results: any[]) {
+    return results.map(x => {
+        const obj = {};
+        x.metric.dimensions?.forEach((dimension) => {
+            const key = dimension.key.replace(/[^_a-z0-9]/gi, "_");
+            obj[key] = dimension.value;
+        });
+        Object.keys(x.horAggs).forEach((metric) => {
+            obj[metric] = x.horAggs[metric];
+        });
+        return obj;
+    });
+}

@@ -276,6 +276,11 @@ web:
 
 ##### Sumo Logic Configuration
 
+The Sumo Logic evaluator supports two modes: logs, metrics (default mode is logs).
+
+
+**Log Evaluator**
+
 The example below will search Sumo Logic using the given query, and iterate over the result set. The time window
 searched is specified by `period`. 
 
@@ -288,6 +293,7 @@ environment variable called `sumo-domain`.
 The example below does not have any alerts configured, see web example above to see what you can do with alerts.
 
 ```yaml
+sumo:
   web-performance:
     name: web-performance
     quiet: true # successful evaluation is suppressed
@@ -334,6 +340,38 @@ Example period formats
 - `-1d to -1h` is 24 hours ago to 1 hour ago
 - `today` is from 00:00AM until now
 - `yesterday` is from 00:00AM yesterday until 00:00AM today
+
+**Metric Evaluator**
+
+The metrics evaluator enables you to define rules across the high level metrics results:
+
+- avg
+- sum
+- min
+- max
+- count
+- latest
+
+For each aggregated metric result, it exposes these values and any other columns (_collector, _source, etc) in the result set.
+
+```yaml
+sumo:
+  cpu-performance:
+    mode: metrics
+    token: sumo-token # the tool will expect an environment variable with the appropriate token using this key
+    period: -5m to -0m
+    query: >
+      metric=cpu_total _source=*yoursource*
+      | quantize to 1s
+      | avg by _sourcehost # any metric can be chosen here and it will return min, max avg, count in the period
+    identifier: _sourcehost # this specifies what field in the result set is the identifier to iterate over
+    emit: [avg] # only emit the average cpu in the output
+    triggers:
+      - match: .* # catch all
+        rules:
+          - expression: avg >= 50
+            message: "CPU is too high: {{avg}}%"
+```
 
 ##### MySQL Configuration
 
