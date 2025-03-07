@@ -1,4 +1,4 @@
-import { exec } from "child_process";
+import { spawn } from "child_process";
 import * as process from "process";
 
 export interface IShellResult {
@@ -31,13 +31,12 @@ export async function execShellScript(
     return new Promise((resolve, reject) => {
         try {
             const params = [args ?? []].flat();
-            const worker = exec(
-                `${ scriptPath } ${ params.map(x => `'${ x }'`).join(" ") }`,
-                {
-                    env: {
-                        ...generateEnvVars()
-                    },
-                });
+            const worker = spawn(scriptPath, params, {
+                env: {
+                    ...generateEnvVars()
+                },
+                stdio: ["ignore", "pipe", "pipe"]
+            });
             const output = [];
             let processed = false;
             const resolver = (result: IShellResult) => {
@@ -57,7 +56,7 @@ export async function execShellScript(
                 clearTimeout(timeoutHandle);
                 resolver({
                     exitCode: code,
-                    stdout: output.join("\n").trim()
+                    stdout: output.join("").trim()
                 });
                 return;
             });

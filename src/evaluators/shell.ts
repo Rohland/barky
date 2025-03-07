@@ -119,7 +119,7 @@ export class ShellEvaluator extends BaseEvaluator {
                     variables: { ...variables, ...parsed }
                 }];
             } catch (err) {
-                throw new Error(`Invalid JSON response from shell script: ${ result.stdout }`)
+                throw new Error(`Invalid JSON result from shell script (${err.toString().replace(/^Error:\s+/, "")}), result: ${ result.stdout }`)
             }
         }
         return [
@@ -157,7 +157,7 @@ function tryParseJsonResult(result: IShellResult) {
         const lines = result.stdout.split(/[\r\n]+/g);
         return lines.map(x => JSON.parse(x));
         } catch(err2) {
-            throw new Error(`Failed to parse JSON result as JSON & JSONL, errors: ${ err.message } and ${ err2.message }`)
+            throw new Error(`failed to parse JSON result as JSON/JSONL [json:${ err.message };jsonl:${ err2.message }]`)
         }
     }
 }

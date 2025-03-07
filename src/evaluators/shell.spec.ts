@@ -199,6 +199,39 @@ describe("shell evaluator", () => {
                     });
                 });
             });
+            describe("and is invalid json", () => {
+                it("should return invalid result", async () => {
+                    // arrange
+                    const res = {
+                        exitCode: 0,
+                        stdout: "xxx"
+                    };
+                    const app = {
+                        name: "test",
+                        path: "test.sh",
+                        timeout: 1000,
+                        responseType: "json",
+                        identifier: "id",
+                        __configPath: "/Users/Test/SomeDir/Hello.yaml"
+                    };
+                    (execShellScript as jest.Mock).mockResolvedValue(res);
+                    const sut = new ShellEvaluator({});
+
+                    // act
+                    const results = [await sut.tryEvaluate(app)].flat();
+
+                    // assert
+                    expect(results.length).toEqual(1);
+                    results.forEach((result) => {
+                        expect(result).toBeInstanceOf(MonitorFailureResult);
+                        expect(result.label).toEqual("monitor");
+                        expect(result.success).toEqual(false);
+                        expect(result.result).toEqual("FAIL");
+                        expect(result.resultMsg).toMatch("Invalid JSON result from shell script");
+                        expect(result.resultMsg).toMatch("Unexpected token 'x', \"xxx\" is not valid JSON");
+                    });
+                });
+            });
         });
         describe("with vary-by", () => {
             it("should pass as args and use args as default identifier", async () => {
