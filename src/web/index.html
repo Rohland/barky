@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barky - Status</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.0.3/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.global.prod.min.js"></script>
+</head>
+<body class="bg-gray-100 p-8 flex justify-center">
+
+<div id="app" class="bg-white p-6 rounded-lg shadow-md w-full max-w-8xl">
+
+    <div v-if="data">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold">🔥 Alerts {{ data.active.length > 0 ? `(${ data.active.length })` : '' }}
+                <div v-if="data.summary" class="text-xs text-gray-500 font-normal">alerts active for
+                    {{ humanizeTime(data.summary.startTime)
+                    }}
+                </div>
+                <div v-else class="text-xs text-gray-500 font-normal">
+                    No active alerts
+                </div>
+            </h2>
+            <div style="float:right" class="text-xs text-gray-500 font-normal">
+                Refreshing in {{ timeToRefresh }}s
+            </div>
+        </div>
+
+        <table v-if="data.active.length > 0" class="w-full text-left border border-gray-50 text-sm">
+            <thead>
+            <tr class="bg-gray-100">
+                <th class="p-2 border-b border-gray-200 align-top w-1/6">Started</th>
+                <th class="p-2 border-b border-gray-200 align-top w-1/6">Rule</th>
+                <th class="p-2 border-b border-gray-200 align-top w-4/6">Description</th>
+                <!--                <th class="p-2 border-b border-gray-200 align-top">Mute Rule-->
+                <!--                    <div class="text-xs text-gray-500 font-normal">-->
+                <!--                        regex - may target multiple alerts-->
+                <!--                    </div>-->
+                <!--                </th>-->
+<!--                <th class="p-2 border-b border-gray-200 align-top">Mute Until</th>-->
+<!--                <th class="p-2 border-b border-gray-200 align-top">Action</th>-->
+            </tr>
+            </thead>
+            <tbody>
+            <tr v-for="snapshot in data.active" :key="snapshot.id"
+                class="hover:bg-gray-50">
+                <td class="p-2 border-b border-gray-200 text-gray-500">
+                    {{ humanizeTime(snapshot.startTime) }}
+                </td>
+                <td class="p-2 border-b border-gray-200">
+                    <span class="font-bold">{{ snapshot.type }}:{{ snapshot.label }} → <span style="color: orangered">{{ snapshot.identifier }}</span></span>
+                </td>
+                <td class="p-2 border-b border-gray-200">{{ snapshot.last_result }}</td>
+                <!--                <td class="p-2 border-b border-gray-200">-->
+                <!--                    <input type="text" placeholder="Enter rule" class="border-gray-200 rounded p-1 w-full">-->
+                <!--                </td>-->
+<!--                <td class="p-2 border-b border-gray-200">-->
+<!--                    <input type="date" class="border-gray-200 rounded p-1 w-full" value="2024-11-05">-->
+<!--                    <select class="border-gray-200 rounded p-1 w-full">-->
+<!--                        <option value="">Select time</option>-->
+<!--                        <option>15:00</option>-->
+<!--                        <option>16:00</option>-->
+<!--                        <option>17:00</option>-->
+<!--                        <option>18:00</option>-->
+<!--                        <option>19:00</option>-->
+<!--                        <option>20:00</option>-->
+<!--                        &lt;!&ndash; Add more times as needed &ndash;&gt;-->
+<!--                    </select>-->
+<!--                </td>-->
+<!--                <td class="p-3 border-b border-gray-200 text-center text-xs">-->
+<!--                    <button @click="mute(snapshot)" class="bg-red-500 text-white px-2 py-2 rounded hover:bg-red-600 ">+&nbsp;Mute</button>-->
+<!--                </td>-->
+            </tr>
+            </tbody>
+        </table>
+
+        <div>
+            <div class="flex justify-between items-center mb-4 pt-10">
+                <h2 class="text-xl font-bold">✅ Resolved Alerts {{ data.resolved.length > 0 ? `(${ data.resolved.length })` : '' }}
+                    <div class="text-xs text-gray-500 font-normal">Resolved or muted alerts</div>
+                </h2>
+            </div>
+
+            <table v-if="data.resolved.length > 0" class="w-full text-left border border-gray-200 text-sm">
+                <thead>
+                <tr class="bg-gray-200">
+                    <th class="p-2 border-b border-gray-200 align-top w-1/6">Started</th>
+                    <th class="p-2 border-b border-gray-200 align-top w-1/6">Rule</th>
+                    <th class="p-2 border-b border-gray-200 align-top w-3/6">Description</th>
+                    <th class="p-2 border-b border-gray-200 align-top w-1/6">Duration</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr v-for="snapshot in data.resolved" :key="snapshot.id" class="hover:bg-gray-50">
+                    <td class="p-2 border-b border-gray-200 text-gray-500">
+                        {{ simpleTime(snapshot.startTime) }}
+                    </td>
+                    <td class="p-2 border-b border-gray-200">
+                        <span class="font-bold">{{ snapshot.type }}:{{ snapshot.label }} → <span style="color: orangered">{{ snapshot.identifier }}</span></span>
+                    </td>
+                    <td class="p-2 border-b border-gray-200">
+                        {{ snapshot.last_result }}
+                    </td>
+                    <td class="p-2 border-b border-gray-200 text-gray-500; color: darkgreen">
+                        {{ humanizeDuration(snapshot.durationInMinutes) }} ({{ simpleTime(snapshot.resolvedTime) }})
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+
+        </div>
+
+        <div>
+            <div class="flex justify-between items-center mb-4 pt-10">
+                <h2 class="text-xl font-bold">🔇 Muted Alerts {{ data.muted.length > 0 ? `(${ data.muted.length })` : '' }}
+                    <div class="text-xs text-gray-500 font-normal">Alerts that have been muted through mute rules</div>
+                </h2>
+            </div>
+            <table v-if="data.muted.length > 0" class="w-full text-left border border-gray-200 text-sm">
+                <thead>
+                <tr class="bg-gray-200">
+                    <th class="p-2 border-b border-gray-200 align-top w-1/6">Started</th>
+                    <th class="p-2 border-b border-gray-200 align-top w-1/6">Rule</th>
+                    <th class="p-2 border-b border-gray-200 align-top w-4/6">Description</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr v-for="snapshot in data.muted" :key="snapshot.id" class="hover:bg-gray-50">
+                    <td class="p-2 border-b border-gray-200 text-gray-500">
+                        {{ simpleTime(snapshot.startTime) }} ({{ humanizeTime(snapshot.startTime) }})
+                    </td>
+                    <td class="p-2 border-b border-gray-200">
+                        <span class="font-bold">{{ snapshot.type }}:{{ snapshot.label }} → {{ snapshot.identifier
+                            }}</span>
+                    </td>
+                    <td class="p-2 border-b border-gray-200">
+                        {{ snapshot.last_result }}
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div v-else>
+        <p>Loading...</p>
+    </div>
+
+</div>
+<script type="text/javascript">
+    const {createApp, ref, onMounted} = Vue;
+
+    function humanizeDuration(time, type) {
+        let minutes = time;
+        let defaultTypeText = "mins";
+        switch (type?.toLowerCase()?.trim()) {
+            case "s":
+                minutes = time / 60;
+                defaultTypeText = "secs";
+                break;
+            case "m":
+                minutes = time;
+                defaultTypeText = "mins";
+                break;
+            case "h":
+                minutes = time * 60;
+                defaultTypeText = "hrs";
+                break;
+        }
+        const secondsText = humanizeSeconds((minutes - Math.floor(minutes)) * 60);
+        const minsText = humanizeMinutes(minutes % 60);
+        const hoursText = humanizeHours(minutes / 60);
+        const text = [hoursText, minsText, secondsText].filter(x => !!x).join(", ");
+        if (text.length === 0) {
+            return `0 ${defaultTypeText}`;
+        }
+        return text.replace(/,\s+([^,]+)$/, ` and $1`);
+    }
+
+    function humanizeSeconds(seconds) {
+        const value = Math.floor(seconds);
+        return value === 0 ?
+            "" :
+            `${value} ${pluraliseWithS("sec", value)}`;
+    }
+
+    function humanizeMinutes(minutes) {
+        const value = Math.floor(minutes);
+        return value === 0 ?
+            "" :
+            `${value} ${pluraliseWithS("min", value)}`;
+    }
+
+    function humanizeHours(hours) {
+        const value = Math.floor(hours);
+        return value === 0 ?
+            "" :
+            `${value} ${pluraliseWithS("hr", value)}`;
+    }
+
+    function pluraliseWithS(word, count) {
+        return count === 1 ?
+            word :
+            `${word}s`;
+    }
+
+    function padZero(value) {
+        return value < 10 ? `0${value}` : value;
+    }
+
+    function simpleTime(date) {
+        const dt = typeof date === 'string' ? new Date(date) : date;
+        const today = new Date();
+        const time = `${dt.getHours()}:${padZero(dt.getMinutes())}:${padZero(dt.getSeconds())}`;
+        const isToday = dt.getDate() === today.getDate() &&
+            dt.getMonth() === today.getMonth() &&
+            dt.getFullYear() === today.getFullYear();
+        if (isToday) {
+            return time;
+        }
+        const dateComponent = `${dt.getFullYear()}-${padZero(dt.getMonth() + 1)}-${padZero(dt.getDate())}`;
+        return `${dateComponent} ${time}`;
+    }
+
+    createApp({
+        setup() {
+            const refreshInterval = 10;
+            const data = ref(null);
+            const currentTime = ref(Date.now());
+            const timeToRefresh = ref(refreshInterval);
+
+            function humanizeTime(time) {
+                const minutes = (+currentTime.value - new Date(time)) / 1000 / 60;
+                return humanizeDuration(minutes);
+            }
+
+            const fetchStatus = async () => {
+                try {
+                    const response = await fetch('/api/status');
+                    const result = await response.json();
+                    const changes = {
+                        summary: result.summary,
+                        active: result.active,
+                        resolved: result.resolved.map(x => {
+                            return {
+                                ...x,
+                                durationInMinutes: (new Date(x.resolvedTime) - new Date(x.startTime)) / 1000 / 60
+                            };
+                        }),
+                        muted: result.muted,
+                    };
+                    data.value = changes;
+                    timeToRefresh.value = refreshInterval;
+                } catch (err) {
+                    console.error('Error fetching status:', err);
+                }
+            };
+            const mute = async (snapshot) => {
+                try {
+                    const response = await fetch('/api/mute', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            id: snapshot.id,
+                            type: snapshot.type,
+                            label: snapshot.label,
+                            identifier: snapshot.identifier,
+                        }),
+                    });
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    const result = await response.json();
+                    console.log('Mute success:', result);
+                    await fetchStatus();
+                } catch (error) {
+                    console.error('Mute failed:', error);
+                }
+            };
+            onMounted(() => {
+                fetchStatus();
+                setInterval(fetchStatus, refreshInterval * 1000);
+                setInterval(() => {
+                    currentTime.value = Date.now();
+                    timeToRefresh.value -= 1;
+                    if (timeToRefresh.value < 0) {
+                        timeToRefresh.value = 0;
+                    }
+                }, 1000);
+            });
+            return {
+                data,
+                timeToRefresh,
+                mute,
+                humanizeTime,
+                humanizeDuration,
+                simpleTime
+            };
+        },
+    }).mount('#app');
+</script>
+
+</body>
+</html>

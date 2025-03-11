@@ -6,6 +6,23 @@ import { initLocaleAndTimezone } from "./lib/utility";
 import * as process from "process";
 import { EvaluatorType } from "./evaluators/base";
 
+interface IConfigSettings {
+    locale: string;
+    timezone: string;
+    port?: number;
+}
+
+interface IFileConfig {
+    config: IConfigSettings;
+    [key: string]: any;
+}
+
+export interface IConfig {
+    [key: string]: any;
+    fileName: string;
+    env: IFileConfig;
+}
+
 function getFileNamePart(fileName: string) {
     const parts = fileName.split(/[\\\/]+/);
     const nameParts = parts[parts.length - 1].split(".");
@@ -97,7 +114,7 @@ function tagConfigsWithFileMetaData(config: any, path: string, isRootFile: boole
     return config;
 }
 
-export function getConfig(args) {
+export function getConfig(args): IConfig {
     const { file, fileInfo } = getAndValidateConfigFileInfo(args.rules);
     let env = getConfigurationFromFile(file, fileInfo);
     if (env.config) {

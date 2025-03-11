@@ -114,6 +114,23 @@ async function sendMutedOrResolvedAlert(
     await sendResolvedAlerts([alert], config);
 }
 
+let _newAlerts: AlertState[] = [];
+let _existingAlerts: AlertState[] = [];
+let _resolvedAlerts: AlertState[] = [];
+let _context: DigestContext = null;
+let _config: DigestConfiguration = null;
+
+
+export function getAlertState() {
+    return {
+        newAlerts: _newAlerts,
+        existingAlerts: _existingAlerts,
+        resolvedAlerts: _resolvedAlerts,
+        context: _context,
+        config: _config
+    };
+}
+
 async function triggerAlerts(
     config: DigestConfiguration,
     context: DigestContext,
@@ -123,6 +140,11 @@ async function triggerAlerts(
     await sendNewAlerts(newAlerts, config, context);
     await sendOngoingAlerts(existingAlerts, config, context);
     await sendResolvedAlerts(resolvedAlerts, config);
+    _newAlerts = newAlerts;
+    _existingAlerts = existingAlerts;
+    _resolvedAlerts = resolvedAlerts;
+    _context = context;
+    _config = config;
 }
 
 function getChannelsAffected(snapshots: Snapshot[]): string [] {

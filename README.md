@@ -69,6 +69,7 @@ The `config` keyword in the YAML file defines locale and timezone as per the exa
 config:
   locale: en-ZA
   timezone: Africa/Johannesburg
+  port: 3000 # the port to run the web UI on (defaults to 3000)
 ```
 
 The following high level keys are supported (note, it is case sensitive):

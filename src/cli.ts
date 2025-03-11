@@ -15,25 +15,38 @@ import { loop } from "./loop";
 import { initLogger, log } from "./models/logger";
 import { Argv } from "yargs";
 import { getConfig } from "./config";
+import { NestFactory } from "@nestjs/core";
+import { INestApplication } from "@nestjs/common";
+import { AppModule, NoOpLogger } from "./web/app.module";
 
 (async () => {
     const args = await getArgs();
     try {
         const exitCode = await loop(args, async () => await run(args));
         process.exit(exitCode);
-    } catch(err) {
+    } catch (err) {
         console.log("fatal error", err);
         process.exit(-1);
     }
 })();
+
+let webApp: INestApplication = null;
+
+async function bootstrapWebApp(port: number = null) {
+    if (webApp) {
+        return;
+    }
+    webApp = await NestFactory.create(AppModule, { logger: new NoOpLogger() });
+    port ??= 3000;
+    await webApp.listen(port);
+}
 
 async function run(args) {
     initLogger(args);
     try {
         const config = getConfig(args);
         await initConnection(config.fileName);
-        // todo: start web server if not started
-        // share current config with web server (can be used for shared state)
+        await bootstrapWebApp(config.env?.config?.port);
         log(`starting ${ args.eval } evaluators`);
         await execute(
             config,
@@ -113,7 +126,7 @@ function killAll() {
             console.log(`killing barky pid ${ data.pid } (${ data.details }) - ${ data.file.name }`);
             try {
                 process.kill(data.pid, 'SIGKILL');
-            } catch(err) {
+            } catch (err) {
                 // no-op
             }
             fs.unlinkSync(data.file.name);
