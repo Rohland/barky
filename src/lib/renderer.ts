@@ -4,7 +4,7 @@ export interface ITemplateOptions {
 
 export function renderTemplate(
     template,
-    data,
+    data: object,
     options: ITemplateOptions = null) {
     if (!template || template.trim().length === 0) {
         return "";
@@ -12,15 +12,41 @@ export function renderTemplate(
     if (!data) {
         return template;
     }
-    const dataWithLoweredKeys = Object.fromEntries(
-        Object.entries(data ?? {})
-            .map(([k, v]) => [k.toLowerCase(), v]));
-    return template.replace(/{{([^}]*)}}/g, (_, v) => {
-        const value = dataWithLoweredKeys[v.toLowerCase().trim()];
-        if (options?.humanizeNumbers) {
-            return nFormatter(value, 2);
+
+    const usedKeys = new Set();
+    const keys = Object.keys(data);
+
+    const variables = keys.map(key => {
+        const varValue = JSON.stringify(data[key]);
+        usedKeys.add(key);
+        return `let ${ key } = ${ varValue };`;
+    });
+
+    keys.forEach(key => {
+        const loweredKey = key.toLowerCase();
+        if (usedKeys.has(loweredKey)) {
+            return;
         }
-        return value;
+        usedKeys.add(loweredKey);
+        const value = JSON.stringify(data[key]);
+        variables.push(`let ${ loweredKey } = ${ value };`);
+    });
+    const variableString = variables.join("\n");
+
+    return template.replace(/{{([^}]*)}}/g, (_, v) => {
+        const expression = v.trim();
+        let result;
+        try {
+            result = eval(`${ variableString }
+            ${ expression }`);
+        } catch {
+            result = eval(`${ variableString }
+            ${ expression.toLowerCase() }`);
+        }
+        if (options?.humanizeNumbers) {
+            return nFormatter(result, 2);
+        }
+        return result;
     });
 }
 
@@ -38,7 +64,7 @@ function nFormatter(num, digits) {
         { value: 1e6, symbol: "M" },
     ];
     const rx = /\.0+$|(\.[0-9]*[1-9])0+$/;
-    const item = lookup.slice().reverse().find(function(item) {
+    const item = lookup.slice().reverse().find(function (item) {
         return absolute >= item.value;
     });
     return item ? (sign * absolute / item.value).toFixed(digits).replace(rx, "$1") + item.symbol : num;

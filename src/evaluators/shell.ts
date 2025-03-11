@@ -31,7 +31,7 @@ export class ShellEvaluator extends BaseEvaluator {
             const result = await execShellScript(
                 scriptPath,
                 app.timeout,
-                app["vary-by"]);
+                app.variation);
             return this.validateShellResult(app, result);
         } catch (err) {
             const errorInfo = new Error(err.message);
@@ -68,7 +68,7 @@ export class ShellEvaluator extends BaseEvaluator {
     }
 
     private validateParsedResult(parsed: IParsedResult, app: IApp) {
-        let identifier = app["vary-by"]?.join("|") ?? app.name;
+        let identifier = app["variation"]?.join(",") ?? app.name;
         if (parsed.type === "object" && app.identifier) {
             identifier = parsed.value[app.identifier] ?? identifier;
         }
@@ -119,7 +119,7 @@ export class ShellEvaluator extends BaseEvaluator {
                     variables: { ...variables, ...parsed }
                 }];
             } catch (err) {
-                throw new Error(`Invalid JSON response from shell script: ${ result.stdout }`)
+                throw new Error(`Invalid JSON result from shell script (${err.toString().replace(/^Error:\s+/, "")}), result: ${ result.stdout }`)
             }
         }
         return [
@@ -157,7 +157,7 @@ function tryParseJsonResult(result: IShellResult) {
         const lines = result.stdout.split(/[\r\n]+/g);
         return lines.map(x => JSON.parse(x));
         } catch(err2) {
-            throw new Error(`Failed to parse JSON result as JSON & JSONL, errors: ${ err.message } and ${ err2.message }`)
+            throw new Error(`failed to parse JSON result as JSON/JSONL [json:${ err.message };jsonl:${ err2.message }]`)
         }
     }
 }

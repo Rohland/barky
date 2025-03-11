@@ -8,6 +8,7 @@ import { IUniqueKey } from "../lib/key";
 import * as https from "node:https";
 import { parsePeriodToHours } from "../lib/period-parser";
 import { getEnvVar } from "../lib/env";
+import { renderTemplate } from "../lib/renderer";
 
 export class WebEvaluator extends BaseEvaluator {
     constructor(config: any) {
@@ -44,8 +45,11 @@ export class WebEvaluator extends BaseEvaluator {
     }
 }
 
+
 interface IWebValidator {
     text?: string;
+    match?: string;
+    json?: string;
     message?: string;
 }
 
@@ -62,8 +66,8 @@ async function tryEvaluate(app: IApp) {
 }
 
 function transformWebResult(
-    statusResult: number,
-    expectedStatus: number,
+    statusResult: string,
+    expectedStatus: string,
     webResult: AxiosResponse<any, any>,
     app: IApp,
     date: Date,
@@ -72,7 +76,7 @@ function transformWebResult(
         statusResult,
         expectedStatus,
         webResult,
-        app.validators);
+        app.triggers ?? app.validators); // validators are what it used to be called, now deprecated
     const result = new WebResult(
         date,
         "health",
@@ -82,7 +86,8 @@ function transformWebResult(
         msg,
         timeTaken,
         app);
-    log(`${ success === true ? "OK: " : "FAIL: " } ${ app.name } - ${ app.url } [${ timeTaken.toFixed(2) }ms]`);
+    const output = `${ success === true ? "OK: " : "FAIL: " } ${ app.name } - ${ app.url } [${ timeTaken.toFixed(2) }ms]`;
+    log(output);
     return result;
 }
 
@@ -106,7 +111,7 @@ export function validateCertificateExpiry(
     }
     const hrsToExpiry = expiringInHours.toFixed(2);
     const daysToExpiry = expiringInHours / 24;
-    const msg = `certificate expiring in ${ expiringInHours < 24 ? hrsToExpiry + " hours" : daysToExpiry.toFixed(1) + " days"}`;
+    const msg = `certificate expiring in ${ expiringInHours < 24 ? hrsToExpiry + " hours" : daysToExpiry.toFixed(1) + " days" }`;
     results.push(new WebResult(
         date,
         "cert-expiring",
@@ -127,16 +132,18 @@ async function evaluate(app: IApp) {
         log(`error: ${ error })`);
         throw new Error(error);
     }
-    const expectedStatus = app.status ?? 200;
-    let statusResult, webResult: AxiosResponse;
+    const expectedStatus = (app.status ?? 200).toString();
+    let statusResult: string, webResult: AxiosResponse;
     const timer = startClock();
     const date = new Date();
     try {
         webResult = await execWebRequest(app);
-        statusResult = webResult.status;
+        statusResult = webResult.status?.toString();
     } catch (err) {
         const isTimeout = err.code === "ECONNABORTED" && stopClock(timer) >= app.timeout;
-        statusResult = isTimeout ? `Timed out after ${ app.timeout }ms` : err.response?.status || (err.code ?? err.name ?? err.toString());
+        statusResult = isTimeout
+            ? `Timed out after ${ app.timeout }ms`
+            : err.response?.status || (err.code ?? err.name ?? err.toString());
     }
     const timeTaken = stopClock(timer);
     const results = [transformWebResult(
@@ -213,10 +220,10 @@ function getCertInfo(tlsCert: any) {
 }
 
 function evaluateResult(
-    status: number,
-    expectedStatus: number,
+    status: string,
+    expectedStatus: string,
     webResult: AxiosResponse,
-    validators: IWebValidator[]) {
+    triggers: IWebValidator[]) {
     if (status != expectedStatus) {
         return {
             success: false,
@@ -225,8 +232,8 @@ function evaluateResult(
     }
 
     let failure;
-    if (validators && validators.length > 0) {
-        const failedValidator = validators.find(validator => isFailureWebResult(webResult, validator));
+    if (triggers?.length > 0) {
+        const failedValidator = triggers.find(trigger => isFailureWebResult(webResult, trigger));
         failure = failedValidator ? (failedValidator?.message ?? "failed validator") : null;
     }
 
@@ -252,14 +259,75 @@ export function getCustomHeaders(headers: any): any {
     return headers;
 }
 
-export function isFailureWebResult(
+function failsTextCheck(
     webResult: AxiosResponse,
     validator: IWebValidator) {
-    if (validator?.text) {
-        const text = typeof(webResult.data) === "object"
-            ? JSON.stringify(webResult.data)
-            : webResult.data;
-        if (!text.toLowerCase().includes(validator.text.toString().toLowerCase())) {
+    if (!validator?.text) {
+        return false;
+    }
+    const text = typeof (webResult.data) === "object"
+        ? JSON.stringify(webResult.data)
+        : webResult.data;
+    if (!validator.message) {
+        validator.message = `expected response to contain '${ validator.text }' but didnt`;
+    }
+    return !text
+        .toLowerCase()
+        .includes(validator.text.toString().toLowerCase());
+}
+
+function failsMatchCheck(
+    webResult: AxiosResponse,
+    validator: IWebValidator) {
+    if (!validator?.match) {
+        return false;
+    }
+    const text = typeof (webResult.data) === "object"
+        ? JSON.stringify(webResult.data)
+        : webResult.data;
+    if (!validator.message) {
+        validator.message = `expected response to match regex '${ validator.match }' but didnt`;
+    }
+    return !text.match(validator.match);
+}
+
+function failsJsonCheck(
+    webResult: AxiosResponse,
+    validator: IWebValidator) {
+    if (!validator?.json) {
+        return false;
+    }
+    const json = webResult.data;
+    if (!json) {
+        return true;
+    }
+    const keys = Object.keys(json);
+    const variables = keys
+        .map(key => {
+            const safeKey = key.replace(/[^a-zA-Z0-9]/g, "_");
+            return `const ${ safeKey } = ${ JSON.stringify(json[key]) };`
+        }).join("\n");
+    try {
+        const match = eval(variables + validator.json);
+        if (!match) {
+            const obj = {};
+            keys.forEach(key => obj[key] = json[key]);
+            validator.message = renderTemplate(validator.message, obj, { humanizeNumbers: true })
+            return true;
+        }
+    } catch {
+        validator.message = `invalid json expression or unexpected result (${ JSON.stringify(json) })`;
+        return true;
+    }
+    return false;
+}
+
+export function isFailureWebResult(
+    webResult: AxiosResponse,
+    trigger: IWebValidator) {
+    const checks = [failsTextCheck, failsMatchCheck, failsJsonCheck];
+    for (const check of checks) {
+        if (check(webResult, trigger)) {
             return true;
         }
     }

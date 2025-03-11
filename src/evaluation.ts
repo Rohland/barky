@@ -33,7 +33,7 @@ export async function evaluateType(type: BaseEvaluator): Promise<Result[]> {
     ]);
 }
 
-export function getEvaluators(config, evalName): BaseEvaluator[] {
+export function getEvaluators(config, evalName: string): BaseEvaluator[] {
     const evaluatorsToConfigure =
         evalName?.trim()?.toLowerCase()?.split(",")
         || Object.keys(config.env ?? {});

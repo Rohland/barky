@@ -20,6 +20,159 @@ describe("web evaluator", () => {
             });
         });
         describe("with validator", () => {
+            describe("with json evaluator", () => {
+                describe("with no expression", () => {
+                    it("should return true", async () => {
+                        const web = { data: { number: 123 } } as AxiosResponse;
+                        const result = isFailureWebResult(
+                            web,
+                            {
+                                json: undefined
+                            });
+                        expect(result).toEqual(false);
+                    });
+                });
+                describe("with expression", () => {
+                    describe("that passes", () => {
+                        it("should return false", async () => {
+                            const web = { data: { number: 123 } } as AxiosResponse;
+                            const result = isFailureWebResult(
+                                web,
+                                {
+                                    json: "number >= 123"
+                                });
+                            expect(result).toEqual(false);
+                        });
+                        it("should support non-js characters is keys", async () => {
+                            const web = { data: { "my-number:x": 123 } } as AxiosResponse;
+                            const result = isFailureWebResult(
+                                web,
+                                {
+                                    json: "my_number_x >= 123"
+                                });
+                            expect(result).toEqual(false);
+                        });
+                    });
+                    describe("that fails", () => {
+                        it("should return true", async () => {
+                            const web = { data: { number: { value: 123 } } } as AxiosResponse;
+                            const validator = {
+                                json: "number.value < 123",
+                                message: "number was {{ number.value }}"
+                            };
+                            const result = isFailureWebResult(
+                                web,
+                                validator
+                            );
+                            expect(result).toEqual(true);
+                            expect(validator.message).toEqual("number was 123");
+                        });
+                    });
+                    describe("that is valid but response is not json", () => {
+                        it("should return true with message", async () => {
+                            const web = { data: "asdf" } as AxiosResponse;
+                            const validator = {
+                                json: "true",
+                                message: undefined
+                            };
+                            const result = isFailureWebResult(
+                                web,
+                                validator
+                            );
+                            expect(result).toEqual(true);
+                            expect(validator.message).toMatch(`invalid json expression or unexpected result (\"asdf\")`);
+                        });
+                    });
+                    describe("that is invalid", () => {
+                        it("should return true", async () => {
+                            const web = { data: { number: 123 } } as AxiosResponse;
+                            const validator = {
+                                json: "wat?!@",
+                                message: undefined
+                            };
+                            const result = isFailureWebResult(
+                                web,
+                                validator
+                            );
+                            expect(result).toEqual(true);
+                            expect(validator.message).toMatch(`invalid json expression or unexpected result ({\"number\":123})`);
+                        });
+                    });
+                });
+            });
+            describe("with match evaluator", () => {
+                describe.each([
+                    ["test 123", "\\d+", false],
+                    ["test 123", "\\d", false],
+                    ["abctest 123", "abc.*", false],
+                    ["test 123", "321", true],
+                    ["", "", false],
+                    ["abc", "", false],
+                    [null, "", false],
+                    [undefined, "", false]
+                ])(`when given %s and %s`, (text, validator, expected) => {
+                    it(`should return ${ expected }`, async () => {
+                        const web = { data: text } as AxiosResponse;
+                        const trigger = {
+                            match: validator,
+                            message: null
+                        };
+                        const result = isFailureWebResult(
+                            web,
+                            trigger
+                        );
+                        expect(result).toEqual(expected);
+                        if (validator) {
+                            expect(trigger.message).toEqual(`expected response to match regex '${ validator }' but didnt`);
+                        }
+                    });
+                });
+                describe("with failure and with custom message", () => {
+                    it("should use custom message", async () => {
+                        const web = { data: "abc" } as AxiosResponse;
+                        const trigger = {
+                            match: "cba",
+                            message: "bleh"
+                        };
+                        const result = isFailureWebResult(
+                            web,
+                            trigger
+                        );
+                        expect(result).toEqual(true);
+                        expect(trigger.message).toEqual("bleh");
+                    });
+                });
+                describe("when data is an object", () => {
+                    it("should serialise to json then inspect", async () => {
+                        // arrange
+                        const web = { data: { test: 123 } } as AxiosResponse;
+
+                        // act
+                        const result = isFailureWebResult(
+                            web,
+                            {
+                                match: "123"
+                            });
+
+                        // assert
+                        expect(result).toEqual(false);
+                    });
+                    it("fail if no match", async () => {
+                        // arrange
+                        const web = { data: { test: 321 } } as AxiosResponse;
+
+                        // act
+                        const result = isFailureWebResult(
+                            web,
+                            {
+                                match: "123"
+                            });
+
+                        // assert
+                        expect(result).toEqual(true);
+                    });
+                });
+            });
             describe("with text evaluator", () => {
                 describe.each([
                     ["test 123", "TEST", false],
@@ -32,18 +185,34 @@ describe("web evaluator", () => {
                     [undefined, "", false]
                 ])(`when given %s and %s`, (text, validator, expected) => {
                     it(`should return ${ expected }`, async () => {
-                        // arrange
                         const web = { data: text } as AxiosResponse;
-
-                        // act
+                        const trigger = {
+                            text: validator,
+                            message: null
+                        };
                         const result = isFailureWebResult(
                             web,
-                            {
-                                text: validator
-                            });
-
-                        // assert
+                            trigger
+                        );
                         expect(result).toEqual(expected);
+                        if (validator) {
+                            expect(trigger.message).toEqual(`expected response to contain '${ validator }' but didnt`);
+                        }
+                    });
+                });
+                describe("with failure and with custom message", () => {
+                    it("should use custom message", async () => {
+                        const web = { data: "abc" } as AxiosResponse;
+                        const trigger = {
+                            text: "cba",
+                            message: "bleh"
+                        };
+                        const result = isFailureWebResult(
+                            web,
+                            trigger
+                        );
+                        expect(result).toEqual(true);
+                        expect(trigger.message).toEqual("bleh");
                     });
                 });
                 describe("when data is an object", () => {
@@ -127,7 +296,6 @@ describe("web evaluator", () => {
             });
         });
     });
-
 
     describe("executeWebRequest", () => {
         it("should tack on __barky param and set timeout", async () => {
@@ -218,7 +386,6 @@ describe("web evaluator", () => {
             });
         });
     });
-
 
     describe("validateCertificateExpiry", () => {
         describe("with no certInfo", () => {

@@ -141,7 +141,7 @@ describe("slack", () => {
     });
     describe("sendOngoingAlert", () => {
         describe("without workspace info", () => {
-            it("should post an update without mutating state", async () => {
+            it("should post an update without mutating state, and shouldn't attempt to delete last message", async () => {
                 // arrange
                 const sut = new SlackChannelConfig(null, {
                     channel: "my-channel",
@@ -164,6 +164,7 @@ describe("slack", () => {
                 const before = JSON.stringify(alertState);
                 sut.postToSlack = jest.fn();
                 sut.pingAboutOngoingAlert = jest.fn();
+                sut.deleteMessage = jest.fn();
 
                 // act
                 await sut.sendOngoingAlert(snapshots, alertState);
@@ -172,9 +173,10 @@ describe("slack", () => {
                 const after = JSON.stringify(alertState);
                 expect(after).toEqual(before);
                 expect(sut.postToSlack).toHaveBeenCalledWith(
-                    '🔥 <!channel> Woof! Alert ongoing: `40 problems` for `1 hr`. See above ☝️',
+                    '🔥 <!channel> Alert ongoing: `40 problems` for `1 hr`. See above ☝️ \n_please do not reply to this msg_',
                     null);
                 expect(sut.pingAboutOngoingAlert).toHaveBeenCalledWith(snapshots, alertState);
+                expect(sut.deleteMessage).not.toHaveBeenCalledWith();
             });
         });
         describe("with workspace info", () => {
@@ -200,23 +202,26 @@ describe("slack", () => {
                     end_date: null,
                     state: JSON.stringify({
                         ts: 123,
-                        channel: 'reply-channel'
+                        channel: 'reply-channel',
+                        ongoing: {
+                            channel: 'reply-channel',
+                            ts: 321
+                        }
                     })
                 });
-                const before = JSON.stringify(alertState);
-                sut.postToSlack = jest.fn();
+                sut.postToSlack = jest.fn().mockResolvedValue({ channel: "reply-channel", ts: 999 });
                 sut.pingAboutOngoingAlert = jest.fn();
+                sut.deleteMessage = jest.fn();
 
                 // act
                 await sut.sendOngoingAlert(snapshots, alertState);
 
                 // assert
-                const after = JSON.stringify(alertState);
-                expect(after).toEqual(before);
                 expect(sut.postToSlack).toHaveBeenCalledWith(
-                    '🔥 <!channel> Woof! Alert ongoing: `40 problems` for `1 hr`. <https://codeo.slack.com/archives/reply-channel/p123|See above ☝️>',
+                    '🔥 <!channel> Alert ongoing: `40 problems` for `1 hr`. <https://codeo.slack.com/archives/reply-channel/p123|See above ☝️> \n_please do not reply to this msg_',
                     null);
                 expect(sut.pingAboutOngoingAlert).toHaveBeenCalledWith(snapshots, alertState);
+                expect(sut.deleteMessage).toHaveBeenCalledWith('reply-channel', 321);
             });
         });
     });

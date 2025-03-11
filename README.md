@@ -7,16 +7,16 @@ Barky is intended to run custom monitoring in a simple and effective way, using 
 
 **What problem does this solve?**
 
-The noise and complexity of standard alerting solutions. When things go south, you don't want to be bombarded with hundreds of notifications. Barky's digest feature allows you to configure alerts in a way that you can be notified of an outage, and then be notified when the outage is resolved. It also allows you to configure alerts to only trigger during specific times of the day, and only on specific days of the week.
+Standard alerting systems can be noisy and overwhelming, sending hundreds of notifications when issues arise. With Barky’s digest feature, you get a single alert with all the key details and updates as the situation changes. You’ll be notified when the issue is resolved and receive updates at a frequency you control, keeping you informed without the overload.
 
 **What does this do?**
 
 It runs a custom set of evaluators (configured in simple markup using YAML) with (current) support for the following checks:
 
-- **web**: Evaluate any accessible site and validate status code, response time, TLS certificate (including upcoming expiry) and optionally response content
+- **web**: Evaluate any accessible site and validate status code, response time, TLS certificate (including upcoming expiry) and optionally response content (response includes, regular expression matches and JSON evaluation)
 - **sumo**: Runs custom Sumo Logic queries and evaluates results based on validator configuration
-- **mysql**: Runs custom mysql queries and evaluates results based on validator configuration
-- **shell**: Runs a custom shell script and evaluates results based on validator configuration
+- **mysql**: Runs custom mysql queries and evaluates results based on trigger configuration
+- **shell**: Runs a custom shell script and evaluates results based on trigger configuration
 
 Evaluations supported:
 
@@ -76,6 +76,7 @@ The following high level keys are supported (note, it is case sensitive):
 - web
 - sumo
 - mysql
+- shell
 
 For convenience, you can store rules in separate yaml files and include them as follows. Note that paths should be relative to parent.
 
@@ -196,9 +197,10 @@ Additional values that can be configured:
 - `timeout` defaults to 5000 (5 seconds)
 - `headers` - a custom set of headers (see example below) - these can include environment variables using $ prefix
 - `vary-by` - enables variations of a given url, an instance for each variation is monitored
-- `validators` - a list of custom response validators (expect values to be truthy to pass)
+- `triggers` - a list of custom response triggers (expect values to be truthy to pass)
   - `text` - a string to search for in the response body (case-insensitive)
-  - `message` - the message to display if the text is not found
+  - `json`- a JavaScript expression to evaluate on the JSON data returned by the request 
+  - `match` - a regular expression to match against the response body
 - `alert` - defines the alert rules, see below
 - `tls` - if property is missing, the defaults below apply
   - `verifiy` - defaults to true, set to false to disable all certificate verification
@@ -211,12 +213,12 @@ Fields:
 * `channels` - an array of channels to use (example: `[sms, slack]`)
 * `links` - optional array of links to include when alerts trigger
 * `rules` - an array of rules (the first matched rule will always be used) - if `match` expression is used, only rules matching the expression will be evaluated
-	* `description` - not required
-	* `count|any` - count means trigger after defined consecutive count of errors, any means trigger after `any` count of errors in the window period defined
-	* `window` - not required, but useful to constrain `any` operator to the given window, example: `-30m` means last 30 minutes. Maximum window is `24h`. Defaults to 5 minutes if not specified
-    * `match` - an optional match expression to match against the monitor identifier (see below for format)
-	* `days` - array of days and only required if you want to constrain the trigger to specific days of week (see example)
-	* `time` - array or single range value, only required if you want to constrain the trigger to specific times of the day (times are in the timezone specified in the config)
+  * `description` - not required
+  * `count|any` - count means trigger after defined consecutive count of errors, any means trigger after `any` count of errors in the window period defined
+  * `window` - not required, but useful to constrain `any` operator to the given window, example: `-30m` means last 30 minutes. Maximum window is `24h`. Defaults to 5 minutes if not specified
+  * `match` - an optional match expression to match against the monitor identifier (see below for format)
+  * `days` - array of days and only required if you want to constrain the trigger to specific days of week (see example)
+  * `time` - array or single range value, only required if you want to constrain the trigger to specific times of the day (times are in the timezone specified in the config)
 * `exception-policy` - the name of the alert policy (defined in the digest configuration) to use for monitor failures (such as timeouts or exceptions), if not set then the same alert configuration rules defined above will be used when the monitor incurs an unhandled error
 
 The match expression is composed as follows: `type|label|identifier`. For example: `web|web-performance|www.codeo.co.za`. The regular expression for match
@@ -239,9 +241,20 @@ web:
     headers:
       Authorization: $my-auth-token # uses environment variable my-auth-token
       x-my-custom-value: "123"
-    validators:
-      - text: ok
+    triggers:
+      # either match, text or json can be used (in conjunction if necessary)
+      - text: ok # this checks the response contains the text "ok"
         message: Expected to find text "ok" in response but didn't
+      - match: "\\d+" # this checks the response matches the regex
+        message: Expected to find a numeric valid in the response, but didn't
+      # for json responses, the response is parsed and the expression is evaluated against the parsed object
+      # for example a response of { "result": 123 } could be evaluated with `result > 100`
+      # if the key has non-alpha-numeric values, these are replaced with underscore, i.e. 
+      # { "my-key": 123 } would be accessed with `my_key`; note that sub-properties can also
+      # be dereferenced using normal notation (i.e. `my_key.sub_key > 123`)
+      - json: someKey.result > 100  # this checks the response is valid json and matches the expression
+        # note that the message can include an evaluation of properties on the json result, see below
+        message: "Expected someKey.result to be greater than 100 but was {{someKey?.result ?? 'unknown'}}"
     alert: 
         channels: [sms, slack]
         links:
@@ -249,10 +262,12 @@ web:
             url: "https://notion.so"
         rules:
             - description: Weekdays
+              match: .*
               count: 2 # any consecutive 2 failures trigger alert
               days: [mon, tue, wed, thu, fri]
               time: [00:00-04:00, 6:00- 17:00] # local time as per timezone
             - description: Weekends
+              match: .*
               window: -5m
               any: 3
               days: [sat, sun]
@@ -260,6 +275,11 @@ web:
 ```
 
 ##### Sumo Logic Configuration
+
+The Sumo Logic evaluator supports two modes: logs, metrics (default mode is logs).
+
+
+**Log Evaluator**
 
 The example below will search Sumo Logic using the given query, and iterate over the result set. The time window
 searched is specified by `period`. 
@@ -273,6 +293,7 @@ environment variable called `sumo-domain`.
 The example below does not have any alerts configured, see web example above to see what you can do with alerts.
 
 ```yaml
+sumo:
   web-performance:
     name: web-performance
     quiet: true # successful evaluation is suppressed
@@ -320,6 +341,38 @@ Example period formats
 - `today` is from 00:00AM until now
 - `yesterday` is from 00:00AM yesterday until 00:00AM today
 
+**Metric Evaluator**
+
+The metrics evaluator enables you to define rules across the high level metrics results:
+
+- avg
+- sum
+- min
+- max
+- count
+- latest
+
+For each aggregated metric result, it exposes these values and any other columns (_collector, _source, etc) in the result set.
+
+```yaml
+sumo:
+  cpu-performance:
+    mode: metrics
+    token: sumo-token # the tool will expect an environment variable with the appropriate token using this key
+    period: -5m to -0m
+    query: >
+      metric=cpu_total _source=*yoursource*
+      | quantize to 1s
+      | avg by _sourcehost # any metric can be chosen here and it will return min, max avg, count in the period
+    identifier: _sourcehost # this specifies what field in the result set is the identifier to iterate over
+    emit: [avg] # only emit the average cpu in the output
+    triggers:
+      - match: .* # catch all
+        rules:
+          - expression: avg >= 50
+            message: "CPU is too high: {{avg}}%"
+```
+
 ##### MySQL Configuration
 
 The example below will execute the given mysql query, and iterate over the result set.
@@ -356,6 +409,8 @@ mysql:
         rules:
           - expression: minutes_to_process >= 10
             message: "Queue is backlogged with {{ unprocessed }} msgs & will take {{ minutes_to_process }} minutes to catch up"
+    alert:
+      # see web evaluator for example alert configuration
 ```
 
 The trigger.**rule** object has the following additional properties that can be set:
@@ -380,6 +435,8 @@ shell:
           message: "Script failed with exit code {{exitCode}}"
         - expression: failed_requests > 0
           message: "Failed requests was {{ failed_requests }}"
+    alert:
+      # see web evaluator for example alert configuration
 ```
 
 Supported response types:
@@ -395,7 +452,7 @@ A more complex example:
 shell:
   validate-country-$1:
     vary-by: [za,us,gb]
-    path: ./my-script.sh # the vary-by params are passed into the script as arguments, i.e. ./script.sh $1 $2
+    path: ./my-script.sh # each fanned out vary-by result will have the variation passed as an argument, i.e. ./my-script.sh za
     responseType: json
     identifier: id
     triggers:
@@ -405,6 +462,8 @@ shell:
             message: "Script failed with exit code {{exitCode}}"
           - expression: my_field > 0
             message: "Failed requests was {{ failed_requests }}"
+    alert:
+      # see web evaluator for example alert configuration
 ```
 
 ---
@@ -546,5 +605,5 @@ as follows. Note, Barky will prioritise `.env.local` over entries in a `.env` fi
 
 ```bash
 # this expects that you have a subfolder called path and files called config.yml and digest.yml
-npm start --loop ./path/config --eval=web --digest=./path/digest --debug
+npm start -- loop ./path/config --eval=web --digest=./path/digest --debug
 ```
