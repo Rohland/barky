@@ -255,9 +255,10 @@
                         muted: result.muted,
                     };
                     data.value = changes;
-                    timeToRefresh.value = refreshInterval;
                 } catch (err) {
                     console.error('Error fetching status:', err);
+                } finally {
+                    timeToRefresh.value = refreshInterval;
                 }
             };
             const mute = async (snapshot) => {
