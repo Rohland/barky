@@ -16,8 +16,8 @@ import { initLogger, log } from "./models/logger";
 import { Argv } from "yargs";
 import { getConfig } from "./config";
 import { NestFactory } from "@nestjs/core";
-import { INestApplication } from "@nestjs/common";
 import { AppModule, DebugLogger } from "./web/app.module";
+import { NestExpressApplication } from "@nestjs/platform-express";
 
 (async () => {
     const args = await getArgs();
@@ -30,13 +30,14 @@ import { AppModule, DebugLogger } from "./web/app.module";
     }
 })();
 
-let webApp: INestApplication = null;
+let webApp: NestExpressApplication = null;
 
 async function bootstrapWebApp(port: number = null) {
     if (webApp) {
         return;
     }
     webApp = await NestFactory.create(AppModule, { logger: new DebugLogger() });
+    webApp.useStaticAssets(path.join(__dirname, './web/views'));
     port ??= 3000;
     log(`starting web app on port ${ port }`);
     await webApp.listen(port);

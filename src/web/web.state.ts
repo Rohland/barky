@@ -46,8 +46,11 @@ export class WebState {
 
     private getAlertState() {
         this.state = getAlertState();
+        if (!this.state.context) {
+            return;
+        }
         const channelConfig = this.state.config.getChannelConfig(ChannelType.Web);
-        this.activeSnapshots ??= this.state.context.getAlertableSnapshotsForChannel(this.state.config, channelConfig);
+        this.activeSnapshots = this.state.context.getAlertableSnapshotsForChannel(this.state.config, channelConfig);
         this.muteLookup = new Map(this.activeSnapshots.map(x => [x.uniqueId, x.muted]));
     }
 

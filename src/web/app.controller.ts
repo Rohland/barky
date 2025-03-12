@@ -7,7 +7,7 @@ import { WebState } from "./web.state";
 export class AppController {
     @Get()
     getHtml(@Res() res: Response) {
-        const htmlFilePath = path.resolve(join(__dirname, './', 'index.html'));
+        const htmlFilePath = path.resolve(join(__dirname, '/views/index.html'));
         return res.sendFile(htmlFilePath);
     }
 
