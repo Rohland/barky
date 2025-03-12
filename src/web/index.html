@@ -13,8 +13,8 @@
 
     <div v-if="data">
         <div class="flex justify-between items-center mb-4">
-            <h2 class="text-xl font-bold">🔥 Alerts {{ data.active.length > 0 ? `(${ data.active.length })` : '' }}
-                <div v-if="data.summary" class="text-xs text-gray-500 font-normal">alerts active for
+            <h2 class="text-xl font-bold">🔥 Active {{ data.active.length > 0 ? `(${ data.active.length })` : '' }}
+                <div v-if="data.summary" class="text-xs text-gray-500 font-normal">Alerts active for
                     {{ humanizeTime(data.summary.startTime)
                     }}
                 </div>
@@ -46,7 +46,7 @@
             <tr v-for="snapshot in data.active" :key="snapshot.id"
                 class="hover:bg-gray-50">
                 <td class="p-2 border-b border-gray-200 text-gray-500">
-                    {{ humanizeTime(snapshot.startTime) }}
+                    {{ humanizeTime(snapshot.startTime, false) }} ago
                 </td>
                 <td class="p-2 border-b border-gray-200">
                     <span class="font-bold">{{ snapshot.type }}:{{ snapshot.label }} → <span style="color: orangered">{{ snapshot.identifier }}</span></span>
@@ -77,7 +77,7 @@
 
         <div>
             <div class="flex justify-between items-center mb-4 pt-10">
-                <h2 class="text-xl font-bold">✅ Resolved Alerts {{ data.resolved.length > 0 ? `(${ data.resolved.length })` : '' }}
+                <h2 class="text-xl font-bold">✅ Resolved {{ data.resolved.length > 0 ? `(${ data.resolved.length })` : '' }}
                     <div class="text-xs text-gray-500 font-normal">Resolved or muted alerts</div>
                 </h2>
             </div>
@@ -103,7 +103,7 @@
                         {{ snapshot.last_result }}
                     </td>
                     <td class="p-2 border-b border-gray-200 text-gray-500; color: darkgreen">
-                        {{ humanizeDuration(snapshot.durationInMinutes) }} ({{ simpleTime(snapshot.resolvedTime) }})
+                        {{ humanizeDuration(snapshot.durationInMinutes, "m") }} ({{ simpleTime(snapshot.resolvedTime) }})
                     </td>
                 </tr>
                 </tbody>
@@ -113,7 +113,7 @@
 
         <div>
             <div class="flex justify-between items-center mb-4 pt-10">
-                <h2 class="text-xl font-bold">🔇 Muted Alerts {{ data.muted.length > 0 ? `(${ data.muted.length })` : '' }}
+                <h2 class="text-xl font-bold">🔇 Muted {{ data.muted.length > 0 ? `(${ data.muted.length })` : '' }}
                     <div class="text-xs text-gray-500 font-normal">Alerts that have been muted through mute rules</div>
                 </h2>
             </div>
@@ -128,7 +128,7 @@
                 <tbody>
                 <tr v-for="snapshot in data.muted" :key="snapshot.id" class="hover:bg-gray-50">
                     <td class="p-2 border-b border-gray-200 text-gray-500">
-                        {{ simpleTime(snapshot.startTime) }} ({{ humanizeTime(snapshot.startTime) }})
+                        {{ simpleTime(snapshot.startTime) }} ({{ humanizeTime(snapshot.startTime, false) }} ago)
                     </td>
                     <td class="p-2 border-b border-gray-200">
                         <span class="font-bold">{{ snapshot.type }}:{{ snapshot.label }} → {{ snapshot.identifier
@@ -151,7 +151,7 @@
 <script type="text/javascript">
     const {createApp, ref, onMounted} = Vue;
 
-    function humanizeDuration(time, type) {
+    function humanizeDuration(time, type, includeSeconds = true) {
         let minutes = time;
         let defaultTypeText = "mins";
         switch (type?.toLowerCase()?.trim()) {
@@ -171,7 +171,11 @@
         const secondsText = humanizeSeconds((minutes - Math.floor(minutes)) * 60);
         const minsText = humanizeMinutes(minutes % 60);
         const hoursText = humanizeHours(minutes / 60);
-        const text = [hoursText, minsText, secondsText].filter(x => !!x).join(", ");
+        const components = [hoursText, minsText];
+        if (includeSeconds) {
+            components.push(secondsText);
+        }
+        const text = components.filter(x => !!x).join(", ");
         if (text.length === 0) {
             return `0 ${defaultTypeText}`;
         }
@@ -230,9 +234,9 @@
             const currentTime = ref(Date.now());
             const timeToRefresh = ref(refreshInterval);
 
-            function humanizeTime(time) {
+            function humanizeTime(time, includeSeconds = true) {
                 const minutes = (+currentTime.value - new Date(time)) / 1000 / 60;
-                return humanizeDuration(minutes);
+                return humanizeDuration(minutes, "m", includeSeconds);
             }
 
             const fetchStatus = async () => {

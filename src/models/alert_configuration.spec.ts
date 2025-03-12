@@ -1,5 +1,6 @@
 import { AlertConfiguration, AlertRule, AlertRuleType, IAlertRule } from "./alert_configuration";
 import { initLocaleAndTimezone } from "../lib/utility";
+import { ChannelType } from "./channels/base";
 
 describe("AlertRule", () => {
     describe("when constructed with consecutive count type", () => {
@@ -82,49 +83,80 @@ describe("AlertRule", () => {
             expect(rule.type).toEqual(AlertRuleType.ConsecutiveCount);
         });
     });
-    describe("when constructed with links", () => {
-        it("should bind them", async () => {
-            // arrange
-            const config = {
-                channels: [],
-                links: [
-                    {
-                        label: "test",
-                        url: "http://test.com"
-                    }
-                ]
-            };
+    describe("AlertConfiguration", () => {
+        describe("when constructed", () => {
+            it("should add web channel", async () => {
+                // arrange
+                const config = {
+                    channels: []
+                };
 
-            // act
-            const instance = new AlertConfiguration(config);
+                // act
+                const alertConfig = new AlertConfiguration(config);
 
-            // assert
-            expect(instance.links).toEqual(config.links);
+                // assert
+                expect(alertConfig.channels).toEqual([ChannelType.Web]);
+            });
+            describe("if config has web", () => {
+                it("should not add web again", async () => {
+                    // arrange
+                    const config = {
+                        channels: ["web"]
+                    };
+
+                    // act
+                    const alertConfig = new AlertConfiguration(config);
+
+                    // assert
+                    expect(alertConfig.channels).toEqual([ChannelType.Web]);
+                });
+            });
         });
-        describe("if link missing url or label", () => {
-            it("should not bind", async () => {
+        describe("when constructed with links", () => {
+            it("should bind them", async () => {
                 // arrange
                 const config = {
                     channels: [],
                     links: [
                         {
-                            url: "http://test.com"
-                        },
-                        {
                             label: "test",
+                            url: "http://test.com"
                         }
                     ]
                 };
 
                 // act
-                // @ts-ignore
                 const instance = new AlertConfiguration(config);
 
                 // assert
-                expect(instance.links).toEqual([]);
+                expect(instance.links).toEqual(config.links);
+            });
+            describe("if link missing url or label", () => {
+                it("should not bind", async () => {
+                    // arrange
+                    const config = {
+                        channels: [],
+                        links: [
+                            {
+                                url: "http://test.com"
+                            },
+                            {
+                                label: "test",
+                            }
+                        ]
+                    };
+
+                    // act
+                    // @ts-ignore
+                    const instance = new AlertConfiguration(config);
+
+                    // assert
+                    expect(instance.links).toEqual([]);
+                });
             });
         });
     });
+
     describe("isValidNow", () => {
         describe("with no time or day config", () => {
             it("should return true", async () => {

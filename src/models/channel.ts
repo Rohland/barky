@@ -2,6 +2,7 @@ import { ConsoleChannelConfig } from "./channels/console";
 import { SMSChannelConfig } from "./channels/sms";
 import { SlackChannelConfig } from "./channels/slack";
 import { ChannelConfig, ChannelType } from "./channels/base";
+import { WebChannelConfig } from "./channels/web";
 
 export function getChannelConfigFor(
     name: string,
@@ -16,6 +17,8 @@ export function getChannelConfigFor(
             return new SlackChannelConfig(name, config);
         case ChannelType.SMS:
             return new SMSChannelConfig(name, config);
+        case ChannelType.Web:
+            return new WebChannelConfig(name, config);
         default:
             throw new Error(`Unsupported channel type: '${ config.type }'`);
     }

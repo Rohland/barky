@@ -5,6 +5,8 @@ import { flatten } from "../lib/utility";
 import { Snapshot } from "../models/snapshot";
 import { DigestConfiguration } from "../models/digest";
 
+
+
 export async function executeAlerts(
     config: DigestConfiguration,
     context: DigestContext) {
@@ -14,6 +16,7 @@ export async function executeAlerts(
     const newAlerts = detectNewAlerts(alertsFromLastRound, distinctChannels);
     const existingAlerts = detectExistingAlerts(alertsFromLastRound, distinctChannels);
     const resolvedAlerts = detectResolvedAlerts(alertsFromLastRound, distinctChannels);
+    tagResolvedSnapshots(context, config, [...newAlerts, ...existingAlerts, ...resolvedAlerts]);
     await triggerAlerts(
         config,
         context,
@@ -23,6 +26,16 @@ export async function executeAlerts(
     await persistAlerts([
         ...newAlerts,
         ...existingAlerts.filter(x => !x.isResolved)]);
+}
+
+function tagResolvedSnapshots(
+    context: DigestContext,
+    config: DigestConfiguration,
+    alertStates: AlertState[]) {
+    const snapshots = context.alertableSnapshots(config).map(x => x.uniqueId);
+    alertStates.forEach((alertState: AlertState) => {
+       alertState.checkAndSetSnapshotsAsResolved(snapshots);
+    });
 }
 
 async function sendNewAlerts(
@@ -120,8 +133,15 @@ let _resolvedAlerts: AlertState[] = [];
 let _context: DigestContext = null;
 let _config: DigestConfiguration = null;
 
+export interface IAlertState {
+    newAlerts: AlertState[],
+    existingAlerts: AlertState[],
+    resolvedAlerts: AlertState[],
+    context: DigestContext,
+    config: DigestConfiguration
+}
 
-export function getAlertState() {
+export function getAlertState(): IAlertState {
     return {
         newAlerts: _newAlerts,
         existingAlerts: _existingAlerts,

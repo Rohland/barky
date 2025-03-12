@@ -72,13 +72,14 @@ describe("alerter", () => {
                 // assert
                 expect(console.log).toHaveBeenCalledWith(expect.stringMatching(/Outage started at \d\d:\d\d:\d\d. 2 health checks affected./));
                 const alerts = await getAlerts();
-                expect(alerts.length).toEqual(1);
-                const alert = alerts[0];
-                const diff = Math.abs(+new Date() - +alert.last_alert_date);
-                expect(diff).toBeLessThanOrEqual(100);
-                expect(Array.from(alert.affectedKeys)).toEqual([result1.uniqueId, result2.uniqueId]);
-                // check the start date is the min date of the snapshots
-                expect(alert.start_date).toEqual(oneDayAgo);
+                expect(alerts.length).toBe(2);
+                alerts.forEach((alert) => {
+                    const diff = Math.abs(+new Date() - +alert.last_alert_date);
+                    expect(diff).toBeLessThanOrEqual(100);
+                    expect(Array.from(alert.affectedKeys)).toEqual([result1.uniqueId, result2.uniqueId]);
+                    // check the start date is the min date of the snapshots
+                    expect(alert.start_date).toEqual(oneDayAgo);
+                });
             });
             describe("if first instance of failure was prior to this digest cycle", () => {
                 it("should set start date to the earliest failure", async () => {
@@ -98,9 +99,10 @@ describe("alerter", () => {
                     // assert
                     expect(console.log).toHaveBeenCalledWith(expect.stringMatching(/Outage started at \d\d:\d\d:\d\d. 1 health check affected./));
                     const alerts = await getAlerts();
-                    expect(alerts.length).toEqual(1);
-                    const alert = alerts[0];
-                    expect(alert.start_date).toEqual(previousSnapshot.date);
+                    expect(alerts.length).toEqual(2);
+                    alerts.forEach((alert) => {
+                        expect(alert.start_date).toEqual(previousSnapshot.date);
+                    });
                 });
             });
         });
@@ -211,10 +213,12 @@ describe("alerter", () => {
                 // assert
                 expect(console.log).toHaveBeenCalledWith(expect.stringMatching(/Outage ongoing for \d mins \(since \d\d:\d\d:\d\d\). 2 health checks affected./));
                 const alerts = await getAlerts();
-                expect(alerts.length).toEqual(1);
-                const diff = Math.abs(+new Date() - +alerts[0].last_alert_date);
-                expect(diff).toBeLessThanOrEqual(100);
-                expect(Array.from(alerts[0].affectedKeys)).toEqual([result.uniqueId, result2.uniqueId]);
+                expect(alerts.length).toEqual(2);
+                alerts.forEach((alert) => {
+                    const diff = Math.abs(+new Date() - +alert.last_alert_date);
+                    expect(diff).toBeLessThanOrEqual(100);
+                    expect(Array.from(alert.affectedKeys)).toEqual([result.uniqueId, result2.uniqueId]);
+                });
             });
             describe("but if muted", () => {
                 it("should send muted notification", async () => {
@@ -302,10 +306,14 @@ describe("alerter", () => {
                 // assert
                 expect(console.log).not.toHaveBeenCalled();
                 const alerts = await getAlerts();
-                expect(alerts.length).toEqual(1);
-                const diff = Math.abs(+new Date() - +alerts[0].last_alert_date);
-                expect(diff).toBeGreaterThanOrEqual(1000 * 60 * 2);
-                expect(Array.from(alerts[0].affectedKeys)).toEqual([result.uniqueId]);
+                expect(alerts.length).toEqual(2);
+                alerts.forEach((alert) => {
+                    if (alert.channel === "console") {
+                        const diff = Math.abs(+new Date() - +alert.last_alert_date);
+                        expect(diff).toBeGreaterThanOrEqual(1000 * 60 * 2);
+                        expect(Array.from(alert.affectedKeys)).toEqual([result.uniqueId]);
+                    }
+                });
             });
         });
     });

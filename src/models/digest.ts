@@ -1,4 +1,4 @@
-import { ChannelConfig } from "./channels/base";
+import { ChannelConfig, ChannelType } from "./channels/base";
 import { getChannelConfigFor } from "./channel";
 import { AlertConfiguration } from "./alert_configuration";
 import { MonitorFailureResult, Result } from "./result";
@@ -39,6 +39,11 @@ export class DigestConfiguration {
             name: "console",
             interval: "0m"
         };
+        config.channels.web ??= {
+            type: "web",
+            name : "web",
+            interval: "0m"
+        };
         const title = config.title ?? "";
         const keys = Object.keys(config.channels);
         this.channelConfigs = keys.map(name => {
@@ -56,6 +61,10 @@ export class DigestConfiguration {
         const types = this.channelConfigs.map(x => x.name);
         results.forEach(x => {
             x.app?.alert?.channels?.forEach(channel => {
+                if (channel === ChannelType.Web) {
+                    // no need to validate the web channel config, its internal
+                    return;
+                }
                 if (!types.includes(channel)) {
                     issues.push(
                         new MonitorFailureResult(
