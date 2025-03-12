@@ -4,8 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Barky - Status</title>
+
+    <link rel="icon" type="image/png" href="/assets/favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
+    <link rel="shortcut icon" href="/assets/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png" />
+    <link rel="manifest" href="/assets/site.webmanifest" />
+
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.0.3/dist/tailwind.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.global.prod.min.js"></script>
+    <style>
+        td a {
+            color: darkblue;
+            text-decoration: underline;
+        }
+    </style>
 </head>
 <body class="bg-gray-100 p-8 flex justify-center">
 
@@ -51,7 +64,8 @@
                 <td class="p-2 border-b border-gray-200">
                     <span class="font-bold">{{ snapshot.type }}:{{ snapshot.label }} → <span style="color: orangered">{{ snapshot.identifier }}</span></span>
                 </td>
-                <td class="p-2 border-b border-gray-200">{{ snapshot.last_result }}</td>
+                <td class="p-2 border-b border-gray-200" v-html="linkifyUrls(snapshot.last_result)">
+                </td>
                 <!--                <td class="p-2 border-b border-gray-200">-->
                 <!--                    <input type="text" placeholder="Enter rule" class="border-gray-200 rounded p-1 w-full">-->
                 <!--                </td>-->
@@ -99,8 +113,7 @@
                     <td class="p-2 border-b border-gray-200">
                         <span class="font-bold">{{ snapshot.type }}:{{ snapshot.label }} → <span style="color: orangered">{{ snapshot.identifier }}</span></span>
                     </td>
-                    <td class="p-2 border-b border-gray-200">
-                        {{ snapshot.last_result }}
+                    <td class="p-2 border-b border-gray-200" v-html="linkifyUrls(snapshot.last_result)">
                     </td>
                     <td class="p-2 border-b border-gray-200 text-gray-500; color: darkgreen">
                         {{ humanizeDuration(snapshot.durationInMinutes, "m") }} ({{ simpleTime(snapshot.resolvedTime) }})
@@ -134,8 +147,7 @@
                         <span class="font-bold">{{ snapshot.type }}:{{ snapshot.label }} → {{ snapshot.identifier
                             }}</span>
                     </td>
-                    <td class="p-2 border-b border-gray-200">
-                        {{ snapshot.last_result }}
+                    <td class="p-2 border-b border-gray-200" v-html="linkifyUrls(snapshot.last_result)">
                     </td>
                 </tr>
                 </tbody>
@@ -227,6 +239,11 @@
         return `${dateComponent} ${time}`;
     }
 
+    function linkifyUrls(text) {
+        const regex = /((https?:\/\/)?((([a-z\d]([a-z\d-]*[a-z\d])*)\.)+[a-z]{2,})(:\d+)?(\/[-a-z\d%_.~+&:]*)*(\?[;&a-z\d%_.~+=-]*)?(\#[-a-z\d_]*)?)/ig;
+        return text.replace(regex, '<a href="$1" target="_blank">$1</a>');
+    }
+
     createApp({
         setup() {
             const refreshInterval = 10;
@@ -299,6 +316,7 @@
             return {
                 data,
                 timeToRefresh,
+                linkifyUrls,
                 mute,
                 humanizeTime,
                 humanizeDuration,

@@ -1,13 +1,13 @@
 {
   "name": "barky",
-  "version": "1.6.4",
+  "version": "1.6.5",
   "description": "A simple cloud services watchdog with digest notification support & no external dependencies",
   "homepage": "https://github.com/Rohland/barky#readme",
   "main": "dist/cli.js",
   "scripts": {
     "prebuild": "rm -rf ./dist && mkdir dist",
     "build": "tsc --build",
-    "postbuild": "cp package.json dist/package.json && copyfiles -u 1 'src/**/*.html' dist",
+    "postbuild": "cp package.json dist/package.json && copyfiles -u 1 'src/**/web/views/**' dist",
     "start": "ts-node src/cli.ts",
     "pretest": "tsc",
     "test": "jest --coverage"
