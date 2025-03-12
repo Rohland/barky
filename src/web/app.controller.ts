@@ -76,7 +76,6 @@ export class AppController {
         //         }
         //     ]
         // };
-
         const webState = new WebState();
         return webState.fetch();
     }

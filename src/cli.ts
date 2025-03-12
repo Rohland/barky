@@ -17,7 +17,7 @@ import { Argv } from "yargs";
 import { getConfig } from "./config";
 import { NestFactory } from "@nestjs/core";
 import { INestApplication } from "@nestjs/common";
-import { AppModule, NoOpLogger } from "./web/app.module";
+import { AppModule, DebugLogger } from "./web/app.module";
 
 (async () => {
     const args = await getArgs();
@@ -36,8 +36,9 @@ async function bootstrapWebApp(port: number = null) {
     if (webApp) {
         return;
     }
-    webApp = await NestFactory.create(AppModule, { logger: new NoOpLogger() });
+    webApp = await NestFactory.create(AppModule, { logger: new DebugLogger() });
     port ??= 3000;
+    log(`starting web app on port ${ port }`);
     await webApp.listen(port);
 }
 
