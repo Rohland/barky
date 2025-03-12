@@ -1,13 +1,13 @@
 import { Body, Controller, Get, Post, Res } from '@nestjs/common';
 import { Response } from 'express';
-import { join } from 'path';
+import path, { join } from 'path';
 import { WebState } from "./web.state";
 
 @Controller()
 export class AppController {
     @Get()
     getHtml(@Res() res: Response) {
-        const htmlFilePath = join(__dirname, './', 'index.html');
+        const htmlFilePath = path.resolve(join(__dirname, './', 'index.html'));
         return res.sendFile(htmlFilePath);
     }
 
