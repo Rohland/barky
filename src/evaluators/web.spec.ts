@@ -301,7 +301,7 @@ describe("web evaluator", () => {
         it("should tack on __barky param and set timeout", async () => {
             // arrange
             const app = {
-                url: "https://httpbin.org/get"
+                url: "https://httpbingo.org/get"
             };
 
             // act
@@ -316,7 +316,7 @@ describe("web evaluator", () => {
             it("should default to get", async () => {
                 // arrange
                 const app = {
-                    url: "https://httpbin.org/get"
+                    url: "https://httpbingo.org/get"
                 };
 
                 // act
