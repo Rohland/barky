@@ -52,13 +52,12 @@ export async function execShellScript(
                     stdout: "TIMEOUT"
                 });
             }, timeout);
-            worker.on('exit', (code) => {
+            worker.on('close', (code) => {
                 clearTimeout(timeoutHandle);
                 resolver({
                     exitCode: code,
                     stdout: output.join("").trim()
                 });
-                return;
             });
             worker.stdout.on('data', (data) => {
                 output.push(data);

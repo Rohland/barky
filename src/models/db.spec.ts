@@ -1,6 +1,6 @@
 import {
     addMuteWindow,
-    deleteDbIfExists,
+    deleteDbIfExists, deleteMuteWindowsByIds,
     destroy, getAlerts,
     getConnection,
     getLogs, getMuteWindows,
@@ -457,6 +457,15 @@ describe("db", () => {
                 expect(windows.length).toEqual(1);
                 expect(windows[0]).toMatchObject(window);
                 expect(windows[0].id).toBeGreaterThan(0);
+            });
+            describe("deleteMuteWindowsByIds", () => {
+                it("should delete mute windows", async () => {
+                    const windows = await getMuteWindows();
+                    const ids = windows.map(x => x.id);
+                    await deleteMuteWindowsByIds(ids);
+                    const remaining = await getMuteWindows();
+                    expect(remaining.length).toEqual(0);
+                });
             });
         });
     });

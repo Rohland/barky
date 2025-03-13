@@ -19,8 +19,16 @@ export class AppController {
         return { success: true, message: 'Muted successfully', payload };
     }
 
+    @Post('api/unmute')
+    async unMuteSnapshot(@Body() payload: any) {
+        const { matches } = payload;
+        const muter = Muter.getInstance();
+        await muter.unmute(matches);
+        return { success: true, message: 'Unmuted successfully', payload };
+    }
+
     @Get('api/status')
-    getJson() {
+    async getJson() {
         //
         // return {
         //     "summary": {

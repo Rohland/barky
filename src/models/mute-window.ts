@@ -63,9 +63,14 @@ export class MuteWindow {
     }
 
     isMatchForIdentifier(identifier: string): boolean {
-        if (!this.identifierMatcher) {
+        return MuteWindow.isMatchForIdentifier(identifier, this.identifierMatcher);
+    }
+
+    public static isMatchForIdentifier(identifier: string, match: RegExp | string): boolean {
+        if (!match) {
             return true;
         }
-        return this.identifierMatcher.test(identifier.replaceAll("|", "::"));
+        const regex = typeof match === "string" ? new RegExp(match, "i") : match;
+        return regex.test(identifier.replaceAll("|", "::"));
     }
 }

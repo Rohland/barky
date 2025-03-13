@@ -2,6 +2,8 @@ import { getAlertState, IAlertState } from "../digest/alerter";
 import { uniqueKey } from "../lib/key";
 import { Snapshot } from "../models/snapshot";
 import { ChannelType } from "../models/channels/base";
+import { Muter } from "../muter";
+import { IMuteWindowDb, MuteWindow } from "../models/mute-window";
 
 export interface IWebStateSummary {
     startTime: Date;
@@ -17,6 +19,7 @@ export interface IWebAlert {
     muted: boolean;
     last_result: string;
     links: { label: string, url: string }[];
+    dynamicMutes?: IMuteWindowDb[];
 }
 
 export interface IWebState {
@@ -58,7 +61,7 @@ export class WebState {
         return [...this.state.newAlerts, ...this.state.existingAlerts];
     }
 
-    public fetch(): IWebState {
+    public async fetch(): Promise<IWebState> {
         this.getAlertState();
         if (!this.state?.context) {
             return this.noState;
@@ -69,6 +72,7 @@ export class WebState {
         const resolved = this.resolvedWithoutMuted(resolvedCandidates, muted);
         const all = [...active, ...muted, ...resolved];
         const oldestAlert = this.getOldestAlert(active, all);
+        await this.decorateWithMuteRules(all);
         return {
             summary: oldestAlert
                 ? {
@@ -168,5 +172,12 @@ export class WebState {
     private resolvedWithoutMuted(resolved: IWebAlert[], muted: IWebAlert[]) {
         const mutedKeys = new Set(muted.map(x => x.id));
         return resolved.filter(x => !x.muted && !mutedKeys.has(x.id));
+    }
+
+    private async decorateWithMuteRules(all: IWebAlert[]) {
+        const windows = await Muter.getInstance().getDynamicMutes();
+        all.forEach(x => {
+            x.dynamicMutes = windows.filter(w => MuteWindow.isMatchForIdentifier(x.id, w.match));
+        });
     }
 }

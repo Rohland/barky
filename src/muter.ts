@@ -1,6 +1,6 @@
 import { singleton } from "./lib/singleton";
 import { IDigestConfig } from "./models/digest";
-import { addMuteWindow, getMuteWindows } from "./models/db";
+import { addMuteWindow, deleteMuteWindowsByIds, getMuteWindows } from "./models/db";
 import { IMuteWindowDb } from "./models/mute-window";
 
 export class Muter {
@@ -21,8 +21,12 @@ export class Muter {
     }
 
     public async loadDynamicMutes() {
-        const windows = await getMuteWindows();
+        const windows = await this.getDynamicMutes();
         windows.forEach(window => this.addToConfig(window));
+    }
+
+    public async getDynamicMutes(): Promise<IMuteWindowDb[]> {
+        return getMuteWindows();
     }
 
     public addToConfig(window: IMuteWindowDb) {
@@ -32,7 +36,8 @@ export class Muter {
                 startTime: item.startTime,
                 endTime: item.endTime,
                 match: window.match,
-                date: item.date
+                date: item.date,
+                dynamic: true
             };
             this.muteWindows.push(muteWindow);
         });
@@ -44,6 +49,17 @@ export class Muter {
             from,
             to
         });
+    }
+
+    public async unmute(matches: string[]) {
+        const windows = await this.getDynamicMutes();
+        const toDelete = [];
+        windows.forEach(window => {
+           if (matches.includes(window.match)) {
+               toDelete.push(window.id);
+           }
+        });
+        await deleteMuteWindowsByIds(toDelete);
     }
 
     public static getInstance() {

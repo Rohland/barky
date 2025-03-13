@@ -124,6 +124,13 @@ export async function addMuteWindow(window: IMuteWindowDb) {
     });
 }
 
+export async function deleteMuteWindowsByIds(ids: number[]) {
+    if (ids.length === 0) {
+        return;
+    }
+    await _connection("mute_windows").delete(ids);
+}
+
 export async function getMuteWindows(): Promise<IMuteWindowDb[]> {
     const results = await _connection("mute_windows").select().orderBy("id", "asc");
     const toReturn = [];
