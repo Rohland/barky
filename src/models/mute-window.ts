@@ -2,6 +2,13 @@ import { parseDaysOfWeek, parseTimeRange } from "../lib/period-parser";
 import { Time } from "../lib/time";
 import { dayOfWeek, isToday } from "../lib/utility";
 
+export interface IMuteWindowDb {
+    id?: number;
+    match: string;
+    from: Date;
+    to: Date;
+}
+
 export class MuteWindow {
 
     public startTime: Time;
@@ -11,16 +18,21 @@ export class MuteWindow {
     public daysOfWeek: number[];
 
     constructor(data: any) {
-        const timeRange = data.time;
-        if (!timeRange) {
-            throw new Error("expected mute window to have a time");
+        if (data.time) {
+            const timeRange = data.time;
+            const range = parseTimeRange(timeRange);
+            if (!range) {
+                throw new Error(`invalid mute-window time range '${ timeRange }'`);
+            }
+            this.startTime = range.start
+            this.endTime = range.end;
+        } else if (data.startTime && data.endTime) {
+            this.startTime = new Time(data.startTime);
+            this.endTime = new Time(data.endTime);
         }
-        const range = parseTimeRange(timeRange);
-        if (!range) {
-            throw new Error(`invalid mute-window time range '${ timeRange }'`);
+        if (!this.startTime || !this.endTime) {
+            throw new Error("expected mute window to have a time range, or a startTime and endTime");
         }
-        this.startTime = range.start
-        this.endTime = range.end;
         if (data.match) {
             this.identifierMatcher = new RegExp(data.match, "i");
         }
@@ -54,6 +66,6 @@ export class MuteWindow {
         if (!this.identifierMatcher) {
             return true;
         }
-        return this.identifierMatcher.test(identifier);
+        return this.identifierMatcher.test(identifier.replaceAll("|", "::"));
     }
 }

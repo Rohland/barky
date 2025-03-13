@@ -5,13 +5,20 @@ import { MonitorFailureResult, Result } from "./result";
 import { log } from "./logger";
 import { MuteWindow } from "./mute-window";
 
+export interface IDigestConfig {
+    "alert-policies"?: any;
+    "mute-windows"?: any[];
+    "channels"?: any;
+    "monitor"?: any;
+}
+
 export class DigestConfiguration {
     public channelConfigs: ChannelConfig[];
     public alertPolicies: Map<string, AlertConfiguration>;
     public muteWindows: MuteWindow[];
     private _noDigest: boolean;
 
-    constructor(config: any) {
+    constructor(config: IDigestConfig) {
         this._noDigest = !config;
         this.extractChannelConfig(config);
         this.extractAlertPolicies(config);

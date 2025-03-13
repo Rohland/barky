@@ -1,8 +1,9 @@
 import {
+    addMuteWindow,
     deleteDbIfExists,
     destroy, getAlerts,
     getConnection,
-    getLogs,
+    getLogs, getMuteWindows,
     getSnapshots,
     initConnection,
     mutateAndPersistSnapshotState, persistAlerts,
@@ -15,7 +16,7 @@ import { AlertState } from "./alerts";
 import { AlertConfiguration, IAlertConfig } from "./alert_configuration";
 import { getTestSnapshot } from "./snapshot.spec";
 
-describe("persistResults", () => {
+describe("db", () => {
 
     const testDb = "dbtests";
 
@@ -47,8 +48,14 @@ describe("persistResults", () => {
                 expect(results).toEqual([]);
             }
 
+            async function verifyMuteWindowTableExists() {
+                const results = await connection("mute_windows").select();
+                expect(results).toEqual([]);
+            }
+
             await verifyLogsTableExists();
             await verifySnapshotTableExists();
+            await verifyMuteWindowTableExists();
         });
     });
     describe("if different context provided", () => {
@@ -406,6 +413,50 @@ describe("persistResults", () => {
                     expect(a.state).toEqual(alert.state);
                     expect(Array.from(a.affected)).toEqual(Array.from(alert.affected));
                 });
+            });
+        });
+    });
+    describe("mute-windows", () => {
+
+        describe("getMuteWindows", () => {
+            it("should return empty with none", async () => {
+                const items = await getMuteWindows();
+                expect(items.length).toEqual(0);
+            });
+            it("should clear old mute windows and avoid returning them", async () => {
+                const oldWindow = {
+                    match: "test",
+                    from: new Date("2025-01-01"),
+                    to: new Date("2025-02-01 09:00:00.000")
+                };
+                await addMuteWindow(oldWindow);
+                const tomorrow = new Date();
+                tomorrow.setHours(tomorrow.getHours()+24);
+                const newWindow = {
+                    match: "test",
+                    from: new Date(),
+                    to: tomorrow
+                };
+                await addMuteWindow(newWindow);
+                const windows = await getMuteWindows();
+                expect(windows.length).toEqual(1);
+                expect(windows[0]).toMatchObject(newWindow);
+            });
+        });
+        describe("addMuteWindow", () => {
+            it("should add mute window", async () => {
+                const tomorrow = new Date();
+                tomorrow.setHours(tomorrow.getHours()+24);
+                const window = {
+                    match: "test",
+                    from: new Date("2025-01-01"),
+                    to: tomorrow
+                };
+                await addMuteWindow(window);
+                const windows = await getMuteWindows();
+                expect(windows.length).toEqual(1);
+                expect(windows[0]).toMatchObject(window);
+                expect(windows[0].id).toBeGreaterThan(0);
             });
         });
     });

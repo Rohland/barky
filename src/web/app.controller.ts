@@ -2,6 +2,7 @@ import { Body, Controller, Get, Post, Res } from '@nestjs/common';
 import { Response } from 'express';
 import path, { join } from 'path';
 import { WebState } from "./web.state";
+import { Muter } from "../muter";
 
 @Controller()
 export class AppController {
@@ -12,8 +13,10 @@ export class AppController {
     }
 
     @Post('api/mute')
-    muteSnapshot(@Body() _payload: any) {
-        return { success: true, message: 'Muted successfully' };
+    async muteSnapshot(@Body() payload: any) {
+        const { match, from, to } = payload;
+        await Muter.getInstance().registerMute(match, new Date(from), new Date(to));
+        return { success: true, message: 'Muted successfully', payload };
     }
 
     @Get('api/status')

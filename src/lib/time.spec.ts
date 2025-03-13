@@ -216,6 +216,7 @@ describe("DayAndTimeEvaluator", () => {
             ])(`with day and time`, (date, timezone, day, time, expected) => {
                 it(`should return ${ expected } for day ${ day } and time ${ time }`, async () => {
                     // arrange
+                    // @ts-ignore
                     const evaluator = new DayAndTimeEvaluator([day], time);
                     initLocaleAndTimezone({
                         timezone,
