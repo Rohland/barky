@@ -6,7 +6,8 @@ import { renderTemplate } from "../../lib/renderer";
 export enum ChannelType {
     Console="console",
     Slack="slack",
-    SMS="sms"
+    SMS="sms",
+    Web="web"
 }
 
 export interface IChannelTemplate {

@@ -90,7 +90,7 @@ export class AlertState {
         this._resolved = true;
     }
 
-    track(snapshots: Snapshot[]) {
+    public track(snapshots: Snapshot[]) {
         snapshots.forEach(snapshot => {
             this.affected.set(snapshot.uniqueId, {
                 date: snapshot.date,
@@ -108,9 +108,6 @@ export class AlertState {
         const keys = all.filter(x => !currentIssueIds.includes(x));
         return keys.map(x => {
             const lastSnapshot = this.affected.get(x);
-            if (lastSnapshot) {
-                lastSnapshot.resolvedDate ||= new Date();
-            }
             return {
                 key: explodeUniqueKey(x),
                 lastSnapshot: lastSnapshot
@@ -134,5 +131,17 @@ export class AlertState {
 
     setMuted() {
         this._wasMuted = true;
+    }
+
+    public checkAndSetSnapshotsAsResolved(currentIdsWithIssues: string[]) {
+        const all = this.affectedKeys;
+        const keys = all.filter(x => !currentIdsWithIssues.includes(x));
+        keys.forEach(x => {
+            const lastSnapshot = this.affected.get(x);
+            if (!lastSnapshot) {
+                return;
+            }
+            lastSnapshot.resolvedDate ??= new Date();
+        });
     }
 }

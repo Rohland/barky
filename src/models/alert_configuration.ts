@@ -1,6 +1,7 @@
 import { parsePeriod } from "../lib/period-parser";
 import { MonitorLog } from "./log";
 import { DayAndTimeEvaluator } from "../lib/time";
+import { ChannelType } from "./channels/base";
 
 export interface IAlertRule {
     isDefault?: boolean;
@@ -68,7 +69,7 @@ export class AlertRule {
         return this._dayAndTimeEvaluator.isValidNow(date);
     }
 
-    get isNotValidNow() : boolean {
+    get isNotValidNow(): boolean {
         return this.isDefault || !this.isValidNow();
     }
 
@@ -95,7 +96,7 @@ export class AlertRule {
 
     getLogCountToClear(length: number) {
         const count = length - this.count;
-        return count < 0 ? 0: count;
+        return count < 0 ? 0 : count;
     }
 
     isMatchFor(uniqueId: string): boolean {
@@ -113,9 +114,17 @@ export class AlertConfiguration {
     constructor(config: IAlertConfig) {
         this._config = config;
         this.channels = config.channels ?? [];
+        this.addWebChannel();
         this.rules = config.rules?.map(x => new AlertRule(x)) ?? [];
         this.exceptionPolicyName = config["exception-policy"];
         this.links = (config.links ?? []).filter(x => !!x.label && !!x.url);
+    }
+
+    private addWebChannel() {
+        if (this.channels.includes(ChannelType.Web)) {
+            return;
+        }
+        this.channels.push(ChannelType.Web); // always include this channel type in the alert configuration
     }
 
     public getConfig(): IAlertConfig {

@@ -226,6 +226,22 @@ describe("slack", () => {
         });
     });
 
+    // integration/exploratory test
+    xit("should be able to send a message", async () => {
+        process.env["slack-token"] = "/* insert token here */";
+        const sut = new SlackChannelConfig(null, {
+            channel: "#my-channel",
+            workspace: "my-workspace",
+            template: {
+                summary: "my-summary!"
+            },
+            token: "slack-token"
+        });
+        const msg = "hello world!";
+        const result = await sut.postToSlack(msg, null, false);
+        console.log("result", result);
+    });
+
     function generateSnapshot() {
         const snapshot =  new Snapshot({
             date: new Date(),

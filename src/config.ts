@@ -5,6 +5,25 @@ import YAML from "yaml";
 import { initLocaleAndTimezone } from "./lib/utility";
 import * as process from "process";
 import { EvaluatorType } from "./evaluators/base";
+import { Muter } from "./muter";
+import { initConnection } from "./models/db";
+
+interface IConfigSettings {
+    locale: string;
+    timezone: string;
+    port?: number;
+}
+
+interface IFileConfig {
+    config: IConfigSettings;
+    [key: string]: any;
+}
+
+export interface IConfig {
+    [key: string]: any;
+    fileName: string;
+    env: IFileConfig;
+}
 
 function getFileNamePart(fileName: string) {
     const parts = fileName.split(/[\\\/]+/);
@@ -97,7 +116,14 @@ function tagConfigsWithFileMetaData(config: any, path: string, isRootFile: boole
     return config;
 }
 
-export function getConfig(args) {
+export async function initialiseGlobalConfig(args: any) {
+    const config = getConfig(args);
+    await initConnection(config.fileName);
+    await Muter.getInstance().init(config.digest);
+    return config;
+}
+
+export function getConfig(args: any): IConfig {
     const { file, fileInfo } = getAndValidateConfigFileInfo(args.rules);
     let env = getConfigurationFromFile(file, fileInfo);
     if (env.config) {
@@ -113,7 +139,7 @@ export function getConfig(args) {
     };
 }
 
-function getDigestConfiguration(args) {
+function getDigestConfiguration(args: any) {
     if (!args.digest) {
         return null;
     }

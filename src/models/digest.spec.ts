@@ -67,8 +67,16 @@ describe("digest", () => {
             expect(config.postfix).toEqual("");
         }
 
+        function assertWebConfig(config: ConsoleChannelConfig) {
+            expect(config.type).toEqual(ChannelType.Web);
+            expect(config.name).toEqual("web");
+            expect(config.interval).toEqual("0m");
+            expect(config.prefix).toEqual("");
+            expect(config.postfix).toEqual("");
+        }
+
         describe("with none", () => {
-            it("should return array with console config", async () => {
+            it("should return array with console and web config", async () => {
                 // arrange
                 const digestConfig = {};
 
@@ -76,13 +84,14 @@ describe("digest", () => {
                 const config = new DigestConfiguration(digestConfig);
 
                 // assert
-                expect(config.channelConfigs.length).toEqual(1);
-                assertConsoleConfig(config.getChannelConfig("console"))
+                expect(config.channelConfigs.length).toEqual(2);
+                assertConsoleConfig(config.getChannelConfig("console"));
+                assertWebConfig(config.getChannelConfig("web"));
             });
         });
         describe("with channels", () => {
             describe("but empty", () => {
-                it("should return array with console config", async () => {
+                it("should return array with console and web config", async () => {
                     // arrange
                     const digestConfig = { channels: {} };
 
@@ -90,8 +99,9 @@ describe("digest", () => {
                     const config = new DigestConfiguration(digestConfig);
 
                     // assert
-                    expect(config.channelConfigs.length).toEqual(1);
+                    expect(config.channelConfigs.length).toEqual(2);
                     assertConsoleConfig(config.getChannelConfig("console"))
+                    assertWebConfig(config.getChannelConfig("web"))
                 });
             });
             describe("with unknown type", () => {
@@ -222,7 +232,7 @@ describe("digest", () => {
                     const config = digest.getChannelConfig("foo") as SMSChannelConfig;
 
                     // assert
-                    expect(digest.channelConfigs.length).toEqual(2);
+                    expect(digest.channelConfigs.length).toEqual(3);
                     expect(config.type).toEqual(ChannelType.SMS);
                     expect(config.name).toEqual("foo");
                     expect(config.title).toEqual("title");

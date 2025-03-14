@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barky - Status</title>
+
+    <link rel="icon" type="image/png" href="/assets/favicon-96x96.png" sizes="96x96"/>
+    <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg"/>
+    <link rel="shortcut icon" href="/assets/favicon.ico"/>
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png"/>
+    <link rel="manifest" href="/assets/site.webmanifest"/>
+
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@latest/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.global.prod.min.js"></script>
+    <style>
+        td a {
+            color: darkblue;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-8 flex justify-center">
+
+<div id="app" class="bg-white p-6 rounded-lg shadow-md w-full max-w-8xl">
+
+    <div v-if="data">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold">🔥 Active {{ data.active.length > 0 ? `(${data.active.length})` : '' }}
+                <div v-if="data.summary" class="text-xs text-gray-500 font-normal">Alerts active for
+                    {{ humanizeTime(data.summary.startTime)
+                    }}
+                </div>
+                <div v-else class="text-xs text-gray-500 font-normal">
+                    No active alerts
+                </div>
+            </h2>
+            <div style="float:right" class="text-xs text-gray-500 font-normal">
+                Refreshing in {{ timeToRefresh }}s
+            </div>
+        </div>
+
+        <table v-if="data.active.length > 0" class="min-w-full table-fixed text-left border border-gray-50 text-sm">
+            <thead>
+            <tr class="bg-gray-100">
+                <th class="p-2 border-b border-gray-200 align-top w-1/12">Started</th>
+                <th class="p-2 border-b border-gray-200 align-top w-2/12">Rule</th>
+                <th class="p-2 border-b border-gray-200 align-top">Description</th>
+                <th class="p-2 border-b border-gray-200 align-top text-right">Action</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr v-for="snapshot in data.active" :key="snapshot.id"
+                class="hover:bg-gray-50">
+                <td class="p-2 border-b border-gray-200 text-gray-500">
+                    {{ humanizeTime(snapshot.startTime, false) }} ago
+                </td>
+                <td class="p-2 border-b border-gray-200">
+                    <span class="font-bold">{{ snapshot.type }}:{{ snapshot.label }} → <span
+                            style="color: orangered">{{ snapshot.identifier }}</span></span>
+                </td>
+                <td class="p-2 border-b border-gray-200" v-html="linkifyUrls(snapshot.last_result)">
+                </td>
+                <td class="p-1 border-b border-gray-200 text-right text-xs">
+                    <button v-if="snapshot.dynamicMutes.length === 0" @click="showMuteModal(snapshot)"
+                            class="bg-blue-500 text-white px-2 py-2 rounded hover:bg-blue-400 ">🔇&nbsp;Mute
+                    </button>
+                    <span v-else class="relative inline-flex items-center px-3 py-1 text-sm font-semibold text-black bg-green-300 rounded-lg">
+                            Muting...
+                            <span class="absolute -top-1 -right-1 flex h-3 w-3">
+                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75"></span>
+                                <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                            </span>
+                        </span>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+
+        <div>
+            <div class="flex justify-between items-center mb-4 pt-10">
+                <h2 class="text-xl font-bold">✅ Resolved {{ data.resolved.length > 0 ? `(${data.resolved.length})` : ''
+                    }}
+                    <div class="text-xs text-gray-500 font-normal">Resolved or muted alerts</div>
+                </h2>
+            </div>
+
+            <table v-if="data.resolved.length > 0" class="w-full text-left border border-gray-50 text-sm">
+                <thead>
+                <tr class="bg-gray-200">
+                    <th class="p-2 border-b border-gray-200 align-top w-1/12">Started</th>
+                    <th class="p-2 border-b border-gray-200 align-top w-2/12">Rule</th>
+                    <th class="p-2 border-b border-gray-200 align-top">Description</th>
+                    <th class="p-2 border-b border-gray-200 align-top w-2/12">Duration</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr v-for="snapshot in data.resolved" :key="snapshot.id" class="hover:bg-gray-50">
+                    <td class="p-2 border-b border-gray-200 text-gray-500">
+                        {{ simpleTime(snapshot.startTime) }}
+                    </td>
+                    <td class="p-2 border-b border-gray-200">
+                        <span class="font-bold">{{ snapshot.type }}:{{ snapshot.label }} → <span
+                                style="color: orangered">{{ snapshot.identifier }}</span></span>
+                    </td>
+                    <td class="p-2 border-b border-gray-200" v-html="linkifyUrls(snapshot.last_result)">
+                    </td>
+                    <td class="p-2 border-b border-gray-200 text-gray-500; color: darkgreen">
+                        {{ humanizeDuration(snapshot.durationInMinutes, "m") }} ({{ simpleTime(snapshot.resolvedTime)
+                        }})
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+
+        </div>
+
+        <div>
+            <div class="flex justify-between items-center mb-4 pt-10">
+                <h2 class="text-xl font-bold">🔇 Muted {{ data.muted.length > 0 ? `(${data.muted.length})` : '' }}
+                    <div class="text-xs text-gray-500 font-normal">Alerts that have been muted through mute rules</div>
+                </h2>
+            </div>
+            <table v-if="data.muted.length > 0" class="w-full text-left border border-gray-200 text-sm">
+                <thead>
+                <tr class="bg-gray-200">
+                    <th class="p-2 border-b border-gray-200 align-top w-1/12">Started</th>
+                    <th class="p-2 border-b border-gray-200 align-top w-2/12">Rule</th>
+                    <th class="p-2 border-b border-gray-200 align-top">Description</th>
+                    <th class="p-2 border-b border-gray-200 align-top text-right w-1/12">Action</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr v-for="snapshot in data.muted" :key="snapshot.id" class="hover:bg-gray-50">
+                    <td class="p-2 border-b border-gray-50">
+                        {{ simpleTime(snapshot.startTime) }}<br/>
+                        <span class="text-xs text-gray-500 font-normal">{{ humanizeTime(snapshot.startTime, false) }} ago</span>
+                    </td>
+                    <td class="p-2 border-b border-gray-50">
+                        <span class="font-bold">{{ snapshot.type }}:{{ snapshot.label }} → {{ snapshot.identifier
+                            }}</span>
+                    </td>
+                    <td class="p-2 border-b border-gray-50" v-html="linkifyUrls(snapshot.last_result)">
+                    </td>
+                    <td class="p-1 border-b border-gray-50 text-right text-xs">
+                        <button v-if="snapshot.dynamicMutes.length > 0" @click="showUnMuteModal(snapshot)"
+                                class="bg-blue-500 text-white px-2 py-2 rounded hover:bg-blue-400 ">📢&nbsp;Unmute
+                        </button>
+                        <span v-else class="relative inline-flex items-center px-3 py-1 text-sm font-semibold text-black bg-green-300 rounded-lg">
+                            Unmuting...
+                            <span class="absolute -top-1 -right-1 flex h-3 w-3">
+                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75"></span>
+                                <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                            </span>
+                        </span>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div v-else>
+        <p>Loading...</p>
+    </div>
+
+    <div v-if="muteModal.show" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
+        <div class="bg-white p-6 rounded-lg shadow-lg max-w-2xl w-full">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4">🤫 Mute Alert</h2>
+
+            <p class="text-gray-700 mb-4">
+                <strong class="text-gray-900">ID:</strong>
+                <span class="bg-red-100 text-red-800 text-s font-medium me-2 px-2.5 py-0.5 rounded-sm dark:bg-red-900 dark:text-red-300">{{ mutePatternForIdentifier(muteModal.snapshot.id)
+                    }}</span>
+            </p>
+
+            <div class="mb-4">
+                <label for="mute_date" class="block text-sm font-medium text-gray-700 mb-1">Mute Until</label>
+                <input
+                        id="mute_date"
+                        v-model="muteModal.date"
+                        type="date"
+                        class="border border-gray-300 focus:ring-blue-500 focus:border-blue-500 rounded-lg p-2 w-full"
+                >
+            </div>
+
+            <div class="mb-4">
+                <label for="mute_time" class="block text-sm font-medium text-gray-700 mb-1">Mute Time</label>
+                <select v-model="muteModal.time"
+                        id="mute_time"
+                        class="border border-gray-300 focus:ring-blue-500 focus:border-blue-500 rounded-lg p-2 w-full"
+                >
+                    <option value="">Select time</option>
+                    <option v-for="time in muteModal.times">{{ time.time }}</option>
+                </select>
+            </div>
+
+            <div class="mt-6 flex justify-end gap-3">
+
+                <button v-if="muteModal.time"
+                        @click="mute(muteModal.snapshot)"
+                        :disabled="muteModal.isSaving"
+                        class="flex items-center justify-center bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition duration-200 disabled:bg-green-300 disabled:cursor-not-allowed"
+                >
+                    <svg v-if="muteModal.isSaving" class="animate-spin h-5 w-5 mr-2 text-white" viewBox="0 0 24 24"
+                         fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                    </svg>
+                    {{ muteModal.isSaving ? "Saving..." : "Save" }}
+                </button>
+
+
+                <button
+                        @click="muteModal.show = false"
+                        class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition duration-200"
+                >
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div v-if="unMuteModal.show" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
+        <div class="bg-white p-6 rounded-lg shadow-lg max-w-4xl w-full">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4">📣 Unmute Alert</h2>
+
+            <p class="text-gray-700 mb-4">
+                <strong class="text-gray-900">ID:</strong>
+                <span class="bg-red-100 text-red-800 text-s font-medium me-2 px-2.5 py-0.5 rounded-sm dark:bg-red-900 dark:text-red-300">{{ mutePatternForIdentifier(unMuteModal.snapshot.id)
+                    }}</span>
+            </p>
+
+            <div>
+                <table class="w-full text-left text-sm">
+                    <thead>
+                    <tr class="bg-gray-100">
+                        <th class="p-2 border-b border-gray-200 align-top">Match</th>
+                        <th class="p-2 border-b border-gray-200 align-top">Muted From</th>
+                        <th class="p-2 border-b border-gray-200 align-top">Muted To</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr v-for="match in unMuteModal.snapshot.dynamicMutes" class="hover:bg-gray-50">
+                        <td>{{ match.match }}</td>
+                        <td>{{ new Date(match.from).toLocaleString()}}</td>
+                        <td>{{ new Date(match.to).toLocaleString() }}</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="mt-6 flex justify-end gap-3 pt-10">
+                <button
+                        @click="unmute(unMuteModal.snapshot)"
+                        :disabled="unMuteModal.isSaving"
+                        class="flex items-center justify-center bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition duration-200 disabled:bg-green-300 disabled:cursor-not-allowed"
+                >
+                    <svg v-if="unMuteModal.isSaving" class="animate-spin h-5 w-5 mr-2 text-white" viewBox="0 0 24 24"
+                         fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                    </svg>
+                    {{ muteModal.isSaving ? "Saving..." : "Unmute" }}
+                </button>
+
+
+                <button
+                        @click="unMuteModal.show = false"
+                        class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition duration-200"
+                >
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+<script type="text/javascript">
+    const {createApp, ref, onMounted} = Vue;
+
+    function humanizeDuration(time, type, includeSeconds = true) {
+        let minutes = time;
+        let defaultTypeText = "mins";
+        switch (type?.toLowerCase()?.trim()) {
+            case "s":
+                minutes = time / 60;
+                defaultTypeText = "secs";
+                break;
+            case "m":
+                minutes = time;
+                defaultTypeText = "mins";
+                break;
+            case "h":
+                minutes = time * 60;
+                defaultTypeText = "hrs";
+                break;
+        }
+        const secondsText = humanizeSeconds((minutes - Math.floor(minutes)) * 60);
+        const minsText = humanizeMinutes(minutes % 60);
+        const hoursText = humanizeHours(minutes / 60);
+        const components = [hoursText, minsText];
+        if (includeSeconds) {
+            components.push(secondsText);
+        }
+        const text = components.filter(x => !!x).join(", ");
+        if (text.length === 0) {
+            return `0 ${defaultTypeText}`;
+        }
+        return text.replace(/,\s+([^,]+)$/, `, $1`);
+    }
+
+    function humanizeSeconds(seconds) {
+        const value = Math.floor(seconds);
+        return value === 0 ?
+            "" :
+            `${value} ${pluraliseWithS("sec", value)}`;
+    }
+
+    function humanizeMinutes(minutes) {
+        const value = Math.floor(minutes);
+        return value === 0 ?
+            "" :
+            `${value} ${pluraliseWithS("min", value)}`;
+    }
+
+    function humanizeHours(hours) {
+        const value = Math.floor(hours);
+        return value === 0 ?
+            "" :
+            `${value} ${pluraliseWithS("hr", value)}`;
+    }
+
+    function pluraliseWithS(word, count) {
+        return count === 1 ?
+            word :
+            `${word}s`;
+    }
+
+    function padZero(value) {
+        return value < 10 ? `0${value}` : value;
+    }
+
+    function simpleTime(date) {
+        const dt = typeof date === 'string' ? new Date(date) : date;
+        const today = new Date();
+        const time = `${dt.getHours()}:${padZero(dt.getMinutes())}:${padZero(dt.getSeconds())}`;
+        const isToday = dt.getDate() === today.getDate() &&
+            dt.getMonth() === today.getMonth() &&
+            dt.getFullYear() === today.getFullYear();
+        if (isToday) {
+            return time;
+        }
+        const dateComponent = `${dt.getFullYear()}-${padZero(dt.getMonth() + 1)}-${padZero(dt.getDate())}`;
+        return `${dateComponent} ${time}`;
+    }
+
+    function linkifyUrls(text) {
+        const regex = /((https?:\/\/)?((([a-z\d]([a-z\d-]*[a-z\d])*)\.)+[a-z]{2,})(:\d+)?(\/[-a-z\d%_.~+&:]*)*(\?[;&a-z\d%_.~+=-]*)?(\#[-a-z\d_]*)?)/ig;
+        return text.replace(regex, '<a href="$1" target="_blank">$1</a>');
+    }
+
+    function mutePatternForIdentifier(id) {
+        return id.replaceAll("|", "::");
+    }
+
+    function getTimeChunksForRestOfDay(from) {
+        const chunkInterval = 15;
+        let now = new Date(from);
+        now.setHours(0);
+        now.setMinutes(0);
+        const today = new Date();
+        if (now.getDate() === today.getDate()) {
+            now = today;
+        }
+        let minutes = now.getMinutes();
+        let nextChunkMinutes = Math.ceil(minutes / chunkInterval) * chunkInterval;
+        if (nextChunkMinutes === 60) {
+            now.setHours(now.getHours() + 1);
+            nextChunkMinutes = 0;
+        }
+        now.setMinutes(nextChunkMinutes, 0, 0);
+        const times = [];
+        const date = now.getDate();
+        while (now.getHours() < 24 && now.getDate() === date) {
+            times.push(now.toTimeString().split(" ")[0].slice(0, 5)); // Format HH:MM
+            now.setMinutes(now.getMinutes() + chunkInterval);
+        }
+        return times.map(x => ({time: x}));
+    }
+
+    createApp({
+        setup() {
+            const refreshInterval = 10;
+            const data = ref(null);
+            const muteModal = ref({
+                date: null,
+                times: [],
+                snapshot: null,
+                show: false,
+                isSaving: false
+            });
+            const unMuteModal = ref({
+                snapshot: null,
+                show: false,
+                isSaving: false
+            });
+            const currentTime = ref(Date.now());
+            const timeToRefresh = ref(refreshInterval);
+
+
+            Vue.watch(() => muteModal.value.date, () => {
+                muteModal.value.times = getTimeChunksForRestOfDay(muteModal.value.date);
+            });
+
+            function humanizeTime(time, includeSeconds = true) {
+                const minutes = (+currentTime.value - new Date(time)) / 1000 / 60;
+                return humanizeDuration(minutes, "m", includeSeconds);
+            }
+
+            function showMuteModal(snapshot) {
+                const now = new Date();
+                const date = `${now.getFullYear()}-${padZero(now.getMonth() + 1)}-${padZero(now.getDate())}`;
+                muteModal.value.time = "";
+                muteModal.value.date = date;
+                muteModal.value.snapshot = snapshot;
+                muteModal.value.isSaving = false;
+                muteModal.value.show = true;
+            }
+
+            function showUnMuteModal(snapshot) {
+                unMuteModal.value.snapshot = snapshot;
+                unMuteModal.value.isSaving = false;
+                unMuteModal.value.show = true;
+            }
+
+            const fetchStatus = async () => {
+                try {
+                    const response = await fetch('/api/status');
+                    const result = await response.json();
+                    const changes = {
+                        summary: result.summary,
+                        active: result.active,
+                        resolved: result.resolved.map(x => {
+                            return {
+                                ...x,
+                                durationInMinutes: (new Date(x.resolvedTime) - new Date(x.startTime)) / 1000 / 60
+                            };
+                        }),
+                        muted: result.muted,
+                    };
+                    data.value = changes;
+                } catch (err) {
+                    console.error('Error fetching status:', err);
+                } finally {
+                    timeToRefresh.value = refreshInterval;
+                }
+            };
+
+            async function unmute(snapshot) {
+                unMuteModal.value.isSaving = true;
+                try {
+                    const body = JSON.stringify({
+                        matches: snapshot.dynamicMutes.map(x => x.match)
+                    });
+                    console.log("body:", body);
+                    const response = await fetch('/api/unmute', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body
+                    });
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    const result = await response.json();
+                    console.log('Unmute success:', result);
+                    await fetchStatus();
+                    unMuteModal.value.isSaving = false;
+                    unMuteModal.value.show = false;
+                } catch (error) {
+                    console.error('Unmute failed:', error);
+                }
+            }
+
+            const mute = async (snapshot) => {
+                muteModal.value.isSaving = true;
+                try {
+                    const to = new Date(`${muteModal.value.date} ${muteModal.value.time}:00.000`);
+                    const body = JSON.stringify({
+                        from: new Date(),
+                        to,
+                        match: mutePatternForIdentifier(snapshot.id)
+                    });
+                    console.log("body:", body);
+                    const response = await fetch('/api/mute', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body
+                    });
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    const result = await response.json();
+                    console.log('Mute success:', result);
+                    await fetchStatus();
+                    muteModal.value.isSaving = false;
+                    muteModal.value.show = false;
+                } catch (error) {
+                    console.error('Mute failed:', error);
+                }
+            };
+            onMounted(() => {
+                fetchStatus();
+                setInterval(fetchStatus, refreshInterval * 1000);
+                setInterval(() => {
+                    currentTime.value = Date.now();
+                    timeToRefresh.value -= 1;
+                    if (timeToRefresh.value < 0) {
+                        timeToRefresh.value = 0;
+                    }
+                }, 1000);
+            });
+            return {
+                data,
+                muteModal,
+                unMuteModal,
+                timeToRefresh,
+                linkifyUrls,
+                mute,
+                unmute,
+                mutePatternForIdentifier,
+                showMuteModal,
+                showUnMuteModal,
+                humanizeTime,
+                humanizeDuration,
+                simpleTime
+            };
+        },
+    }).mount('#app');
+</script>
+
+</body>
+</html>

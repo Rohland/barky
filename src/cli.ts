@@ -9,29 +9,46 @@ import { hideBin } from "yargs/helpers";
 import fs from 'fs';
 import path from 'path';
 import { MonitorFailureResult } from "./models/result";
-import { destroy, initConnection } from "./models/db";
+import { destroy } from "./models/db";
 import { emitAndPersistResults, execute } from "./exec";
 import { loop } from "./loop";
 import { initLogger, log } from "./models/logger";
 import { Argv } from "yargs";
-import { getConfig } from "./config";
+import { initialiseGlobalConfig } from "./config";
+import { NestFactory } from "@nestjs/core";
+import { AppModule, DebugLogger } from "./web/app.module";
+import { NestExpressApplication } from "@nestjs/platform-express";
 
 (async () => {
     const args = await getArgs();
     try {
         const exitCode = await loop(args, async () => await run(args));
         process.exit(exitCode);
-    } catch(err) {
+    } catch (err) {
+        await destroy();
         console.log("fatal error", err);
         process.exit(-1);
     }
 })();
 
-async function run(args) {
+let webApp: NestExpressApplication = null;
+
+async function bootstrapWebApp(port: number = null) {
+    if (webApp) {
+        return;
+    }
+    webApp = await NestFactory.create(AppModule, { logger: new DebugLogger() });
+    webApp.useStaticAssets(path.join(__dirname, './web/views'));
+    port ??= 3000;
+    log(`starting web app on port ${ port }`);
+    await webApp.listen(port);
+}
+
+async function run(args: any) {
     initLogger(args);
     try {
-        const config = getConfig(args);
-        await initConnection(config.fileName);
+        const config = await initialiseGlobalConfig(args);
+        await bootstrapWebApp(config.env?.config?.port);
         log(`starting ${ args.eval } evaluators`);
         await execute(
             config,
@@ -42,8 +59,6 @@ async function run(args) {
         // emits a global config error - assume cloud watch monitor is set up for this as a safety net
         await emitAndPersistResults([MonitorFailureResult.ConfigurationError(err)]);
         return -1;
-    } finally {
-        await destroy();
     }
 }
 
@@ -111,7 +126,7 @@ function killAll() {
             console.log(`killing barky pid ${ data.pid } (${ data.details }) - ${ data.file.name }`);
             try {
                 process.kill(data.pid, 'SIGKILL');
-            } catch(err) {
+            } catch (err) {
                 // no-op
             }
             fs.unlinkSync(data.file.name);

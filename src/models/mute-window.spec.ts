@@ -11,6 +11,14 @@ describe("mute-windows", () => {
             expect(() => new MuteWindow(config)).toThrowError("expected mute window to have a time");
         });
     });
+    describe("with startTime and endTime", () => {
+        it("should parse correctly", async () => {
+            const config = { startTime: "00:00", endTime: "24:00" };
+            const muteWindow = new MuteWindow(config);
+            expect(muteWindow.startTime.time).toEqual("00:00");
+            expect(muteWindow.endTime.time).toEqual("24:00");
+        });
+    });
     describe("with invalid time range", () => {
         it("should throw", async () => {
             // arrange
@@ -119,6 +127,7 @@ describe("mute-windows", () => {
             ["foo", "bar", false],
             ["\\dfoo", "123foobar", true],
             ["\\dFOO", "123foobar", true],
+            ["test::123", "test|123", true]
         ])(`when given %s and %s`, (match, identifier, expected) => {
             it("should generate regex that works", async () => {
                 // arrange

@@ -5,6 +5,7 @@ import { MonitorLog } from "./log";
 import fs from "fs";
 import { AlertState } from "./alerts";
 import path from "path";
+import { IMuteWindowDb } from "./mute-window";
 
 let _connection;
 let _context;
@@ -28,7 +29,7 @@ export async function destroy() {
     }
 }
 
-export function deleteDbIfExists(file) {
+export function deleteDbIfExists(file: string) {
     const path = `./db/${ file }.sqlite`;
     if (fs.existsSync(path)) {
         fs.unlinkSync(path);
@@ -115,10 +116,63 @@ export async function getLogs(): Promise<MonitorLog[]> {
     return results.map(x => new MonitorLog(x));
 }
 
+export async function addMuteWindow(window: IMuteWindowDb) {
+    await _connection("mute_windows").insert({
+        match: window.match,
+        from: window.from?.toISOString(),
+        to: window.to?.toISOString()
+    });
+}
+
+export async function deleteMuteWindowsByIds(ids: number[]) {
+    if (ids.length === 0) {
+        return;
+    }
+    await _connection("mute_windows").delete(ids);
+}
+
+export async function getMuteWindows(): Promise<IMuteWindowDb[]> {
+    const results = await _connection("mute_windows").select().orderBy("id", "asc");
+    const toReturn = [];
+    const toDelete = [];
+    results.forEach(x => {
+        const window = {
+            ...x,
+            from: x.from ? new Date(x.from): null,
+            to: x.to? new Date(x.to): null,
+        };
+        if (window.to < new Date()) {
+            toDelete.push(window.id);
+            return;
+        }
+        toReturn.push(window);
+    });
+    if (toDelete.length > 0) {
+        await _connection("mute_windows").whereIn("id", toDelete).del();
+    }
+    return toReturn;
+}
+
 async function intialiseSchema(connection: Knex) {
     await createLogsTable(connection);
     await createSnapshotsTable(connection);
     await createAlertsTable(connection);
+    await createMuteWindowTable(connection);
+}
+
+async function createMuteWindowTable(connection: Knex) {
+    if (await connection.schema.hasTable("mute_windows")) {
+        return;
+    }
+    await connection.schema.createTable(
+        "mute_windows",
+        table => {
+            table.increments("id").primary();
+            table.string("match");
+            table.dateTime("from").nullable();
+            table.dateTime("to").nullable();
+        }
+    );
 }
 
 async function createAlertsTable(connection: Knex) {

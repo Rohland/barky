@@ -151,6 +151,4 @@ export class DayAndTimeEvaluator {
         const dayOfWeekInTimezone = dayOfWeek(date);
         return this._daysOfWeek.includes(dayOfWeekInTimezone);
     }
-
-
 }

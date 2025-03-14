@@ -60,6 +60,82 @@ describe("alert", () => {
             });
         });
     });
+    describe("checkAndSetSnapshotsAsResolved", () => {
+        describe("with current matching issues", () => {
+            it("should not mark as resolved", async () => {
+                // arrange
+                const alert = new AlertState({ date: new Date() });
+                const current = [
+                    new Snapshot({
+                        date: new Date(),
+                        type: "web",
+                        label: "health",
+                        identifier: "www.codeo.co.za",
+                        success: false,
+                        last_result: "error",
+                        alert_config: null
+                    }),
+                    new Snapshot({
+                        date: new Date(),
+                        type: "web",
+                        label: "health",
+                        identifier: "www.codeo2.co.za",
+                        success: false,
+                        last_result: "error",
+                        alert_config: null
+                    })
+                ]
+                alert.track(current);
+
+                // act
+                alert.checkAndSetSnapshotsAsResolved(current.map(x => x.uniqueId));
+
+                // assert
+                const affected = Array.from(alert.affected.values());
+                expect(affected.length).toEqual(2);
+                affected.forEach(x => {
+                   expect(x.resolvedDate).toBeFalsy();
+                });
+            });
+        });
+        describe("with a resolved issue", () => {
+            it("should mark as resolved", async () => {
+                // arrange
+                const alert = new AlertState({ date: new Date() });
+                const current = [
+                    new Snapshot({
+                        date: new Date(),
+                        type: "web",
+                        label: "health",
+                        identifier: "www.codeo.co.za",
+                        success: false,
+                        last_result: "error",
+                        alert_config: null
+                    }),
+                    new Snapshot({
+                        date: new Date(),
+                        type: "web",
+                        label: "health",
+                        identifier: "www.codeo2.co.za",
+                        success: false,
+                        last_result: "error",
+                        alert_config: null
+                    })
+                ]
+                alert.track(current);
+
+                // act
+                alert.checkAndSetSnapshotsAsResolved([current[0].uniqueId]);
+
+                // assert
+                const affected = Array.from(alert.affected.values());
+                expect(affected.length).toEqual(2);
+                expect(affected[0].resolvedDate).toBeFalsy();
+                expect(affected[1].resolvedDate).toBeInstanceOf(Date);
+                expect(+affected[1].resolvedDate).toBeLessThanOrEqual(+new Date());
+            });
+        });
+    });
     describe("getResolvedOrMutedSnapshotList", () => {
         describe("when provided with issues ids", () => {
             it("should return resolved ids", async () => {

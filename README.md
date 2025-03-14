@@ -69,6 +69,7 @@ The `config` keyword in the YAML file defines locale and timezone as per the exa
 config:
   locale: en-ZA
   timezone: Africa/Johannesburg
+  port: 3000 # the port to run the web UI on (defaults to 3000)
 ```
 
 The following high level keys are supported (note, it is case sensitive):
@@ -545,7 +546,7 @@ The `match` regular expression is used to match against the monitor identifier t
 - `label` - the name of the monitor (example: web-performance)
 - `identifier` - the name of the failing identifier (example: www.codeo.co.za)
 
-The value is composed as follows: `type|label|identifier`. For example: `web|web-performance|www.codeo.co.za`. The regular expression for match
+The value is composed as follows: `type::label::identifier`. For example: `web::web-performance::www.codeo.co.za`. The regular expression for match
 will thus be compared against this string value (case-insensitive).
 
 ### SMS
@@ -597,6 +598,14 @@ Example resolution:
 
 > ✅ @channel Previous outage resolved at 10:11:08. Duration was 1 minute.
 > See above for more details about affected services.
+
+### Web Interface
+
+A simple web interface is exposed on the configured port (defaults to 3000, editable using the global config) that presents a combined output
+of all alerts and their current status. It enables dynamic muting/un-muting of alerts, and provides a summary of
+active, resolved and muted alerts. The UI is updated every 10 seconds.
+
+Security of this interface is left in the hands of the user.
 
 ## Integration Testing
 
