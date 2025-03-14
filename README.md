@@ -599,6 +599,14 @@ Example resolution:
 > ✅ @channel Previous outage resolved at 10:11:08. Duration was 1 minute.
 > See above for more details about affected services.
 
+### Web Interface
+
+A simple web interface is exposed on the configured port (defaults to 3000, editable using the global config) that presents a combined output
+of all alerts and their current status. It enables dynamic muting/un-muting of alerts, and provides a summary of
+active, resolved and muted alerts. The UI is updated every 10 seconds.
+
+Security of this interface is left in the hands of the user.
+
 ## Integration Testing
 
 Configure a local `.env.local` file with the configuration as outlined in the documentation above, and then execute
