@@ -29,64 +29,6 @@ export class AppController {
 
     @Get('api/status')
     async getJson() {
-        //
-        // return {
-        //     "summary": {
-        //         "startTime": "2025-03-11 09:00"
-        //     },
-        //     "active": [
-        //         {
-        //             "id": "123",
-        //             "type": "mysql",
-        //             "label": "queue-performance",
-        //             "identifier": "my-app",
-        //             "startTime": "2025-03-11 09:00",
-        //             "resolvedTime": null,
-        //             "muted": false,
-        //             "last_result": "40 suspended messages",
-        //             "links": [
-        //                 {
-        //                     "label": "Sumo",
-        //                     "url": "https://www.google.com"
-        //                 }
-        //             ]
-        //         }
-        //     ],
-        //     "muted": [{
-        //         "id": "123",
-        //         "type": "sumo",
-        //         "label": "queue-performance",
-        //         "identifier": "my-app",
-        //         "startTime": "2025-03-11 09:00",
-        //         "resolvedTime": "2025-03-11 10:00",
-        //         "muted": true,
-        //         "last_result": "10 suspended messages",
-        //         "links": [
-        //             {
-        //                 "label": "Sumo",
-        //                 "url": "https://www.google.com"
-        //             }
-        //         ]
-        //     }],
-        //     "resolved": [
-        //         {
-        //             "id": "123",
-        //             "type": "sumo",
-        //             "label": "queue-performance",
-        //             "identifier": "my-app",
-        //             "startTime": "2025-03-11 09:00",
-        //             "resolvedTime": "2025-03-11 10:00",
-        //             "muted": false,
-        //             "last_result": "10 suspended messages",
-        //             "links": [
-        //                 {
-        //                     "label": "Sumo",
-        //                     "url": "https://www.google.com"
-        //                 }
-        //             ]
-        //         }
-        //     ]
-        // };
         const webState = new WebState();
         return webState.fetch();
     }
