@@ -462,9 +462,18 @@ describe("db", () => {
                 it("should delete mute windows", async () => {
                     const windows = await getMuteWindows();
                     const ids = windows.map(x => x.id);
+                    const tomorrow = new Date();
+                    tomorrow.setHours(tomorrow.getHours()+24);
+                    const newWindow = {
+                        match: "test2",
+                        from: new Date(),
+                        to: tomorrow
+                    };
+                    await addMuteWindow(newWindow);
                     await deleteMuteWindowsByIds(ids);
                     const remaining = await getMuteWindows();
-                    expect(remaining.length).toEqual(0);
+                    expect(remaining.length).toEqual(1);
+                    expect(remaining[0]).toMatchObject(newWindow);
                 });
             });
         });

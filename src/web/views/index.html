@@ -59,13 +59,24 @@
                     <span class="font-bold">{{ snapshot.type }}:{{ snapshot.label }} → <span
                             style="color: orangered">{{ snapshot.identifier }}</span></span>
                 </td>
-                <td class="p-2 border-b border-gray-200" v-html="linkifyUrls(snapshot.last_result)">
+                <td class="p-2 border-b border-gray-200">
+                    <span v-html="linkifyUrls(snapshot.last_result)">
+                    </span>
+                    <span v-if="snapshot.links.length">
+                        &nbsp;
+                        <template v-for="(link, index) in snapshot.links" :key="index">
+                            <a class="font-small text-xs text-blue-600 dark:text-blue-500 hover:underline"
+                               :href="link.url" target="_blank">{{ link.label }}</a>
+                            <span v-if="index < snapshot.links.length - 1"> | </span>
+                        </template>
+                    </span>
                 </td>
                 <td class="p-1 border-b border-gray-200 text-right text-xs">
                     <button v-if="snapshot.dynamicMutes.length === 0" @click="showMuteModal(snapshot)"
                             class="bg-blue-500 text-white px-2 py-2 rounded hover:bg-blue-400 ">🔇&nbsp;Mute
                     </button>
-                    <span v-else class="relative inline-flex items-center px-3 py-1 text-sm font-semibold text-black bg-green-300 rounded-lg">
+                    <span v-else
+                          class="relative inline-flex items-center px-3 py-1 text-sm font-semibold text-black bg-green-300 rounded-lg">
                             Muting...
                             <span class="absolute -top-1 -right-1 flex h-3 w-3">
                                 <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75"></span>
@@ -103,7 +114,16 @@
                         <span class="font-bold">{{ snapshot.type }}:{{ snapshot.label }} → <span
                                 style="color: orangered">{{ snapshot.identifier }}</span></span>
                     </td>
-                    <td class="p-2 border-b border-gray-200" v-html="linkifyUrls(snapshot.last_result)">
+                    <td class="p-2 border-b border-gray-200">
+                        <span v-html="linkifyUrls(snapshot.last_result)"></span>
+                        <span v-if="snapshot.links.length">
+                        &nbsp;
+                        <template v-for="(link, index) in snapshot.links" :key="index">
+                            <a class="font-small text-xs text-blue-600 dark:text-blue-500 hover:underline"
+                               :href="link.url" target="_blank">{{ link.label }}</a>
+                            <span v-if="index < snapshot.links.length - 1"> | </span>
+                        </template>
+                    </span>
                     </td>
                     <td class="p-2 border-b border-gray-200 text-gray-500; color: darkgreen">
                         {{ humanizeDuration(snapshot.durationInMinutes, "m") }} ({{ simpleTime(snapshot.resolvedTime)
@@ -140,13 +160,22 @@
                         <span class="font-bold">{{ snapshot.type }}:{{ snapshot.label }} → {{ snapshot.identifier
                             }}</span>
                     </td>
-                    <td class="p-2 border-b border-gray-50" v-html="linkifyUrls(snapshot.last_result)">
+                    <td class="p-2 border-b border-gray-50">
+                        <span v-html="linkifyUrls(snapshot.last_result)"></span>
+                        <span v-if="snapshot.links.length">
+                        &nbsp;
+                        <template v-for="(link, index) in snapshot.links" :key="index">
+                            <a class="font-small text-xs text-blue-600 dark:text-blue-500 hover:underline"
+                               :href="link.url" target="_blank">{{ link.label }}</a>
+                            <span v-if="index < snapshot.links.length - 1"> | </span>
+                        </template>
                     </td>
                     <td class="p-1 border-b border-gray-50 text-right text-xs">
                         <button v-if="snapshot.dynamicMutes.length > 0" @click="showUnMuteModal(snapshot)"
                                 class="bg-blue-500 text-white px-2 py-2 rounded hover:bg-blue-400 ">📢&nbsp;Unmute
                         </button>
-                        <span v-else class="relative inline-flex items-center px-3 py-1 text-sm font-semibold text-black bg-green-300 rounded-lg">
+                        <span v-else
+                              class="relative inline-flex items-center px-3 py-1 text-sm font-semibold text-black bg-green-300 rounded-lg">
                             Unmuting...
                             <span class="absolute -top-1 -right-1 flex h-3 w-3">
                                 <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75"></span>

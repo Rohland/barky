@@ -128,7 +128,7 @@ export async function deleteMuteWindowsByIds(ids: number[]) {
     if (ids.length === 0) {
         return;
     }
-    await _connection("mute_windows").delete(ids);
+    await _connection("mute_windows").whereIn("id", ids).del();
 }
 
 export async function getMuteWindows(): Promise<IMuteWindowDb[]> {
