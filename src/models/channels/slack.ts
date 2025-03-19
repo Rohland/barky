@@ -194,10 +194,12 @@ export class SlackChannelConfig extends ChannelConfig {
     }
 
     public async sendResolvedAlert(alert: AlertState): Promise<void> {
+        // intentionally not run in parallel with the other calls, as it seems sometimes slack has a wobbly
+        // and doesn't update the message - experimenting with updating the message first, then reacting and replying
+        await this.postToSlack(
+            this.generateMessage([], alert),
+            alert.state);
         await Promise.all([
-            this.postToSlack(
-                this.generateMessage([], alert),
-                alert.state),
             this.postToSlack(
                 `✅ <!channel> Previous outage resolved at ${ alert.endTime }. Duration was ${ alert.durationHuman }.\n_See above for more details about affected services._`,
                 alert.state,
