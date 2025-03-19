@@ -607,6 +607,13 @@ active, resolved and muted alerts. The UI is updated every 10 seconds.
 
 Security of this interface is left in the hands of the user.
 
+### Message Templates
+
+Messages using `{{ some_var }}` syntax have access to a few helper functions:
+
+- **humanizeNum(value, decimalPlaces)** - formats a numeric value into a human readable format (example: 1000 becomes 1k)
+- **humanizeDuration(value, unit = "m")** - formats a duration (defaults to minutes) into a human-readable format (example: 64 becomes 1h and 4m), use "s" for seconds and "h" for hours
+
 ## Integration Testing
 
 Configure a local `.env.local` file with the configuration as outlined in the documentation above, and then execute

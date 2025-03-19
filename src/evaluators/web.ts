@@ -312,7 +312,7 @@ function failsJsonCheck(
         if (!match) {
             const obj = {};
             keys.forEach(key => obj[key] = json[key]);
-            validator.message = renderTemplate(validator.message, obj, { humanizeNumbers: true })
+            validator.message = renderTemplate(validator.message, obj)
             return true;
         }
     } catch {

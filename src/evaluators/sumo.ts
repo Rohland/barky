@@ -116,7 +116,7 @@ export class SumoEvaluator extends BaseEvaluator {
             const fail = eval(script);
             failure ||= fail;
             if (fail) {
-                msgs.push(renderTemplate(rule.message, entry, { humanizeNumbers: true }));
+                msgs.push(renderTemplate(rule.message, entry));
             }
         });
         const emit = Array.isArray(app.emit)

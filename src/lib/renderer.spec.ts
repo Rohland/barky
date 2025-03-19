@@ -63,45 +63,58 @@ describe("renderTemplate", () => {
             expect(renderTemplate(template, data)).toEqual("Test 123");
         });
     });
-    describe("with humanizeNumbers turned on", () => {
+
+    describe("with humanizeDuration used", () => {
         describe.each([
-            ["Test {{ value }}", { value: 1 }, "Test 1"],
-            ["Test {{ value }}", { value: "abc" }, "Test abc"],
-            ["Test {{ value }}", { value: 0.0001 }, "Test 0.0001"],
-            ["Test {{ value }}", { value: 10.2123 }, "Test 10.21"],
-            ["Test {{ value }}", { value: -10 }, "Test -10"],
-            ["Test {{ value }}", { value: 100 }, "Test 100"],
-            ["Test {{ value }}", { value: 1000 }, "Test 1k"],
-            ["Test {{ value }}", { value: 1500 }, "Test 1.5k"],
-            ["Test {{ value }}", { value: 1908 }, "Test 1.91k"],
-            ["Test {{ value }}", { value: 1990 }, "Test 1.99k"],
-            ["Test {{ value }}", { value: -1990 }, "Test -1.99k"],
-            ["Test {{ value }}", { value: 10300 }, "Test 10.3k"],
-            ["Test {{ value }}", { value: 10350 }, "Test 10.35k"],
-            ["Test {{ value }}", { value: 156000 }, "Test 156k"],
-            ["Test {{ value }}", { value: 199102 }, "Test 199.1k"],
-            ["Test {{ value }}", { value: 199902 }, "Test 199.9k"],
-            ["Test {{ value }}", { value: 982000 }, "Test 982k"],
-            ["Test {{ value }}", { value: 1000000 }, "Test 1M"],
-            ["Test {{ value }}", { value: 1100000 }, "Test 1.1M"],
-            ["Test {{ value }}", { value: 1890000 }, "Test 1.89M"],
-            ["Test {{ value }}", { value: 10540000 }, "Test 10.54M"],
-            ["Test {{ value }}", { value: -10540000 }, "Test -10.54M"],
-            ["Test {{ value }}", { value: 100540000 }, "Test 100.54M"],
-            ["Test {{ value }}", { value: "hello" }, "Test hello"],
-            ["Test {{ value }}", { value: "192.168.0.1" }, "Test 192.168.0.1"]
+            ["Test {{  humanizeDuration(value) }}", { value: 1 }, "Test 1m"],
+            ["Test {{  humanizeDuration(value, 's') }}", { value: 60 }, "Test 1m"],
+            ["Test {{  humanizeDuration(value, 's') }}", { value: 65 }, "Test 1m and 5s"],
+            ["Test {{  humanizeDuration(value, 's') }}", { value: 300 }, "Test 5m"],
+            ["Test {{  humanizeDuration(value, 'h') }}", { value: 24 }, "Test 24h"],
         ])(`with template %s`, (template, data, expected) => {
-            it("should return expected", async () => {
-                // arrange
-                const options = {
-                    humanizeNumbers: true
-                };
+            it("should return expected", () => {
                 // act
-                const result = renderTemplate(template, data, options);
+                const result = renderTemplate(template, data);
                 // assert
                 expect(result).toEqual(expected);
             });
         });
     });
 
+    describe("with humanizeNum function used", () => {
+        describe.each([
+            ["Test {{  humanizeNum(value) }}", { value: 1 }, "Test 1"],
+            ["Test {{  humanizeNum(value) }}", { value: "abc" }, "Test abc"],
+            ["Test {{  humanizeNum(value) }}", { value: 0.0001 }, "Test 0.0001"],
+            ["Test {{  humanizeNum(value) }}", { value: 10.2123 }, "Test 10.21"],
+            ["Test {{  humanizeNum(value) }}", { value: -10 }, "Test -10"],
+            ["Test {{  humanizeNum(value) }}", { value: 100 }, "Test 100"],
+            ["Test {{  humanizeNum(value) }}", { value: 1000 }, "Test 1k"],
+            ["Test {{  humanizeNum(value) }}", { value: 1500 }, "Test 1.5k"],
+            ["Test {{  humanizeNum(value) }}", { value: 1908 }, "Test 1.91k"],
+            ["Test {{  humanizeNum(value) }}", { value: 1990 }, "Test 1.99k"],
+            ["Test {{  humanizeNum(value) }}", { value: -1990 }, "Test -1.99k"],
+            ["Test {{  humanizeNum(value) }}", { value: 10300 }, "Test 10.3k"],
+            ["Test {{  humanizeNum(value) }}", { value: 10350 }, "Test 10.35k"],
+            ["Test {{  humanizeNum(value) }}", { value: 156000 }, "Test 156k"],
+            ["Test {{  humanizeNum(value) }}", { value: 199102 }, "Test 199.1k"],
+            ["Test {{  humanizeNum(value) }}", { value: 199902 }, "Test 199.9k"],
+            ["Test {{  humanizeNum(value) }}", { value: 982000 }, "Test 982k"],
+            ["Test {{  humanizeNum(value) }}", { value: 1000000 }, "Test 1M"],
+            ["Test {{  humanizeNum(value) }}", { value: 1100000 }, "Test 1.1M"],
+            ["Test {{  humanizeNum(value) }}", { value: 1890000 }, "Test 1.89M"],
+            ["Test {{  humanizeNum(value) }}", { value: 10540000 }, "Test 10.54M"],
+            ["Test {{  humanizeNum(value) }}", { value: -10540000 }, "Test -10.54M"],
+            ["Test {{  humanizeNum(value) }}", { value: 100540000 }, "Test 100.54M"],
+            ["Test {{  humanizeNum(value) }}", { value: "hello" }, "Test hello"],
+            ["Test {{  humanizeNum(value) }}", { value: "192.168.0.1" }, "Test 192.168.0.1"]
+        ])(`with template %s`, (template, data, expected) => {
+            it("should return expected", async () => {
+                // act
+                const result = renderTemplate(template, data);
+                // assert
+                expect(result).toEqual(expected);
+            });
+        });
+    });
 });
