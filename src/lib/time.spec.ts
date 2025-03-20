@@ -144,20 +144,21 @@ describe("toLocalTime", () => {
 
 describe("humanizeDuration", () => {
     describe.each([
-        [0, "s", "0 secs"],
-        [0, "m", "0 mins"],
-        [0, "h", "0 hrs"],
-        [0.1, "m", "6 secs"],
-        [0.5, "m", "30 secs"],
-        [1, "m", "1 min"],
-        [1.1, "m", "1 min and 6 secs"],
-        [1.9, "m", "1 min and 53 secs"],
-        [59, "m", "59 mins"],
-        [60, "m", "1 hr"],
-        [61, "m", "1 hr and 1 min"],
-        [120, "m", "2 hrs"],
-        [120.5, "m", "2 hrs and 30 secs"],
-        [340, "m", "5 hrs and 40 mins"],
+        [0, "s", "0s"],
+        [0, "m", "0m"],
+        [0, "h", "0h"],
+        [0.1, "m", "6s"],
+        [0.5, "m", "30s"],
+        [1, "m", "1m"],
+        [65, "s", "1m and 5s"],
+        [1.1, "m", "1m and 6s"],
+        [1.9, "m", "1m and 54s"],
+        [59, "m", "59m"],
+        [60, "m", "1h"],
+        [61, "m", "1h and 1m"],
+        [120, "m", "2h"],
+        [120.5, "m", "2h and 30s"],
+        [340, "m", "5h and 40m"],
     ])(`when given %s`, (input, type, expected) => {
         it("should return expected", async () => {
             // arrange

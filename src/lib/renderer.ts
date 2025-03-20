@@ -1,11 +1,21 @@
-export interface ITemplateOptions {
-    humanizeNumbers?: boolean;
+import { humanizeDuration } from "./time";
+
+const utilityFunctionDefinitions = [
+    [humanizeNum, humanizeNum.name],
+    [humanizeDuration, humanizeDuration.name]
+];
+
+const utilityFunctions = utilityFunctionDefinitions.map(x => x[0]);
+const utilityFunctionNames: string [] = utilityFunctionDefinitions.map(x => x[1] as string);
+
+function exec(code: string) {
+    const func = new Function(...utilityFunctionNames, code);
+    return func(...utilityFunctions);
 }
 
 export function renderTemplate(
-    template,
-    data: object,
-    options: ITemplateOptions = null) {
+    template: string,
+    data: object) {
     if (!template || template.trim().length === 0) {
         return "";
     }
@@ -37,20 +47,15 @@ export function renderTemplate(
         const expression = v.trim();
         let result;
         try {
-            result = eval(`${ variableString }
-            ${ expression }`);
+            result = exec(variableString + `;\nreturn ${ expression }`);
         } catch {
-            result = eval(`${ variableString }
-            ${ expression.toLowerCase() }`);
-        }
-        if (options?.humanizeNumbers) {
-            return nFormatter(result, 2);
+            result = exec(variableString + `;\nreturn ${ expression.toLowerCase() }`);
         }
         return result;
     });
 }
 
-function nFormatter(num, digits) {
+function humanizeNum(num, digits = 2) {
     const isNumber = /^[-+]?\d*\.?\d+$/.test(num || "");
     if (!isNumber) {
         return num;

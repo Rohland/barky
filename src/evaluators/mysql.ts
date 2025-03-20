@@ -106,7 +106,7 @@ export function validateRow(
         const fail = eval(variableDefinitions + expression);
         failure ||= fail;
         if (fail) {
-            msgs.push(renderTemplate(rule.message, row, { humanizeNumbers: true }));
+            msgs.push(renderTemplate(rule.message, row));
         }
     });
     return new MySqlResult(

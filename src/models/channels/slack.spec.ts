@@ -42,7 +42,7 @@ describe("slack", () => {
 
                 // assert
                 expect(msg.length).toBeLessThan(4000);
-                expect(msg).toContain("*Duration:* `1 hr`");
+                expect(msg).toContain("*Duration:* `1h`");
                 expect(msg).toContain(snapshots[0].alert.links[0].label);
                 expect(msg).toContain(snapshots[0].alert.links[0].url);
                 expect(msg).toContain(os.hostname());
@@ -87,7 +87,7 @@ describe("slack", () => {
 
                 // assert
                 expect(msg.length).toBeLessThan(4000);
-                expect(msg).toContain("*Duration:* `1 hr`");
+                expect(msg).toContain("*Duration:* `1h`");
                 expect(msg).toContain("40 failing web checks");
                 expect(msg).not.toContain(snapshots[0].alert.links[0].label);
                 expect(msg).not.toContain(snapshots[0].alert.links[0].url);
@@ -173,7 +173,7 @@ describe("slack", () => {
                 const after = JSON.stringify(alertState);
                 expect(after).toEqual(before);
                 expect(sut.postToSlack).toHaveBeenCalledWith(
-                    '🔥 <!channel> Alert ongoing: `40 problems` for `1 hr`. See above ☝️ \n_please do not reply to this msg_',
+                    '🔥 <!channel> Alert ongoing: `40 problems` for `1h`. See above ☝️ \n_please do not reply to this msg_',
                     null);
                 expect(sut.pingAboutOngoingAlert).toHaveBeenCalledWith(snapshots, alertState);
                 expect(sut.deleteMessage).not.toHaveBeenCalledWith();
@@ -218,7 +218,7 @@ describe("slack", () => {
 
                 // assert
                 expect(sut.postToSlack).toHaveBeenCalledWith(
-                    '🔥 <!channel> Alert ongoing: `40 problems` for `1 hr`. <https://codeo.slack.com/archives/reply-channel/p123|See above ☝️> \n_please do not reply to this msg_',
+                    '🔥 <!channel> Alert ongoing: `40 problems` for `1h`. <https://codeo.slack.com/archives/reply-channel/p123|See above ☝️> \n_please do not reply to this msg_',
                     null);
                 expect(sut.pingAboutOngoingAlert).toHaveBeenCalledWith(snapshots, alertState);
                 expect(sut.deleteMessage).toHaveBeenCalledWith('reply-channel', 321);

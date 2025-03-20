@@ -82,7 +82,7 @@ export class ShellEvaluator extends BaseEvaluator {
             const fail = eval(variableDefinitions + expression);
             failure ||= fail;
             if (fail) {
-                msgs.push(renderTemplate(rule.message, variables, { humanizeNumbers: true }));
+                msgs.push(renderTemplate(rule.message, variables));
             }
         });
         const resultOutput = parsed.type === "object"

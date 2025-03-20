@@ -1,4 +1,4 @@
-import { dayOfWeek, flatten, pluraliseWithS, toLocalTimeString } from "./utility";
+import { dayOfWeek, flatten, toLocalTimeString } from "./utility";
 import { parseDaysOfWeek, parseTimeRange } from "./period-parser";
 
 export class Time {
@@ -64,15 +64,15 @@ export function humanizeDuration(time: number, type: string = "m"): string {
     switch (type?.toLowerCase()?.trim()) {
         case "s":
             minutes = time / 60;
-            defaultTypeText = "secs";
+            defaultTypeText = "s";
             break;
         case "m":
             minutes = time;
-            defaultTypeText = "mins";
+            defaultTypeText = "m";
             break;
         case "h":
             minutes = time * 60;
-            defaultTypeText = "hrs";
+            defaultTypeText = "h";
             break;
     }
     const secondsText = humanizeSeconds((minutes - Math.floor(minutes)) * 60);
@@ -80,30 +80,35 @@ export function humanizeDuration(time: number, type: string = "m"): string {
     const hoursText = humanizeHours(minutes / 60);
     const text = [hoursText, minsText, secondsText].filter(x => !!x).join(", ");
     if (text.length === 0) {
-        return `0 ${ defaultTypeText }`;
+        return `0${ defaultTypeText }`;
     }
     return text.replace(/,\s+([^,]+)$/, ` and $1`);
 }
 
-function humanizeSeconds(seconds) {
-    const value = Math.floor(seconds);
-    return value === 0 ?
-        "" :
-        `${ value } ${ pluraliseWithS("sec", value) }`;
+function floorWithConsiderationToFloatingOffset(value: number) {
+    const isCeiling = value !== 0 && Math.ceil(value) - value < 0.00001;
+    return isCeiling ? Math.ceil(value) : Math.floor(value);
 }
 
-function humanizeMinutes(minutes) {
-    const value = Math.floor(minutes);
+function humanizeSeconds(seconds: number) {
+    const value = floorWithConsiderationToFloatingOffset(seconds);
     return value === 0 ?
         "" :
-        `${ value } ${ pluraliseWithS("min", value) }`;
+        `${ value }s`;
 }
 
-function humanizeHours(hours) {
-    const value = Math.floor(hours);
+function humanizeMinutes(minutes: number) {
+    const value = floorWithConsiderationToFloatingOffset(minutes);
     return value === 0 ?
         "" :
-        `${ value } ${ pluraliseWithS("hr", value) }`;
+        `${ value }m`;
+}
+
+function humanizeHours(hours: number) {
+    const value = floorWithConsiderationToFloatingOffset(hours);
+    return value === 0 ?
+        "" :
+        `${ value }h`;
 }
 
 export class DayAndTimeEvaluator {
@@ -133,8 +138,8 @@ export class DayAndTimeEvaluator {
     private isValidAtTime(date?: Date): boolean {
         const now = date ?? new Date();
         const time = new Time(now);
-        for(const entry of this._times) {
-            if (!entry?.trim()){
+        for (const entry of this._times) {
+            if (!entry?.trim()) {
                 continue;
             }
             const period = parseTimeRange(entry);
