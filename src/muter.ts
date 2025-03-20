@@ -11,6 +11,9 @@ export class Muter {
     }
 
     public async init(config: IDigestConfig) {
+        if (!config) {
+            return;
+        }
         this._config = config;
         this._config["mute-windows"] ??= [];
         await this.loadDynamicMutes();
