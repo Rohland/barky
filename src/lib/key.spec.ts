@@ -14,13 +14,13 @@ describe("unique key", () => {
             const result = uniqueKey(input);
 
             // assert
-            expect(result).toEqual("type|label|identifier");
+            expect(result).toEqual("type::label::identifier");
         });
     });
     describe("explodeKey", () => {
         it("should split", async () => {
             // arrange
-            const input = "type|label|identifier";
+            const input = "type::label::identifier";
 
             // act
             const result = explodeUniqueKey(input);

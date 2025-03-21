@@ -222,7 +222,7 @@ Fields:
   * `time` - array or single range value, only required if you want to constrain the trigger to specific times of the day (times are in the timezone specified in the config)
 * `exception-policy` - the name of the alert policy (defined in the digest configuration) to use for monitor failures (such as timeouts or exceptions), if not set then the same alert configuration rules defined above will be used when the monitor incurs an unhandled error
 
-The match expression is composed as follows: `type|label|identifier`. For example: `web|web-performance|www.codeo.co.za`. The regular expression for match
+The match expression is composed as follows: `type::label::identifier`. For example: `web::web-performance::www.codeo.co.za`. The regular expression for match
 will thus be compared against this string value (case-insensitive).
 
 Advanced example:
@@ -470,7 +470,7 @@ shell:
     responseType: json
     identifier: id
     triggers:
-      - match: .* # catch all (you can match on the identifier field in the result set, and if missing or not set, the vary-by value will be used here (identifier is pipe delimited if multipart))
+      - match: .* # catch all (you can match on the identifier field in the result set, and if missing or not set, the vary-by value will be used here 
         rules:
           - expression: "exitCode !== 0"
             message: "Script failed with exit code {{exitCode}}"
