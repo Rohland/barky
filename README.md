@@ -314,7 +314,9 @@ sumo:
       | fields site, response_time, error_rate
       | order by response_time desc, error_rate desc
     # identifier: string | string [] - plucks the values from each result entry as the identifier (should be unique),
-    # if an array of field is specified, these values are concatenated with a : separator
+    # if an array is specified, the values are plucked and concatenated with a : separator
+    # if the identifier is not configured, the identifier defaults to the name of the monitor, and if multiple rows 
+    # are returned, each result is emitted with a unique incrementing suffix (starting from 1)
     identifier: site 
     triggers:
       - match: myslowsite\.(com|net) # special rules for myslowsite.com and myslowsite.net
@@ -367,7 +369,7 @@ sumo:
       metric=cpu_total _source=*yoursource*
       | quantize to 1s
       | avg by _sourcehost # any metric can be chosen here and it will return min, max avg, count in the period
-    identifier: _sourcehost # this specifies what field in the result set is the identifier to iterate over
+    identifier: _sourcehost
     emit: [avg] # only emit the average cpu in the output
     triggers:
       - match: .* # catch all
@@ -406,7 +408,9 @@ mysql:
       set transaction isolation level read uncommitted;
       select queue, unprocessed, minutes_to_process from some_view;
     # identifier: string | string [] - plucks the values from each result entry as the identifier (should be unique),
-    # if an array of field is specified, these values are concatenated with a : separator
+    # if an array is specified, the values are plucked and concatenated with a : separator
+    # if the identifier is not configured, the identifier defaults to the name of the monitor, and if multiple rows 
+    # are returned, each result is emitted with a unique incrementing suffix (starting from 1)
     identifier: queue
     emit: [unprocessed, minutes_to_process] # optional, if not set, all fields are emitted in log
     triggers:
@@ -434,6 +438,11 @@ shell:
     name: my-script
     path: ./my-script.sh # relative to current yaml file (or absolute path)
     responseType: json
+    # identifier: string | string [] - plucks the values from each result entry as the identifier (should be unique),
+    # if an array is specified, the values are plucked and concatenated with a : separator
+    # if the identifier is not configured, the identifier defaults to the name of the monitor, and if multiple rows 
+    # are returned, each result is emitted with a unique incrementing suffix (starting from 1)
+    identifier: id
     triggers:
       - rules:
         - expression: "exitCode !== 0"
@@ -459,8 +468,6 @@ shell:
     vary-by: [za,us,gb]
     path: ./my-script.sh # each fanned out vary-by result will have the variation passed as an argument, i.e. ./my-script.sh za
     responseType: json
-    # identifier: string | string [] - plucks the values from each result entry as the identifier (should be unique),
-    # if an array of field is specified, these values are concatenated with a : separator
     identifier: id
     triggers:
       - match: .* # catch all (you can match on the identifier field in the result set, and if missing or not set, the vary-by value will be used here (identifier is pipe delimited if multipart))
