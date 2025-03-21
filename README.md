@@ -222,7 +222,7 @@ Fields:
   * `time` - array or single range value, only required if you want to constrain the trigger to specific times of the day (times are in the timezone specified in the config)
 * `exception-policy` - the name of the alert policy (defined in the digest configuration) to use for monitor failures (such as timeouts or exceptions), if not set then the same alert configuration rules defined above will be used when the monitor incurs an unhandled error
 
-The match expression is composed as follows: `type|label|identifier`. For example: `web|web-performance|www.codeo.co.za`. The regular expression for match
+The match expression is composed as follows: `type::label::identifier`. For example: `web::web-performance::www.codeo.co.za`. The regular expression for match
 will thus be compared against this string value (case-insensitive).
 
 Advanced example:
@@ -313,7 +313,11 @@ sumo:
       | _90p as response_time
       | fields site, response_time, error_rate
       | order by response_time desc, error_rate desc
-    identifier: site # this specifies what field in the result set is the identifier to iterate over
+    # identifier: string | string [] - plucks the values from each result entry as the identifier (should be unique),
+    # if an array is specified, the values are plucked and concatenated with a : separator
+    # if the identifier is not configured, the identifier defaults to the name of the monitor, and if multiple rows 
+    # are returned, each result is emitted with a unique incrementing suffix (starting from 1)
+    identifier: site 
     triggers:
       - match: myslowsite\.(com|net) # special rules for myslowsite.com and myslowsite.net
         rules:
@@ -365,7 +369,7 @@ sumo:
       metric=cpu_total _source=*yoursource*
       | quantize to 1s
       | avg by _sourcehost # any metric can be chosen here and it will return min, max avg, count in the period
-    identifier: _sourcehost # this specifies what field in the result set is the identifier to iterate over
+    identifier: _sourcehost
     emit: [avg] # only emit the average cpu in the output
     triggers:
       - match: .* # catch all
@@ -403,7 +407,11 @@ mysql:
     query: >
       set transaction isolation level read uncommitted;
       select queue, unprocessed, minutes_to_process from some_view;
-    identifier: queue # specifies what field to use to match against the validator and emit as identifier (if field not in result set, is set to value set here)
+    # identifier: string | string [] - plucks the values from each result entry as the identifier (should be unique),
+    # if an array is specified, the values are plucked and concatenated with a : separator
+    # if the identifier is not configured, the identifier defaults to the name of the monitor, and if multiple rows 
+    # are returned, each result is emitted with a unique incrementing suffix (starting from 1)
+    identifier: queue
     emit: [unprocessed, minutes_to_process] # optional, if not set, all fields are emitted in log
     triggers:
       - match: .* # catch all
@@ -430,6 +438,11 @@ shell:
     name: my-script
     path: ./my-script.sh # relative to current yaml file (or absolute path)
     responseType: json
+    # identifier: string | string [] - plucks the values from each result entry as the identifier (should be unique),
+    # if an array is specified, the values are plucked and concatenated with a : separator
+    # if the identifier is not configured, the identifier defaults to the name of the monitor, and if multiple rows 
+    # are returned, each result is emitted with a unique incrementing suffix (starting from 1)
+    identifier: id
     triggers:
       - rules:
         - expression: "exitCode !== 0"
@@ -457,7 +470,7 @@ shell:
     responseType: json
     identifier: id
     triggers:
-      - match: .* # catch all (you can match on the identifier field in the result set, and if missing or not set, the vary-by value will be used here (identifier is pipe delimited if multipart))
+      - match: .* # catch all (you can match on the identifier field in the result set, and if missing or not set, the vary-by value will be used here 
         rules:
           - expression: "exitCode !== 0"
             message: "Script failed with exit code {{exitCode}}"

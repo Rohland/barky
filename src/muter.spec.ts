@@ -21,6 +21,13 @@ describe("Muter", () => {
         return sut;
     }
 
+    describe("with no config", () => {
+        it("should not throw", async () => {
+            const muter = new Muter();
+            await muter.init(null);
+        });
+    });
+
     describe("registerMute", () => {
         it("should register the mute and make it available", async () => {
             const sut = getSut();

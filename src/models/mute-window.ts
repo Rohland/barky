@@ -71,6 +71,6 @@ export class MuteWindow {
             return true;
         }
         const regex = typeof match === "string" ? new RegExp(match, "i") : match;
-        return regex.test(identifier.replaceAll("|", "::"));
+        return regex.test(identifier);
     }
 }

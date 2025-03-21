@@ -460,7 +460,7 @@ describe("base evaluator", () => {
                 return undefined;
             }
 
-            protected async dispose(): Promise<void> {
+            public async dispose(): Promise<void> {
                 return;
             }
 
@@ -687,6 +687,80 @@ describe("base evaluator", () => {
         });
     });
 
+    describe("getIdentifierValueForObject", () => {
+        describe("with no identifier", () => {
+            it("should return null", () => {
+                const e = new CustomEvaluator({});
+                const value = e.getIdentifierValueForObject({}, null);
+                expect(value).toBeNull();
+            });
+        });
+        describe("with null object", () => {
+            it("should return null", async () => {
+                const e = new CustomEvaluator({});
+                const value = e.getIdentifierValueForObject(null, "test");
+                expect(value).toEqual(null);
+            });
+            it("should return default value if specified", async () => {
+                const e = new CustomEvaluator({});
+                const value = e.getIdentifierValueForObject(null, "test", "abc");
+                expect(value).toEqual("abc");
+            });
+            describe("if identifier is array", () => {
+                it("should return null", async () => {
+                    const e = new CustomEvaluator({});
+                    const value = e.getIdentifierValueForObject(null, ["test", "123"]);
+                    expect(value).toEqual(null);
+                });
+                it("should return default value if specified", async () => {
+                    const e = new CustomEvaluator({});
+                    const value = e.getIdentifierValueForObject(null, ["test", "123"], "abc");
+                    expect(value).toEqual("abc");
+                });
+            });
+        });
+        describe("with object", () => {
+            describe("but field missing", () => {
+                it("should return null", async () => {
+                    const e = new CustomEvaluator({});
+                    const value = e.getIdentifierValueForObject({}, "test");
+                    expect(value).toEqual(null);
+                });
+                it("should return defaultValue if set", async () => {
+                    const e = new CustomEvaluator({});
+                    const value = e.getIdentifierValueForObject({}, "test", "abc");
+                    expect(value).toEqual("abc");
+                });
+                describe("if identifier is array", () => {
+                    it("should return joined name with separator", async () => {
+                        const e = new CustomEvaluator({});
+                        const value = e.getIdentifierValueForObject({}, ["test", "123"]);
+                        expect(value).toEqual(null);
+                    });
+                    it("should return default value if set", async () => {
+                        const e = new CustomEvaluator({});
+                        const value = e.getIdentifierValueForObject({}, ["test", "123"], "abc");
+                        expect(value).toEqual("abc");
+                    });
+                });
+            });
+            describe("with field present", () => {
+                it("should return value", async () => {
+                    const e = new CustomEvaluator({});
+                    const value = e.getIdentifierValueForObject({ "test": 123 }, "test");
+                    expect(value).toEqual(123);
+                });
+                describe("with array", () => {
+                    it("should concat values", async () => {
+                        const e = new CustomEvaluator({});
+                        const value = e.getIdentifierValueForObject({ "a": "hello", "b": "world" }, ["a", "b"]);
+                        expect(value).toEqual("hello:world");
+                    });
+                });
+            });
+        });
+    });
+
 });
 
 class CustomEvaluator extends BaseEvaluator {
@@ -714,7 +788,7 @@ class CustomEvaluator extends BaseEvaluator {
         };
     }
 
-    protected async dispose(): Promise<void> {
+    public async dispose(): Promise<void> {
         return;
     }
 

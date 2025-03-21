@@ -103,7 +103,7 @@ export abstract class BaseEvaluator {
 
     protected abstract generateSkippedAppUniqueKey(name: string): IUniqueKey;
 
-    protected abstract dispose(): Promise<void>;
+    public abstract dispose(): Promise<void>;
 
     abstract configureApp(app: IApp): void;
 
@@ -213,6 +213,29 @@ export abstract class BaseEvaluator {
             }
             lookup.set(uniqueId, count);
         });
+    }
+
+    public getIdentifierValueForObject(
+        object: any,
+        identifier: string | string [],
+        defaultValue: string = null): string {
+        let value = null;
+        const isArray = Array.isArray(identifier);
+        const separator = ":";
+        if (object) {
+            if (isArray) {
+                value = identifier
+                    .map(x => object[x])
+                    .filter(x => x)
+                    .join(separator);
+            } else {
+                value = object[identifier];
+            }
+            if (typeof value === "string" && value.trim() === "") {
+                value = null;
+            }
+        }
+        return value ?? defaultValue;
     }
 }
 
