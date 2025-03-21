@@ -9,7 +9,7 @@ import path from "path";
 
 export class ShellEvaluator extends BaseEvaluator {
 
-    protected async dispose(): Promise<void> {
+    public async dispose(): Promise<void> {
         return;
     }
 
@@ -70,7 +70,10 @@ export class ShellEvaluator extends BaseEvaluator {
     private validateParsedResult(parsed: IParsedResult, app: IApp) {
         let identifier = app["variation"]?.join(",") ?? app.name;
         if (parsed.type === "object" && app.identifier) {
-            identifier = parsed.value[app.identifier] ?? identifier;
+            identifier = this.getIdentifierValueForObject(parsed.value, app.identifier);
+            if (!identifier) {
+                throw new Error(`expected to find identifier field in result set named: '${ app.identifier }' (is the identifier correct?)`);
+            }
         }
         const rules = findTriggerRulesFor(identifier, app);
         const variables = { identifier, ...parsed.variables };

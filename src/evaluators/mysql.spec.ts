@@ -6,8 +6,8 @@ const mysqlMock = {
 jest.doMock("mysql2/promise", () => {
     return mysqlMock;
 });
-import { disposeConnections, getConnection, validateResults } from "./mysql";
 import { IApp } from "../models/app";
+import { MySqlEvaluator } from "./mysql";
 
 describe("mysql", () => {
     describe("validateResults", () => {
@@ -34,8 +34,10 @@ describe("mysql", () => {
                         id: "123"
                     } as Result;
 
+                    const evaluator = new MySqlEvaluator({});
+
                     // act
-                    const result = validateResults(app, [row]);
+                    const result = evaluator.validateResults(app, [row]);
 
                     // assert
                     expect(result[0].success).toEqual(true);
@@ -53,10 +55,11 @@ describe("mysql", () => {
                     id: "123",
                     name: "test"
                 };
+                const evaluator = new MySqlEvaluator({});
 
                 // act
                 // @ts-ignore
-                const results = validateResults(app, [row]);
+                const results = evaluator.validateResults(app, [row]);
 
                 // assert
                 expect(results.length).toEqual(1);
@@ -99,10 +102,11 @@ describe("mysql", () => {
                         id: "123",
                         name: "test"
                     };
+                    const evaluator = new MySqlEvaluator({});
 
                     // act
                     // @ts-ignore
-                    const results = validateResults(app as IApp, [row]);
+                    const results = evaluator.validateResults(app as IApp, [row]);
 
                     // assert
                     expect(results.length).toEqual(1);
@@ -133,10 +137,11 @@ describe("mysql", () => {
                         id: "123",
                         name: "test"
                     };
+                    const evaluator = new MySqlEvaluator({});
 
                     // act
                     // @ts-ignore
-                    const results = validateResults(app as IApp, [row]);
+                    const results = evaluator.validateResults(app as IApp, [row]);
 
                     // assert
                     expect(results.length).toEqual(1);
@@ -169,10 +174,11 @@ describe("mysql", () => {
                             name: "test",
                             value: 321
                         };
+                        const evaluator = new MySqlEvaluator({});
 
                         // act
                         // @ts-ignore
-                        const results = validateResults(app as IApp, [row]);
+                        const results = evaluator.validateResults(app as IApp, [row]);
 
                         // assert
                         expect(results.length).toEqual(1);
@@ -193,12 +199,13 @@ describe("mysql", () => {
                     end: jest.fn()
                 };
                 mysqlMock.createConnection.mockResolvedValue(mockConnection);
+                const evaluator = new MySqlEvaluator({});
                 // @ts-ignore
-                const connection = await getConnection({});
+                const connection = await evaluator.getConnection({});
 
                 // act
-                await disposeConnections();
-                await disposeConnections();
+                await evaluator.dispose();
+                await evaluator.dispose();
 
                 // assert
                 expect(connection).toEqual(mockConnection);

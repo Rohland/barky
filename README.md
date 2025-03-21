@@ -313,7 +313,9 @@ sumo:
       | _90p as response_time
       | fields site, response_time, error_rate
       | order by response_time desc, error_rate desc
-    identifier: site # this specifies what field in the result set is the identifier to iterate over
+    # identifier: string | string [] - plucks the values from each result entry as the identifier (should be unique),
+    # if an array of field is specified, these values are concatenated with a : separator
+    identifier: site 
     triggers:
       - match: myslowsite\.(com|net) # special rules for myslowsite.com and myslowsite.net
         rules:
@@ -403,7 +405,9 @@ mysql:
     query: >
       set transaction isolation level read uncommitted;
       select queue, unprocessed, minutes_to_process from some_view;
-    identifier: queue # specifies what field to use to match against the validator and emit as identifier (if field not in result set, is set to value set here)
+    # identifier: string | string [] - plucks the values from each result entry as the identifier (should be unique),
+    # if an array of field is specified, these values are concatenated with a : separator
+    identifier: queue
     emit: [unprocessed, minutes_to_process] # optional, if not set, all fields are emitted in log
     triggers:
       - match: .* # catch all
@@ -455,6 +459,8 @@ shell:
     vary-by: [za,us,gb]
     path: ./my-script.sh # each fanned out vary-by result will have the variation passed as an argument, i.e. ./my-script.sh za
     responseType: json
+    # identifier: string | string [] - plucks the values from each result entry as the identifier (should be unique),
+    # if an array of field is specified, these values are concatenated with a : separator
     identifier: id
     triggers:
       - match: .* # catch all (you can match on the identifier field in the result set, and if missing or not set, the vary-by value will be used here (identifier is pipe delimited if multipart))
