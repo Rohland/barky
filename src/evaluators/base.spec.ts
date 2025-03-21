@@ -696,16 +696,26 @@ describe("base evaluator", () => {
             });
         });
         describe("with null object", () => {
-            it("should return identifier name", async () => {
+            it("should return null", async () => {
                 const e = new CustomEvaluator({});
                 const value = e.getIdentifierValueForObject(null, "test");
                 expect(value).toEqual(null);
+            });
+            it("should return default value if specified", async () => {
+                const e = new CustomEvaluator({});
+                const value = e.getIdentifierValueForObject(null, "test", "abc");
+                expect(value).toEqual("abc");
             });
             describe("if identifier is array", () => {
                 it("should return null", async () => {
                     const e = new CustomEvaluator({});
                     const value = e.getIdentifierValueForObject(null, ["test", "123"]);
                     expect(value).toEqual(null);
+                });
+                it("should return default value if specified", async () => {
+                    const e = new CustomEvaluator({});
+                    const value = e.getIdentifierValueForObject(null, ["test", "123"], "abc");
+                    expect(value).toEqual("abc");
                 });
             });
         });
@@ -716,11 +726,21 @@ describe("base evaluator", () => {
                     const value = e.getIdentifierValueForObject({}, "test");
                     expect(value).toEqual(null);
                 });
+                it("should return defaultValue if set", async () => {
+                    const e = new CustomEvaluator({});
+                    const value = e.getIdentifierValueForObject({}, "test", "abc");
+                    expect(value).toEqual("abc");
+                });
                 describe("if identifier is array", () => {
                     it("should return joined name with separator", async () => {
                         const e = new CustomEvaluator({});
                         const value = e.getIdentifierValueForObject({}, ["test", "123"]);
                         expect(value).toEqual(null);
+                    });
+                    it("should return default value if set", async () => {
+                        const e = new CustomEvaluator({});
+                        const value = e.getIdentifierValueForObject({}, ["test", "123"], "abc");
+                        expect(value).toEqual("abc");
                     });
                 });
             });

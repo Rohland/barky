@@ -50,10 +50,10 @@ export class MySqlEvaluator extends BaseEvaluator {
 
     public validateResults(app: IApp, results: Result[]): Result[] {
         return results.map(row => {
-            const identifier = this.getIdentifierValueForObject(row, app.identifier);
-            if (!identifier) {
-                throw new Error(`expected to find identifier field in result set named: '${ app.identifier }' (is the identifier correct?)`);
-            }
+            const identifier = this.getIdentifierValueForObject(
+                row,
+                app.identifier,
+                app.name);
             const rules = findTriggerRulesFor(identifier, app);
             return this.validateRow(app, identifier, row, rules);
         });

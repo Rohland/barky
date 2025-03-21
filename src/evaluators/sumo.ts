@@ -98,10 +98,10 @@ export class SumoEvaluator extends BaseEvaluator {
     }
 
     public validateEntry(app: IApp, entry: any) {
-        const identifier = this.getIdentifierValueForObject(entry, app.identifier);
-        if (!identifier) {
-            throw new Error(`expected to find identifier field in result set named: '${ app.identifier }' (is the identifier correct?)`);
-        }
+        const identifier = this.getIdentifierValueForObject(
+            entry,
+            app.identifier,
+            app.name);
         this.convertEntryValuesToInferredType(entry);
         const rules = findTriggerRulesFor(identifier, app);
         let failure = false;

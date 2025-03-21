@@ -217,7 +217,8 @@ export abstract class BaseEvaluator {
 
     public getIdentifierValueForObject(
         object: any,
-        identifier: string | string []): string {
+        identifier: string | string [],
+        defaultValue: string = null): string {
         let value = null;
         const isArray = Array.isArray(identifier);
         const separator = ":";
@@ -227,15 +228,14 @@ export abstract class BaseEvaluator {
                     .map(x => object[x])
                     .filter(x => x)
                     .join(separator);
-            }
-            else {
+            } else {
                 value = object[identifier];
             }
-            if (value === "") {
+            if (typeof value === "string" && value.trim() === "") {
                 value = null;
             }
         }
-        return value ?? null;
+        return value ?? defaultValue;
     }
 }
 
