@@ -20,6 +20,8 @@ export interface IWebAlert {
     last_result: string;
     links: { label: string, url: string }[];
     dynamicMutes?: IMuteWindowDb[];
+    mutedBy?: MuteWindow[];
+    muteRules?: MuteWindow[];
 }
 
 export interface IWebState {
@@ -114,7 +116,9 @@ export class WebState {
                     resolvedTime: null,
                     muted: true,
                     last_result: x.last_result,
-                    links: x.alert?.links
+                    links: x.alert?.links,
+                    mutedBy: x.mutedBy,
+                    muteRules: x.muteRules
                 }
             });
         return [

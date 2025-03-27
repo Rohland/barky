@@ -1,5 +1,6 @@
 import { IUniqueKey, uniqueKey } from "../lib/key";
 import { AlertConfiguration } from "./alert_configuration";
+import { MuteWindow } from "./mute-window";
 
 export interface ISnapshot {
     id?: number;
@@ -23,6 +24,8 @@ export class Snapshot implements IUniqueKey {
     public alert_config: any;
     public alert: AlertConfiguration;
     public muted: boolean;
+    public mutedBy: MuteWindow[];
+    public muteRules: MuteWindow[];
 
     constructor(snapshot: ISnapshot) {
         for (const key of Object.keys(snapshot)) {
