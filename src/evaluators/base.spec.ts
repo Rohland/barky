@@ -99,9 +99,9 @@ describe("base evaluator", () => {
                 const apps3 = evaluator.getAppsToEvaluate();
 
                 // assert
-                expect(apps1).toEqual([{ type: "custom", name: "app1", timeout: 10000, variation: null }]);
-                expect(apps2).toEqual([{ type: "custom", name: "app1", timeout: 10000, variation: null }]);
-                expect(apps3).toEqual([{ type: "custom", name: "app1", timeout: 10000, variation: null }]);
+                expect(apps1).toEqual([{ type: "custom", name: "app1", timeout: 10000, variation: [null] }]);
+                expect(apps2).toEqual([{ type: "custom", name: "app1", timeout: 10000, variation: [null] }]);
+                expect(apps3).toEqual([{ type: "custom", name: "app1", timeout: 10000, variation: [null] }]);
                 expect(evaluator.skippedApps).toEqual([]);
             });
         });
@@ -187,10 +187,10 @@ describe("base evaluator", () => {
                         // assert
                         const first = structuredClone(app);
                         // @ts-ignore
-                        first.variation = "a";
+                        first.variation = ["a"];
                         const second = structuredClone(app);
                         // @ts-ignore
-                        second.variation = "b";
+                        second.variation = ["b"];
                         expect(apps1).toMatchObject([first, second]);
                         expect(apps2).toMatchObject([]);
                         expect(apps3).toMatchObject([first, second]);
@@ -597,7 +597,7 @@ describe("base evaluator", () => {
                         name: "codeo.co.za",
                         url: "https://www.codeo.co.za",
                         "vary-by": varyBy,
-                        "variation": null
+                        "variation": [null]
                     }]);
                 });
             });
@@ -617,7 +617,7 @@ describe("base evaluator", () => {
                     expect(result).toMatchObject([{
                         name: "test",
                         url: "https://www.codeo.co.za",
-                        "variation": null
+                        "variation": [null]
                     }]);
                 });
             });
@@ -645,7 +645,7 @@ describe("base evaluator", () => {
                             const expectedResults = expected.map((x, index) => ({
                                 name: x,
                                 "vary-by": varyBy,
-                                "variation": varyBy?.length > 0 ? varyBy[index] : null
+                                "variation": varyBy?.length > 0 ? [varyBy[index]].flat() : [null]
                             }));
                             expect(result).toEqual(expectedResults);
                         });
@@ -677,7 +677,7 @@ describe("base evaluator", () => {
                                 name: "codeo",
                                 url: x,
                                 "vary-by": varyBy,
-                                "variation": varyBy?.length > 0 ? varyBy[index] : null
+                                "variation": varyBy?.length > 0 ? [varyBy[index]].flat() : [null]
                             }));
                             expect(result).toEqual(expectedResults);
                         });
