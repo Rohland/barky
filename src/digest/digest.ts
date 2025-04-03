@@ -216,7 +216,12 @@ export class DigestContext {
     public alertableSnapshots(config: DigestConfiguration): Snapshot[] {
         return this.digestableSnapshots
             .filter(x => {
-                x.muted = config.muteWindows.some(m => m.isMuted(x.uniqueId));
+                const matchingMutes = config.muteWindows.filter(m => m.isMuted(x.uniqueId));
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                x.muted = matchingMutes.length > 0;
+                x.mutedBy = matchingMutes;
+                x.muteRules = config.muteWindows.filter(m => m.isMatchForIdentifier(x.uniqueId) && m.date >= today);
                 return !x.muted
             });
     }

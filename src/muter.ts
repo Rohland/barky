@@ -11,6 +11,9 @@ export class Muter {
     }
 
     public async init(config: IDigestConfig) {
+        if (!config) {
+            return;
+        }
         this._config = config;
         this._config["mute-windows"] ??= [];
         await this.loadDynamicMutes();
@@ -43,15 +46,23 @@ export class Muter {
         });
     }
 
-    public async registerMute(match: string, from: Date, to: Date) {
+    public async registerMute(
+        match: string,
+        from: Date,
+        to: Date) {
         await addMuteWindow({
-            match,
+            match: this.escapeMatch(match),
             from,
             to
         });
     }
 
+    private escapeMatch(match: string) {
+        return match.replace(/\\/g, "\\\\");
+    }
+
     public async unmute(matches: string[]) {
+        matches = matches.map(x => this.escapeMatch(x));
         const windows = await this.getDynamicMutes();
         const toDelete = [];
         windows.forEach(window => {
@@ -60,6 +71,7 @@ export class Muter {
             }
         });
         await deleteMuteWindowsByIds(toDelete);
+        this._config["mute-windows"] = this.muteWindows.filter(m => !matches.includes(m.match));
     }
 
     public static getInstance() {

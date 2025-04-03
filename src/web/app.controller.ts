@@ -15,7 +15,10 @@ export class AppController {
     @Post('api/mute')
     async muteSnapshot(@Body() payload: any) {
         const { match, from, to } = payload;
-        await Muter.getInstance().registerMute(match, new Date(from), new Date(to));
+        await Muter.getInstance().registerMute(
+            match,
+            new Date(from),
+            new Date(to));
         return { success: true, message: 'Muted successfully', payload };
     }
 

@@ -169,18 +169,25 @@
                                :href="link.url" target="_blank">{{ link.label }}</a>
                             <span v-if="index < snapshot.links.length - 1"> | </span>
                         </template>
+                        </span>
+                        <div class="text-xs text-gray-500 font-normal">
+                            Mute end: {{ snapshot.muteDescriptor }}
+                        </div>
                     </td>
                     <td class="p-1 border-b border-gray-50 text-right text-xs">
                         <button v-if="snapshot.dynamicMutes.length > 0" @click="showUnMuteModal(snapshot)"
                                 class="bg-blue-500 text-white px-2 py-2 rounded hover:bg-blue-400 ">📢&nbsp;Unmute
                         </button>
-                        <span v-else
+                        <span v-else-if="snapshot.dynamicMutes.length === 0 && snapshot.mutedBy?.every(x => x.dynamic)"
                               class="relative inline-flex items-center px-3 py-1 text-sm font-semibold text-black bg-green-300 rounded-lg">
                             Unmuting...
                             <span class="absolute -top-1 -right-1 flex h-3 w-3">
                                 <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75"></span>
                                 <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
                             </span>
+                        </span>
+                        <span v-else class="text-xs text-gray-500 font-normal">
+                            Muted by Digest Rule
                         </span>
                     </td>
                 </tr>
@@ -372,6 +379,10 @@
         return value < 10 ? `0${value}` : value;
     }
 
+    function simpleDate(date) {
+        return simpleTime(date).split(" ")[0];
+    }
+
     function simpleTime(date) {
         const dt = typeof date === 'string' ? new Date(date) : date;
         const today = new Date();
@@ -418,6 +429,34 @@
             now.setMinutes(now.getMinutes() + chunkInterval);
         }
         return times.map(x => ({time: x}));
+    }
+
+    function today() {
+        const now = new Date();
+        return `${now.getFullYear()}-${padZero(now.getMonth() + 1)}-${padZero(now.getDate())}`;
+    }
+
+    function getMuteEndDescriptor(mutedBy, muteRules) {
+        if (!mutedBy) {
+            return null;
+        }
+        const todaysMute = mutedBy[0];
+        const isTodayOnly = muteRules.length === 0
+            || (muteRules.length === 1 && muteRules[0].dateString === today());
+        if (isTodayOnly) {
+            const end = todaysMute.endTime;
+            const days = todaysMute.days ?? [];
+            const daysString = days.length > 0 ? `[${ days.join(", ")}]` :""
+            return `${ end.time } ${daysString}`;
+        }
+        const maxDateRule = muteRules.reduce((acc, x) => {
+            if (acc === null) {
+                return x;
+            }
+            return new Date(acc.date) > new Date(x.date) ? acc : x;
+        }, null);
+        const until = simpleDate(maxDateRule.date) + " at " + maxDateRule.endTime.time
+        return `${ until}`;
     }
 
     createApp({
@@ -478,7 +517,12 @@
                                 durationInMinutes: (new Date(x.resolvedTime) - new Date(x.startTime)) / 1000 / 60
                             };
                         }),
-                        muted: result.muted,
+                        muted: result.muted.map(x => {
+                            return {
+                                ...x,
+                                muteDescriptor: getMuteEndDescriptor(x.mutedBy, x.muteRules)
+                            }
+                        }),
                     };
                     data.value = changes;
                 } catch (err) {
@@ -557,6 +601,7 @@
             });
             return {
                 data,
+                getMuteEndDescriptor,
                 muteModal,
                 unMuteModal,
                 timeToRefresh,
@@ -568,7 +613,8 @@
                 showUnMuteModal,
                 humanizeTime,
                 humanizeDuration,
-                simpleTime
+                simpleTime,
+                today
             };
         },
     }).mount('#app');

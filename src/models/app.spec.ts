@@ -16,7 +16,7 @@ describe("AppVariant", () => {
 
                     // assert
                     expect(sut[field]).toEqual("Test1");
-                    expect(sut.variation).toEqual("1");
+                    expect(sut.variation).toEqual(["1"]);
                 });
                 describe("with array", () => {
                     it("should transform name", async () => {
@@ -37,7 +37,7 @@ describe("AppVariant", () => {
 
                         // assert
                         expect(sut[field]).toEqual("Test$1");
-                        expect(sut.variation).toEqual(null);
+                        expect(sut.variation).toEqual([null]);
                     });
                 });
             });

@@ -47,7 +47,7 @@ export class SumoEvaluator extends BaseEvaluator {
         };
     }
 
-    protected async dispose(): Promise<void> {
+    public async dispose(): Promise<void> {
         return;
     }
 
@@ -98,10 +98,10 @@ export class SumoEvaluator extends BaseEvaluator {
     }
 
     public validateEntry(app: IApp, entry: any) {
-        const identifier = entry[app.identifier];
-        if (!identifier) {
-            throw new Error(`expected to find identifier field in result set named: ${ app.identifier }`);
-        }
+        const identifier = this.getIdentifierValueForObject(
+            entry,
+            app.identifier,
+            app.name);
         this.convertEntryValuesToInferredType(entry);
         const rules = findTriggerRulesFor(identifier, app);
         let failure = false;

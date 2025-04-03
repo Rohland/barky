@@ -14,8 +14,12 @@ export class MuteWindow {
     public startTime: Time;
     public endTime: Time;
     public identifierMatcher?: RegExp;
+    public identifierRegex: string;
     public dateString?: string;
+    public date: Date;
     public daysOfWeek: number[];
+    public days: string[];
+    public dynamic: boolean;
 
     constructor(data: any) {
         if (data.time) {
@@ -34,12 +38,16 @@ export class MuteWindow {
             throw new Error("expected mute window to have a time range, or a startTime and endTime");
         }
         if (data.match) {
+            this.identifierRegex = data.match;
             this.identifierMatcher = new RegExp(data.match, "i");
         }
         if (data.date) {
+            this.date = new Date(data.date);
             this.dateString = data.date;
         }
-        this.daysOfWeek = parseDaysOfWeek(data.days ?? []);
+        this.days = data.days ?? [];
+        this.daysOfWeek = parseDaysOfWeek(this.days);
+        this.dynamic = data.dynamic ?? false;
     }
 
     isMuted(identifer: string, date?: Date): boolean {
@@ -71,6 +79,6 @@ export class MuteWindow {
             return true;
         }
         const regex = typeof match === "string" ? new RegExp(match, "i") : match;
-        return regex.test(identifier.replaceAll("|", "::"));
+        return regex.test(identifier);
     }
 }

@@ -21,6 +21,13 @@ describe("Muter", () => {
         return sut;
     }
 
+    describe("with no config", () => {
+        it("should not throw", async () => {
+            const muter = new Muter();
+            await muter.init(null);
+        });
+    });
+
     describe("registerMute", () => {
         it("should register the mute and make it available", async () => {
             const sut = getSut();
@@ -43,5 +50,52 @@ describe("Muter", () => {
             expect(mute2.startTime).toEqual("00:00");
             expect(mute2.endTime).toEqual("19:30");
         });
+        it("should escape backslashes", async () => {
+            const sut = getSut();
+            const end = new Date();
+            end.setMinutes(end.getMinutes() +1);
+            await sut.registerMute("test\\::123\\", new Date(), end);
+            await sut.loadDynamicMutes();
+            expect(sut.muteWindows).toHaveLength(1);
+            const mute = sut.muteWindows[0];
+            expect(mute.match).toEqual("test\\\\::123\\\\");
+            expect(new RegExp(mute.match).test("test\\::123\\")).toBeTruthy();
+        });
+        it("should support forward-slashes", async () => {
+            const sut = getSut();
+            const end = new Date();
+            end.setMinutes(end.getMinutes() +1);
+            await sut.registerMute("test/:123/", new Date(), end);
+            await sut.loadDynamicMutes();
+            expect(sut.muteWindows).toHaveLength(1);
+            const mute = sut.muteWindows[0];
+            expect(mute.match).toEqual("test/:123/");
+            expect(new RegExp(mute.match).test("test/:123/")).toBeTruthy();
+        });
     });
+
+    describe("unmute", () => {
+        it("should remove mute rules", async () => {
+            const sut = getSut();
+            const end = new Date();
+            end.setMinutes(end.getMinutes() +1);
+            await sut.registerMute("test", new Date(), end);
+            await sut.loadDynamicMutes();
+            expect(sut.muteWindows).toHaveLength(1);
+            await sut.unmute(["test"]);
+            await sut.loadDynamicMutes();
+            expect(sut.muteWindows).toHaveLength(0);
+        });
+        it("should escape backslashes", async () => {
+            const sut = getSut();
+            const end = new Date();
+            end.setMinutes(end.getMinutes() +1);
+            await sut.registerMute("test\\", new Date(), end);
+            await sut.loadDynamicMutes();
+            expect(sut.muteWindows).toHaveLength(1);
+            await sut.unmute(["test\\"]);
+            await sut.loadDynamicMutes();
+            expect(sut.muteWindows).toHaveLength(0);
+        });
+    })
 });

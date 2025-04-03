@@ -34,7 +34,7 @@ export class WebEvaluator extends BaseEvaluator {
         };
     }
 
-    protected async dispose(): Promise<void> {
+    public async dispose(): Promise<void> {
         return;
     }
 

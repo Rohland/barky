@@ -25,7 +25,7 @@ export class AppVariant implements IApp {
             }
             this[field] = this.transform(variantInfo, app[field])
         });
-        this["variation"] = variantInfo ?? null;
+        this["variation"] = [variantInfo].flat() ?? null;
     }
 
     private transform(variantInfo: string | string[], field: string) {
