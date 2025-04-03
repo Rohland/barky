@@ -441,7 +441,8 @@
             return null;
         }
         const todaysMute = mutedBy[0];
-        const isTodayOnly = muteRules.length === 0;
+        const isTodayOnly = muteRules.length === 0
+            || (muteRules.length === 1 && muteRules[0].dateString === today());
         if (isTodayOnly) {
             const end = todaysMute.endTime;
             const days = todaysMute.days ?? [];
@@ -454,7 +455,7 @@
             }
             return new Date(acc.date) > new Date(x.date) ? acc : x;
         }, null);
-        const until = simpleDate(maxDateRule.date) + " " + maxDateRule.endTime.time
+        const until = simpleDate(maxDateRule.date) + " at " + maxDateRule.endTime.time
         return `${ until}`;
     }
 
