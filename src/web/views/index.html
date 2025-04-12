@@ -383,10 +383,17 @@
         return simpleTime(date).split(" ")[0];
     }
 
+
     function simpleTime(date) {
         const dt = typeof date === 'string' ? new Date(date) : date;
         const today = new Date();
-        const time = `${dt.getHours()}:${padZero(dt.getMinutes())}:${padZero(dt.getSeconds())}`;
+        let hours = dt.getHours();
+        const minutes = padZero(dt.getMinutes());
+        const seconds = padZero(dt.getSeconds());
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12;
+        hours = hours === 0 ? 12 : hours; // Convert 0 to 12 for 12AM/PM
+        const time = `${hours}:${minutes}:${seconds} ${ampm}`;
         const isToday = dt.getDate() === today.getDate() &&
             dt.getMonth() === today.getMonth() &&
             dt.getFullYear() === today.getFullYear();
