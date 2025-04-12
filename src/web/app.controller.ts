@@ -6,6 +6,7 @@ import { Muter } from "../muter";
 
 @Controller()
 export class AppController {
+
     @Get()
     getHtml(@Res() res: Response) {
         const htmlFilePath = path.resolve(join(__dirname, '/views/index.html'));
