@@ -4,6 +4,7 @@ import { Snapshot } from "../models/snapshot";
 import { ChannelType } from "../models/channels/base";
 import { Muter } from "../muter";
 import { IMuteWindowDb, MuteWindow } from "../models/mute-window";
+import { sortBy } from "../lib/sort";
 
 export interface IWebStateSummary {
     startTime: Date;
@@ -81,9 +82,9 @@ export class WebState {
                     startTime: oldestAlert.startTime
                 }
                 : null,
-            active: active,
-            muted: muted,
-            resolved: resolved
+            active: sortBy(active, "startTime"),
+            muted: sortBy(muted, "startTime"),
+            resolved: sortBy(resolved, "startTime")
         };
     }
 
@@ -94,7 +95,7 @@ export class WebState {
         return oldestAlert;
     }
 
-    private getMuted(resolvedSnapshots: IWebAlert[]) {
+    private getMuted(resolvedSnapshots: IWebAlert[]): IWebAlert[] {
         const mutedSet = new Set();
         let muted = this
             .state
@@ -126,7 +127,7 @@ export class WebState {
             ...resolvedSnapshots.filter(x => x.muted)];
     }
 
-    private getResolved() {
+    private getResolved(): IWebAlert[] {
         const resolvedOrMuted = this.activeAlerts.flatMap(x => x.getResolvedOrMutedSnapshotList(this.activeSnapshots.map(x => x.uniqueId)));
         const resolvedSet = new Set();
         const resolvedSnapshots = resolvedOrMuted.map(x => {
@@ -151,7 +152,7 @@ export class WebState {
         return resolvedSnapshots;
     }
 
-    private getActive() {
+    private getActive(): IWebAlert[] {
         const activeSet = new Set();
         const active = this.activeSnapshots.map(x => {
             if (activeSet.has(x.identifier)) {

@@ -20,9 +20,9 @@
         }
     </style>
 </head>
-<body class="bg-gray-100 p-8 flex justify-center">
+<body class="bg-gray-100 p-4 sm:p-8 flex justify-center">
 
-<div id="app" class="bg-white p-6 rounded-lg shadow-md w-full max-w-8xl">
+<div id="app" class="bg-white p-4 sm:p-6 rounded-lg shadow-md w-full max-w-8xl overflow-auto">
 
     <div v-if="data">
         <div class="flex justify-between items-center mb-4">
@@ -88,7 +88,7 @@
             </tbody>
         </table>
 
-        <div>
+        <div class="">
             <div class="flex justify-between items-center mb-4 pt-10">
                 <h2 class="text-xl font-bold">✅ Resolved {{ data.resolved.length > 0 ? `(${data.resolved.length})` : ''
                     }}
@@ -96,7 +96,7 @@
                 </h2>
             </div>
 
-            <table v-if="data.resolved.length > 0" class="w-full text-left border border-gray-50 text-sm">
+            <table v-if="data.resolved.length > 0" class="min-w-full table-fixed text-left border border-gray-50 text-sm">
                 <thead>
                 <tr class="bg-gray-200">
                     <th class="p-2 border-b border-gray-200 align-top w-1/12">Started</th>
@@ -135,13 +135,13 @@
 
         </div>
 
-        <div>
+        <div class="">
             <div class="flex justify-between items-center mb-4 pt-10">
                 <h2 class="text-xl font-bold">🔇 Muted {{ data.muted.length > 0 ? `(${data.muted.length})` : '' }}
                     <div class="text-xs text-gray-500 font-normal">Alerts that have been muted through mute rules</div>
                 </h2>
             </div>
-            <table v-if="data.muted.length > 0" class="w-full text-left border border-gray-200 text-sm">
+            <table v-if="data.muted.length > 0" class="min-w-full table-fixed text-left border border-gray-50 text-sm">
                 <thead>
                 <tr class="bg-gray-200">
                     <th class="p-2 border-b border-gray-200 align-top w-1/12">Started</th>
@@ -383,10 +383,17 @@
         return simpleTime(date).split(" ")[0];
     }
 
+
     function simpleTime(date) {
         const dt = typeof date === 'string' ? new Date(date) : date;
         const today = new Date();
-        const time = `${dt.getHours()}:${padZero(dt.getMinutes())}:${padZero(dt.getSeconds())}`;
+        let hours = dt.getHours();
+        const minutes = padZero(dt.getMinutes());
+        const seconds = padZero(dt.getSeconds());
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12;
+        hours = hours === 0 ? 12 : hours; // Convert 0 to 12 for 12AM/PM
+        const time = `${hours}:${minutes}:${seconds} ${ampm}`;
         const isToday = dt.getDate() === today.getDate() &&
             dt.getMonth() === today.getMonth() &&
             dt.getFullYear() === today.getFullYear();
