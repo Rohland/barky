@@ -318,6 +318,15 @@ sumo:
     # if the identifier is not configured, the identifier defaults to the name of the monitor, and if multiple rows 
     # are returned, each result is emitted with a unique incrementing suffix (starting from 1)
     identifier: site 
+    # fill - an optional array of entries to fill in the result set to evaluate (if missing from the query); if the
+    # identifier is an array, the identifier values in the fill need to be an array as well, in the same order,
+    # for example: 
+    #  identifier: [site, scheme]
+    #  fill:
+    #    - identifier [somesite.com, https]
+    fill:
+      - identifier: somesite.com
+        response_time: 100
     triggers:
       - match: myslowsite\.(com|net) # special rules for myslowsite.com and myslowsite.net
         rules:
@@ -414,6 +423,15 @@ mysql:
     # if the identifier is not configured, the identifier defaults to the name of the monitor, and if multiple rows 
     # are returned, each result is emitted with a unique incrementing suffix (starting from 1)
     identifier: queue
+    # fill - an optional array of entries to fill in the result set to evaluate (if missing from the query); if the
+    # identifier is an array, the identifier values in the fill need to be an array as well, in the same order,
+    # for example: 
+    #  identifier: [queue, server]
+    #  fill:
+    #    - identifier [important-queue, 10.0.0.1]
+    fill:
+      - identifier: queue
+        minutes_to_process: 100
     emit: [unprocessed, minutes_to_process] # optional, if not set, all fields are emitted in log
     triggers:
       - match: .* # catch all
@@ -446,6 +464,15 @@ shell:
     # if the identifier is not configured, the identifier defaults to the name of the monitor, and if multiple rows 
     # are returned, each result is emitted with a unique incrementing suffix (starting from 1)
     identifier: id
+    # fill - an optional array of entries to fill in the result set to evaluate (if missing from the query); if the
+    # identifier is an array, the identifier values in the fill need to be an array as well, in the same order,
+    # for example: 
+    #  identifier: [id, ip]
+    #  fill:
+    #    - identifier [123, 10.0.0.1]
+    fill:
+      - identifier: 123
+        failed_requests: 0
     triggers:
       - match: .*
         rules:

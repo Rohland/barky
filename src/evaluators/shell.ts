@@ -75,6 +75,7 @@ export class ShellEvaluator extends BaseEvaluator {
         };
         const parsedResults = this.parseResultAndMergeWithVariables(app, result, variables);
         if (parsedResults.length === 1 && parsedResults[0].value === undefined) {
+            super.fillMissing(app, parsedResults);
             return this.processEmptyResult(app);
         }
         return parsedResults.map(x => this.validateParsedResult(x, app));
@@ -87,8 +88,8 @@ export class ShellEvaluator extends BaseEvaluator {
         }
         return [new ShellResult(
             app.name,
-            "*",
-            "missing",
+            "-",
+            0,
             emptyRule.empty,
             app.timeTaken,
             false,

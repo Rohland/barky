@@ -94,6 +94,7 @@ export class SumoEvaluator extends BaseEvaluator {
         const entries = Array.isArray(data)
             ? data
             : data.records?.map(x => x.map);
+        super.fillMissing(app, entries);
         if (entries.length === 0) {
             return this.processEmptyResult(app);
         }
@@ -107,8 +108,8 @@ export class SumoEvaluator extends BaseEvaluator {
         }
         return [new SumoResult(
             app.name,
-            "*",
-            "missing",
+            "-",
+            0,
             emptyRule.empty,
             app.timeTaken,
             false,

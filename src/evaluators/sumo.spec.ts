@@ -105,8 +105,8 @@ describe('sumo ', () => {
                     const result = results[0];
                     expect(result.success).toEqual(false);
                     expect(result.resultMsg).toEqual("testing 123");
-                    expect(result.identifier).toEqual("*");
-                    expect(result.result).toEqual("missing");
+                    expect(result.identifier).toEqual("-");
+                    expect(result.result).toEqual("0");
                 });
             });
             describe("and empty not configured", () => {

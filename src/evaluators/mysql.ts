@@ -49,6 +49,7 @@ export class MySqlEvaluator extends BaseEvaluator {
     }
 
     public validateResults(app: IApp, results: Result[]): Result[] {
+        super.fillMissing(app, results);
         if (results.length === 0) {
             return this.processEmptyResult(app);
         }
@@ -69,8 +70,8 @@ export class MySqlEvaluator extends BaseEvaluator {
         }
         return [new MySqlResult(
             app.name,
-            "*",
-            "missing",
+            "-",
+            0,
             emptyRule.empty,
             app.timeTaken,
             false,

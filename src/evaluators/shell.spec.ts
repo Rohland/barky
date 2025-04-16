@@ -1,7 +1,6 @@
 import { ShellEvaluator } from "./shell";
 import { execShellScript } from "../lib/shell-runner";
 import { MonitorFailureResult, ShellResult } from "../models/result";
-import { MySqlEvaluator } from "./mysql";
 import { IApp } from "../models/app";
 
 jest.mock("../lib/shell-runner");
@@ -556,8 +555,8 @@ describe("shell evaluator", () => {
                     const result = results[0];
                     expect(result.success).toEqual(false);
                     expect(result.resultMsg).toEqual("testing 123");
-                    expect(result.identifier).toEqual("*");
-                    expect(result.result).toEqual("missing");
+                    expect(result.identifier).toEqual("-");
+                    expect(result.result).toEqual("0");
                 });
             });
             describe("and empty not configured", () => {
