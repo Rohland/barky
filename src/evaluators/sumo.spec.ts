@@ -1,4 +1,5 @@
 import { executeSumoRequest, parseMetricResults, SumoEvaluator } from "./sumo";
+import { IApp } from "../models/app";
 
 describe('sumo ', () => {
     describe('executeSumoRequest', () => {
@@ -77,6 +78,50 @@ describe('sumo ', () => {
                 requests.forEach(x => expect(x).toHaveBeenCalledTimes(1));
                 countPerSecond.forEach((value, _) => {
                     expect(value).toBeLessThanOrEqual(5);
+                });
+            });
+        });
+    });
+
+    describe("when trigger has rules", () => {
+        describe("but no results", () => {
+            describe("and empty configured", () => {
+                it("should return ok", async () => {
+                    const app = {
+                        name: "app",
+                        identifier: "id",
+                        triggers: [
+                            {
+                                empty: "testing 123"
+                            },
+                        ]
+                    };
+                    const evaluator = new SumoEvaluator({});
+
+                    // act
+                    // @ts-ignore
+                    const results = evaluator.validateResults(app as IApp, []);
+                    expect(results.length).toEqual(1);
+                    const result = results[0];
+                    expect(result.success).toEqual(false);
+                    expect(result.resultMsg).toEqual("testing 123");
+                    expect(result.identifier).toEqual("*");
+                    expect(result.result).toEqual("missing");
+                });
+            });
+            describe("and empty not configured", () => {
+                it("should return no results", async () => {
+                    const app = {
+                        name: "app",
+                        identifier: "id",
+                        triggers: []
+                    };
+                    const evaluator = new SumoEvaluator({});
+
+                    // act
+                    // @ts-ignore
+                    const results = evaluator.validateResults(app as IApp, []);
+                    expect(results.length).toEqual(0);
                 });
             });
         });

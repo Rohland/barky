@@ -93,8 +93,26 @@ export class SumoEvaluator extends BaseEvaluator {
     validateResults(app: IApp, data: any) {
         const entries = Array.isArray(data)
             ? data
-            : data.records?.map(x => x.map)
+            : data.records?.map(x => x.map);
+        if (entries.length === 0) {
+            return this.processEmptyResult(app);
+        }
         return entries.map(x => this.validateEntry(app, x));
+    }
+
+    private processEmptyResult(app: IApp) {
+        const emptyRule = app.triggers.find(x => typeof x.empty === "string");
+        if (!emptyRule) {
+            return [];
+        }
+        return [new SumoResult(
+            app.name,
+            "*",
+            "missing",
+            emptyRule.empty,
+            app.timeTaken,
+            false,
+            app)];
     }
 
     public validateEntry(app: IApp, entry: any) {

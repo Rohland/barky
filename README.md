@@ -331,6 +331,7 @@ sumo:
             message: "Response time is too high: {{response_time}}s"
           - expression: error_rate > 1
             message: "Error rate is too high: {{error_rate}}%"
+      - empty: "expected at least one result, got none" # only fires if configured
 ```
 
 The trigger.**rule** object has the following additional properties that can be set:
@@ -376,6 +377,7 @@ sumo:
         rules:
           - expression: avg >= 50
             message: "CPU is too high: {{avg}}%"
+      - empty: "expected at least one result, got none" # only fires if configured
 ```
 
 ##### MySQL Configuration
@@ -418,6 +420,7 @@ mysql:
         rules:
           - expression: minutes_to_process >= 10
             message: "Queue is backlogged with {{ unprocessed }} msgs & will take {{ minutes_to_process }} minutes to catch up"
+      - empty: "expected at least one result, got none" # only fires if configured
     alert:
       # see web evaluator for example alert configuration
 ```
@@ -444,11 +447,13 @@ shell:
     # are returned, each result is emitted with a unique incrementing suffix (starting from 1)
     identifier: id
     triggers:
-      - rules:
+      - match: .*
+        rules:
         - expression: "exitCode !== 0"
           message: "Script failed with exit code {{exitCode}}"
         - expression: failed_requests > 0
           message: "Failed requests was {{ failed_requests }}"
+      - empty: "expected at least one result, got none" # only fires if configured
     alert:
       # see web evaluator for example alert configuration
 ```
@@ -476,6 +481,7 @@ shell:
             message: "Script failed with exit code {{exitCode}}"
           - expression: my_field > 0
             message: "Failed requests was {{ failed_requests }}"
+      - empty: "expected at least one result, got none" # only fires if configured
     alert:
       # see web evaluator for example alert configuration
 ```

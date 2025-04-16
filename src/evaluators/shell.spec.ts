@@ -1,6 +1,8 @@
 import { ShellEvaluator } from "./shell";
 import { execShellScript } from "../lib/shell-runner";
 import { MonitorFailureResult, ShellResult } from "../models/result";
+import { MySqlEvaluator } from "./mysql";
+import { IApp } from "../models/app";
 
 jest.mock("../lib/shell-runner");
 
@@ -528,6 +530,50 @@ describe("shell evaluator", () => {
                 expect(result.result).toEqual("FAIL");
                 expect(result.resultMsg).toEqual("test error");
                 expect(result.success).toEqual(false);
+            });
+        });
+    });
+
+    describe("when trigger has rules", () => {
+        describe("but no results", () => {
+            describe("and empty configured", () => {
+                it("should return ok", async () => {
+                    const app = {
+                        name: "app",
+                        identifier: "id",
+                        triggers: [
+                            {
+                                empty: "testing 123"
+                            },
+                        ]
+                    };
+                    const evaluator = new ShellEvaluator({});
+
+                    // act
+                    // @ts-ignore
+                    const results = evaluator.validateShellResult(app as IApp, []);
+                    expect(results.length).toEqual(1);
+                    const result = results[0];
+                    expect(result.success).toEqual(false);
+                    expect(result.resultMsg).toEqual("testing 123");
+                    expect(result.identifier).toEqual("*");
+                    expect(result.result).toEqual("missing");
+                });
+            });
+            describe("and empty not configured", () => {
+                it("should return no results", async () => {
+                    const app = {
+                        name: "app",
+                        identifier: "id",
+                        triggers: []
+                    };
+                    const evaluator = new ShellEvaluator({});
+
+                    // act
+                    // @ts-ignore
+                    const results = evaluator.validateShellResult(app as IApp, []);
+                    expect(results.length).toEqual(0);
+                });
             });
         });
     });

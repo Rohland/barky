@@ -8,6 +8,7 @@ export interface IRule {
 export interface ITrigger {
     match: string;
     rules: IRule[];
+    empty?: string;
 }
 
 export const DefaultTrigger: ITrigger = {
