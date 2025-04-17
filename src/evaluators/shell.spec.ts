@@ -162,7 +162,7 @@ describe("shell evaluator", () => {
                         expect(result).toBeInstanceOf(ShellResult);
                         expect(result.label).toEqual("test");
                         expect(result.identifier).toEqual(shellResponseObj[i].id);
-                        expect(result.result).toEqual(JSON.stringify({ ...shellResponseObj[i], exitCode: 0 }));
+                        expect(result.result).toEqual(JSON.stringify({ ...shellResponseObj[i], id: undefined, exitCode: 0 }));
                         expect(result.success).toEqual(true);
                     });
                 });
@@ -195,7 +195,7 @@ describe("shell evaluator", () => {
                         expect(result).toBeInstanceOf(ShellResult);
                         expect(result.label).toEqual("test");
                         expect(result.identifier).toEqual(shellResponseObj[i].id);
-                        expect(result.result).toEqual(JSON.stringify({ ...shellResponseObj[i], exitCode: 0 }));
+                        expect(result.result).toEqual(JSON.stringify({ ...shellResponseObj[i], id: undefined, exitCode: 0 }));
                         expect(result.success).toEqual(true);
                     });
                 });
@@ -367,13 +367,13 @@ describe("shell evaluator", () => {
                         expect(result).toBeInstanceOf(ShellResult);
                         expect(result.label).toEqual("test");
                         expect(result.identifier).toEqual("my-script");
-                        expect(result.result).toEqual(JSON.stringify({ ...shellResponseObj, exitCode: 0 }));
+                        expect(result.result).toEqual(JSON.stringify({ ...shellResponseObj, id: undefined, exitCode: 0 }));
                     });
                 });
                 describe("but expression generates failure", () => {
                     it("should return failure result", async () => {
                         // arrange
-                        const shellResponseObj = { count: 1 };
+                        const shellResponseObj = { id: 123, count: 1 };
                         const res = {
                             exitCode: 0,
                             stdout: JSON.stringify(shellResponseObj)
@@ -383,11 +383,12 @@ describe("shell evaluator", () => {
                             path: "test.sh",
                             timeout: 1000,
                             responseType: "json",
+                            identifier: "id",
                             triggers: [
                                 {
                                     rules: [
                                         {
-                                            expression: "count <= 1",
+                                            expression: "count <= 1 && id == 123",
                                             message: "{{ count }} was not greater than 1"
                                         }
                                     ]
@@ -406,7 +407,7 @@ describe("shell evaluator", () => {
                         // assert
                         expect(result).toBeInstanceOf(ShellResult);
                         expect(result.label).toEqual("test");
-                        expect(result.identifier).toEqual("test");
+                        expect(result.identifier).toEqual(123);
                         expect(result.result).toEqual('{\"count\":1,\"exitCode\":0}');
                         expect(result.resultMsg).toEqual("1 was not greater than 1");
                         expect(result.success).toEqual(false);
@@ -431,8 +432,8 @@ describe("shell evaluator", () => {
                                         match: "abc",
                                         rules: [
                                             {
-                                                expression: "count <= 1",
-                                                message: "{{ count }} was not greater than 1 for {{ identifier }}"
+                                                expression: "count <= 1 && identifier == 'abc'",
+                                                message: "{{ count }} was not greater than 1 for {{ _context.variation }}"
                                             }
                                         ]
                                     }

@@ -570,6 +570,112 @@ describe("base evaluator", () => {
                 });
             });
         });
+        describe('generateVariablesAndValues', () => {
+            it('should emit all non-identifier fields when app.emit is undefined', () => {
+                const sut = new MyEval({});
+                const row = { identifier: 1, a: 2, b: 3 };
+                const app = {};
+                const { variables, values, emit } = sut.generateVariablesAndValues(row, app);
+
+                expect(variables).toEqual(['identifier', 'a', 'b', '_context']);
+                expect(values).toEqual({
+                    identifier: 1,
+                    a: 2,
+                    b: 3,
+                    _context: {}
+                });
+                expect(emit).toEqual({ a: 2, b: 3 });
+            });
+
+            it('should only emit specified fields when app.emit is provided', () => {
+                const sut = new MyEval({});
+                const row = { id: 1, name: 'foo', age: 30 };
+                const app = { emit: ['name'] };
+                const { variables, values, emit } = sut.generateVariablesAndValues(row, app);
+
+                expect(variables).toEqual(['id', 'name', 'age', '_context']);
+                expect(values).toEqual({
+                    id: 1,
+                    name: 'foo',
+                    age: 30,
+                    _context: { emit: ['name'] }
+                });
+                expect(emit).toEqual({ name: 'foo' });
+            });
+
+            it('should use custom identifier key (string) and exclude it from emit', () => {
+                const sut = new MyEval({});
+                const row = { id: 10, a: 20, b: 30 };
+                const app = { identifier: 'id' };
+                const { variables, values, emit } = sut.generateVariablesAndValues(row, app);
+
+                expect(variables).toEqual(['id', 'a', 'b', '_context']);
+                expect(values).toEqual({
+                    id: 10,
+                    a: 20,
+                    b: 30,
+                    _context: { identifier: 'id' }
+                });
+                expect(emit).toEqual({ a: 20, b: 30 });
+            });
+
+            it('should use multiple identifier keys (array) and exclude them from emit', () => {
+                const sut = new MyEval({});
+                const row = { id: 5, uid: 999, x: 1, y: 2 };
+                const app = { identifier: ['id', 'uid'] };
+                const { variables, values, emit } = sut.generateVariablesAndValues(row, app);
+
+                expect(variables).toEqual(['id', 'uid', 'x', 'y', '_context']);
+                expect(values).toEqual({
+                    id: 5,
+                    uid: 999,
+                    x: 1,
+                    y: 2,
+                    _context: { identifier: ['id', 'uid'] }
+                });
+                expect(emit).toEqual({ x: 1, y: 2 });
+            });
+
+            it('should include identifier if included in app.emit list', () => {
+                const sut = new MyEval({});
+                const row = { identifier: 'abc', foo: 'bar' };
+                const app = { emit: ['identifier', 'foo'] };
+                const { variables, values, emit } = sut.generateVariablesAndValues(row, app);
+
+                expect(variables).toEqual(['identifier', 'foo', '_context']);
+                expect(values).toEqual({
+                    identifier: 'abc',
+                    foo: 'bar',
+                    _context: { emit: ['identifier', 'foo'] }
+                });
+                expect(emit).toEqual({ foo: 'bar', identifier: 'abc' });
+            });
+
+            it('should include only non-private app properties in _context', () => {
+                const sut = new MyEval({});
+                const row = { a: 1 };
+                const app = { foo: 'bar', _secret: 'shh' };
+                const { variables, values, emit } = sut.generateVariablesAndValues(row, app);
+
+                expect(variables).toEqual(['a', '_context']);
+                expect(values).toEqual({
+                    a: 1,
+                    _context: { foo: 'bar' }
+                });
+                expect(emit).toEqual({ a: 1 });
+            });
+
+            it('should handle an empty row object', () => {
+                const sut = new MyEval({});
+                const row: any = {};
+                const app = {};
+                const { variables, values, emit } = sut.generateVariablesAndValues(row, app);
+
+                expect(variables).toEqual(['_context']);
+                expect(values).toEqual({ _context: {} });
+                expect(emit).toEqual({});
+            });
+        });
     });
 
     describe("fillMissing", () => {
