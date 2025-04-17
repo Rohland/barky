@@ -318,6 +318,15 @@ sumo:
     # if the identifier is not configured, the identifier defaults to the name of the monitor, and if multiple rows 
     # are returned, each result is emitted with a unique incrementing suffix (starting from 1)
     identifier: site 
+    # fill - an optional array of entries to fill in the result set to evaluate (if missing from the query); if the
+    # identifier is an array, the identifier values in the fill need to be an array as well, in the same order,
+    # for example: 
+    #  identifier: [site, scheme]
+    #  fill:
+    #    - identifier [somesite.com, https]
+    fill:
+      - identifier: somesite.com
+        response_time: 100
     triggers:
       - match: myslowsite\.(com|net) # special rules for myslowsite.com and myslowsite.net
         rules:
@@ -331,6 +340,7 @@ sumo:
             message: "Response time is too high: {{response_time}}s"
           - expression: error_rate > 1
             message: "Error rate is too high: {{error_rate}}%"
+      - empty: "expected at least one result, got none" # only fires if configured
 ```
 
 The trigger.**rule** object has the following additional properties that can be set:
@@ -376,6 +386,7 @@ sumo:
         rules:
           - expression: avg >= 50
             message: "CPU is too high: {{avg}}%"
+      - empty: "expected at least one result, got none" # only fires if configured
 ```
 
 ##### MySQL Configuration
@@ -412,12 +423,22 @@ mysql:
     # if the identifier is not configured, the identifier defaults to the name of the monitor, and if multiple rows 
     # are returned, each result is emitted with a unique incrementing suffix (starting from 1)
     identifier: queue
+    # fill - an optional array of entries to fill in the result set to evaluate (if missing from the query); if the
+    # identifier is an array, the identifier values in the fill need to be an array as well, in the same order,
+    # for example: 
+    #  identifier: [queue, server]
+    #  fill:
+    #    - identifier [important-queue, 10.0.0.1]
+    fill:
+      - identifier: queue
+        minutes_to_process: 100
     emit: [unprocessed, minutes_to_process] # optional, if not set, all fields are emitted in log
     triggers:
       - match: .* # catch all
         rules:
           - expression: minutes_to_process >= 10
             message: "Queue is backlogged with {{ unprocessed }} msgs & will take {{ minutes_to_process }} minutes to catch up"
+      - empty: "expected at least one result, got none" # only fires if configured
     alert:
       # see web evaluator for example alert configuration
 ```
@@ -443,12 +464,23 @@ shell:
     # if the identifier is not configured, the identifier defaults to the name of the monitor, and if multiple rows 
     # are returned, each result is emitted with a unique incrementing suffix (starting from 1)
     identifier: id
+    # fill - an optional array of entries to fill in the result set to evaluate (if missing from the query); if the
+    # identifier is an array, the identifier values in the fill need to be an array as well, in the same order,
+    # for example: 
+    #  identifier: [id, ip]
+    #  fill:
+    #    - identifier [123, 10.0.0.1]
+    fill:
+      - identifier: 123
+        failed_requests: 0
     triggers:
-      - rules:
+      - match: .*
+        rules:
         - expression: "exitCode !== 0"
           message: "Script failed with exit code {{exitCode}}"
         - expression: failed_requests > 0
           message: "Failed requests was {{ failed_requests }}"
+      - empty: "expected at least one result, got none" # only fires if configured
     alert:
       # see web evaluator for example alert configuration
 ```
@@ -476,6 +508,7 @@ shell:
             message: "Script failed with exit code {{exitCode}}"
           - expression: my_field > 0
             message: "Failed requests was {{ failed_requests }}"
+      - empty: "expected at least one result, got none" # only fires if configured
     alert:
       # see web evaluator for example alert configuration
 ```

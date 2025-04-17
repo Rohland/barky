@@ -32,7 +32,17 @@ export class ShellEvaluator extends BaseEvaluator {
                 scriptPath,
                 app.timeout,
                 app.variation);
-            return this.validateShellResult(app, result);
+            const results = this.validateShellResult(app, result);
+            return results.length > 0
+                ? results
+                : new ShellResult(
+                    app.name,
+                    "*",
+                    "inferred",
+                    "OK",
+                    0,
+                    true,
+                    app);
         } catch (err) {
             const errorInfo = new Error(err.message);
             errorInfo.stack = err.stack;
@@ -64,7 +74,26 @@ export class ShellEvaluator extends BaseEvaluator {
             exitCode: result.exitCode,
         };
         const parsedResults = this.parseResultAndMergeWithVariables(app, result, variables);
+        if (parsedResults.length === 1 && parsedResults[0].value === undefined) {
+            super.fillMissing(app, parsedResults);
+            return this.processEmptyResult(app);
+        }
         return parsedResults.map(x => this.validateParsedResult(x, app));
+    }
+
+    private processEmptyResult(app: IApp) {
+        const emptyRule = app.triggers.find(x => typeof x.empty === "string");
+        if (!emptyRule) {
+            return [];
+        }
+        return [new ShellResult(
+            app.name,
+            "-",
+            0,
+            emptyRule.empty,
+            app.timeTaken,
+            false,
+            app)];
     }
 
     private validateParsedResult(parsed: IParsedResult, app: IApp) {

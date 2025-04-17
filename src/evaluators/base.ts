@@ -45,7 +45,7 @@ export abstract class BaseEvaluator {
                     appResults.find(result => this.isResultForApp(app, result))
                     || results.skippedApps.find(x => x.name === app.name);
                 if (!hasResultOrWasSkipped) {
-                    log(`No result found for app ${ app.name }`);
+                    log(`No result found for app ${app.name}`);
                     results.skippedApps.push({
                         ...app,
                         ...this.generateSkippedAppUniqueKey(app.name)
@@ -80,7 +80,7 @@ export abstract class BaseEvaluator {
                         status: err?.response?.status,
                         data: err?.response.data
                     };
-                    log(`error executing ${ app.type } evaluator for '${ app.name }': ${ err.message }`, errorInfo);
+                    log(`error executing ${app.type} evaluator for '${app.name}': ${err.message}`, errorInfo);
                 } catch {
                     // no-op
                 }
@@ -134,7 +134,7 @@ export abstract class BaseEvaluator {
             });
         }
         const expanded = flatten(apps);
-        log(`found ${ expanded.length } ${ this.type } checks to evaluate`);
+        log(`found ${expanded.length} ${this.type} checks to evaluate`);
         return expanded;
     }
 
@@ -144,12 +144,12 @@ export abstract class BaseEvaluator {
         }
         const durationMs = parsePeriodToSeconds(app.every) * 1000;
         const everyCount = Math.round(durationMs / LoopMs);
-        const key = `${ this.type }-${ app.name }${ app.variation ? `-${ app.variation }` : "" }`;
+        const key = `${this.type}-${app.name}${app.variation ? `-${app.variation}` : ""}`;
         const count = executionCounter.get(key) ?? 0;
         const shouldEvaluate = count % everyCount === 0;
         executionCounter.set(key, count + 1);
         if (!shouldEvaluate) {
-            log(`skipping ${ this.type } check for '${ app.name }' - every set to: ${ app.every }`);
+            log(`skipping ${this.type} check for '${app.name}' - every set to: ${app.every}`);
             this.tryAddSkippedApp(app);
             this.tryAddSkippedMonitor(app); // since we don't run, indicate monitor failure also skipped
         }
@@ -209,7 +209,7 @@ export abstract class BaseEvaluator {
             const uniqueId = result.uniqueId;
             if (lookup.has(uniqueId)) {
                 count = lookup.get(uniqueId) + 1;
-                result.identifier = `${ result.identifier }-${ count }`;
+                result.identifier = `${result.identifier}-${count}`;
             }
             lookup.set(uniqueId, count);
         });
@@ -236,6 +236,32 @@ export abstract class BaseEvaluator {
             }
         }
         return value ?? defaultValue;
+    }
+
+    fillMissing(app: IApp, entries: any[]) {
+        if (!app.fill || !Array.isArray(app.fill)) {
+            return;
+        }
+        const identifiers = [app.identifier].flat();
+        app.fill.forEach(x => {
+            const filledEntry = {};
+            const identifierValues = [x["identifier"]].flat();
+            identifiers.forEach((id, index) => filledEntry[id] = identifierValues[index]);
+            const foundRow = entries.find(row => {
+                const values = identifiers.map(x => row[x]);
+                const filled = identifiers.map(x => filledEntry[x]);
+                const isEqual = values.every((v, i) => v === filled[i]);
+                return isEqual;
+            });
+            if (foundRow){
+                return;
+            }
+            const others = Object.keys(x).filter(key => key !== "identifier");
+            others.forEach(key => {
+                filledEntry[key] = x[key];
+            });
+            entries.push(filledEntry);
+        });
     }
 }
 

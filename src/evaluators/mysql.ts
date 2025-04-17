@@ -39,7 +39,7 @@ export class MySqlEvaluator extends BaseEvaluator {
                     true,
                     app);
         } catch (err) {
-            log(`Error evaluating app ${ app.name }: ${ err.message }`, err);
+            log(`Error evaluating app ${app.name}: ${err.message}`, err);
             return new MonitorFailureResult(
                 "mysql",
                 app.name,
@@ -49,6 +49,10 @@ export class MySqlEvaluator extends BaseEvaluator {
     }
 
     public validateResults(app: IApp, results: Result[]): Result[] {
+        super.fillMissing(app, results);
+        if (results.length === 0) {
+            return this.processEmptyResult(app);
+        }
         return results.map(row => {
             const identifier = this.getIdentifierValueForObject(
                 row,
@@ -57,6 +61,21 @@ export class MySqlEvaluator extends BaseEvaluator {
             const rules = findTriggerRulesFor(identifier, app);
             return this.validateRow(app, identifier, row, rules);
         });
+    }
+
+    private processEmptyResult(app: IApp) {
+        const emptyRule = app.triggers.find(x => typeof x.empty === "string");
+        if (!emptyRule) {
+            return [];
+        }
+        return [new MySqlResult(
+            app.name,
+            "-",
+            0,
+            emptyRule.empty,
+            app.timeTaken,
+            false,
+            app)];
     }
 
     private generateVariablesAndValues(row: any, app: IApp) {
@@ -78,15 +97,15 @@ export class MySqlEvaluator extends BaseEvaluator {
         row: object,
         rules: IRule[]): MySqlResult {
         if (!rules || rules.length === 0) {
-            throw new Error(`trigger for app '${ app.name }' has no rules`);
+            throw new Error(`trigger for app '${app.name}' has no rules`);
         }
         this.convertRowValuesToInferredType(row);
         let failure = false;
         const { variables, values } = this.generateVariablesAndValues(row, app);
         const msgs = [];
         rules.find(rule => {
-            const variableDefinitions = variables.map(x => `const ${ x } = ${ generateValueForVariable(row[x]) }`).join(";");
-            const expression = `;${ rule.expression }`;
+            const variableDefinitions = variables.map(x => `const ${x} = ${generateValueForVariable(row[x])}`).join(";");
+            const expression = `;${rule.expression}`;
             const fail = eval(variableDefinitions + expression);
             failure ||= fail;
             if (fail) {
@@ -94,7 +113,7 @@ export class MySqlEvaluator extends BaseEvaluator {
             }
         });
         return new MySqlResult(
-            `${ app.name }`,
+            `${app.name}`,
             identifier,
             values,
             msgs,
@@ -139,7 +158,7 @@ export class MySqlEvaluator extends BaseEvaluator {
         app: IApp) {
         const timeout = app.timeout ?? 15000;
         const timeoutSeconds = Math.round(timeout / 1000);
-        const query = `set innodb_lock_wait_timeout=${ timeoutSeconds }; ${ app.query }`;
+        const query = `set innodb_lock_wait_timeout=${timeoutSeconds}; ${app.query}`;
         const results = await connection.query({
             sql: query,
             timeout: app.timeout ?? 15000,
@@ -154,7 +173,7 @@ export class MySqlEvaluator extends BaseEvaluator {
     }
 
     configureSSLForConnection(app: IApp, config: any) {
-        const sslDisabledValue = getEnvVarAsBoolean(`mysql-${ app.connection }-ssl-disabled`);
+        const sslDisabledValue = getEnvVarAsBoolean(`mysql-${app.connection}-ssl-disabled`);
         if (!sslDisabledValue) {
             return;
         }
@@ -164,11 +183,11 @@ export class MySqlEvaluator extends BaseEvaluator {
 
     async getConnection(app: IApp): Promise<mysql.Connection> {
         const config = {
-            host: getEnvVar(`mysql-${ app.connection }-host`),
-            user: getEnvVar(`mysql-${ app.connection }-user`),
-            password: getEnvVar(`mysql-${ app.connection }-password`),
-            port: getEnvVar(`mysql-${ app.connection }-port`),
-            database: getEnvVar(`mysql-${ app.connection }-database`),
+            host: getEnvVar(`mysql-${app.connection}-host`),
+            user: getEnvVar(`mysql-${app.connection}-user`),
+            password: getEnvVar(`mysql-${app.connection}-password`),
+            port: getEnvVar(`mysql-${app.connection}-port`),
+            database: getEnvVar(`mysql-${app.connection}-database`),
             timezone: 'Z',
             multipleStatements: true
         };

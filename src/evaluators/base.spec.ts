@@ -237,8 +237,8 @@ describe("base evaluator", () => {
                     }
                     expect(results[10]).toMatchObject([app])
                     expect(evaluator.skippedApps.length).toEqual(2);
-                    expect(evaluator.skippedApps.filter(x => x.type ==="custom" && x.label === "app1" && x.identifier === "*").length).toEqual(1);
-                    expect(evaluator.skippedApps.filter(x => x.type ==="custom" && x.label === "monitor" && x.identifier === "app1").length).toEqual(1);
+                    expect(evaluator.skippedApps.filter(x => x.type === "custom" && x.label === "app1" && x.identifier === "*").length).toEqual(1);
+                    expect(evaluator.skippedApps.filter(x => x.type === "custom" && x.label === "monitor" && x.identifier === "app1").length).toEqual(1);
                 });
             });
         });
@@ -347,7 +347,7 @@ describe("base evaluator", () => {
                 ["2023-01-01T00:00:00.000Z", "Africa/Johannesburg", "Mon", "01:30-02:30", false],
                 ["2023-01-01T00:00:00.000Z", "Africa/Johannesburg", "Sun", "02:30-03:30", false],
             ])(`when date is %s, timezone is %s, day is %s and time is %s`, (date, timezone, day, time, expected) => {
-                it(`should return ${ expected ? "rule" : "default rules" }`, async () => {
+                it(`should return ${expected ? "rule" : "default rules"}`, async () => {
                     // arrange
                     initLocaleAndTimezone({
                         timezone,
@@ -572,6 +572,99 @@ describe("base evaluator", () => {
         });
     });
 
+    describe("fillMissing", () => {
+        describe("with no fill", () => {
+            it("should be a no-op", async () => {
+                const app = {
+                    name: "codeo.co.za",
+                };
+                const e = new CustomEvaluator({});
+                const entries = [];
+                e.fillMissing(app, entries);
+                expect(entries.length).toEqual(0);
+            });
+        });
+        describe("with fill but row has value", () => {
+            it("should do nothing", async () => {
+                const app = {
+                    name: "codeo.co.za",
+                    identifier: "server",
+                    fill: [
+                        {
+                            identifier: "server-a",
+                            value: "123"
+                        }
+                    ]
+                };
+                const e = new CustomEvaluator({});
+                const entries = [{ "server": "server-a", value: "0" }];
+                e.fillMissing(app, entries);
+                expect(entries.length).toEqual(1);
+                expect(entries[0].value).toEqual("0");
+            });
+            describe("with array identifier", () => {
+                it("still does nothing", async () => {
+                    const app = {
+                        name: "codeo.co.za",
+                        identifier: ["server", "host"],
+                        fill: [
+                            {
+                                identifier: ["server-a", "host-a"],
+                                value: "123"
+                            }
+                        ]
+                    };
+                    const e = new CustomEvaluator({});
+                    const entries = [{ "server": "server-a", "host": "host-a", value: "0" }];
+                    e.fillMissing(app, entries);
+                    expect(entries.length).toEqual(1);
+                    expect(entries[0].value).toEqual("0");
+                });
+            });
+        });
+        describe("with fill and row not found", () => {
+            it("should add the missing row", async () => {
+                const app = {
+                    name: "codeo.co.za",
+                    identifier: "server",
+                    fill: [
+                        {
+                            identifier: "server-a",
+                            value: "123"
+                        }
+                    ]
+                };
+                const e = new CustomEvaluator({});
+                const entries = [{ "server": "server-b", value: "0" }];
+                e.fillMissing(app, entries);
+                expect(entries.length).toEqual(2);
+                expect(entries[1].server).toEqual("server-a");
+                expect(entries[1].value).toEqual("123");
+            });
+            describe("and with array", () => {
+                it("should add the missing row", async () => {
+                    const app = {
+                        name: "codeo.co.za",
+                        identifier: ["server", "host"],
+                        fill: [
+                            {
+                                identifier: ["server-a", "host-a"],
+                                value: "123"
+                            }
+                        ]
+                    };
+                    const e = new CustomEvaluator({});
+                    const entries = [{ "server": "server-b", "host": "host-b", value: "0" }];
+                    e.fillMissing(app, entries);
+                    expect(entries.length).toEqual(2);
+                    expect(entries[1].server).toEqual("server-a");
+                    expect(entries[1].host).toEqual("host-a");
+                    expect(entries[1].value).toEqual("123");
+                });
+            });
+        });
+    });
+
     describe("getVariations", () => {
         describe("with no vary-by", () => {
             describe.each([
@@ -659,7 +752,7 @@ describe("base evaluator", () => {
                         [["a"], "www.codeo.co.za/$1", ["www.codeo.co.za/a"]],
                         [["a", "b"], "www.codeo.co.za/$1", ["www.codeo.co.za/a", "www.codeo.co.za/b"]],
                         [["a", "b"], "www.codeo.co.za/$1/$2", ["www.codeo.co.za/a/$2", "www.codeo.co.za/b/$2"]],
-                        [[["a",1], ["b",2]], "www.codeo.co.za/$1/$2", ["www.codeo.co.za/a/1", "www.codeo.co.za/b/2"]],
+                        [[["a", 1], ["b", 2]], "www.codeo.co.za/$1/$2", ["www.codeo.co.za/a/1", "www.codeo.co.za/b/2"]],
                     ])(`when given %s`, (varyBy, url, expected) => {
                         it("should return expected", async () => {
                             const app = {
@@ -673,7 +766,7 @@ describe("base evaluator", () => {
                             const result = e.getAppVariations(app);
 
                             // assert
-                            const expectedResults = expected.map((x,index) => ({
+                            const expectedResults = expected.map((x, index) => ({
                                 name: "codeo",
                                 url: x,
                                 "vary-by": varyBy,
