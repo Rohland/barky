@@ -12,8 +12,8 @@ import { RateLimiter } from "../lib/rate-limiter";
 import { getEnvVar } from "../lib/env";
 
 const SumoDomain = getEnvVar("sumo-domain") ?? "api.eu.sumologic.com";
-const SumoLogsUrl = `https://${ SumoDomain }/api/v1/search/jobs`;
-const SumoMetricsUrl = `https://${ SumoDomain }/api/v1/metrics/results`;
+const SumoLogsUrl = `https://${SumoDomain}/api/v1/search/jobs`;
+const SumoMetricsUrl = `https://${SumoDomain}/api/v1/metrics/results`;
 
 const JobPollMillis = 1000;
 // sumo logic queries tend to be quite slow (upwards of 2-3s+), so no point in polling every second right from the outset
@@ -58,7 +58,7 @@ export class SumoEvaluator extends BaseEvaluator {
     async tryEvaluate(app: IApp) {
         try {
             const timer = startClock();
-            app.job = await this.startSearch(app);
+            app._job = await this.startSearch(app);
             await this.isJobComplete(app);
             const results = await this.getSearchResult(app);
             const timeTaken = stopClock(timer);
@@ -81,7 +81,7 @@ export class SumoEvaluator extends BaseEvaluator {
                 status: err?.response?.status,
                 data: err?.response?.data
             };
-            log(`error executing sumo evaluator for '${ app.name }': ${ err.message }`, errorInfo);
+            log(`error executing sumo evaluator for '${app.name}': ${err.message}`, errorInfo);
             return new MonitorFailureResult(
                 "sumo",
                 app.name,
@@ -124,25 +124,20 @@ export class SumoEvaluator extends BaseEvaluator {
         this.convertEntryValuesToInferredType(entry);
         const rules = findTriggerRulesFor(identifier, app);
         let failure = false;
-        const variables = Object.keys(entry).filter(x => x !== app.identifier);
-        const values = {};
-        variables.forEach(x => values[x] = entry[x]);
+        const { variables, values, emit } = this.generateVariablesAndValues(entry, app);
         const msgs = [];
         rules.forEach(rule => {
-            const variableDefinitions = this.generateVariableJsDefinitions(variables, entry);
-            const expression = `;${ rule.expression }`;
+            const variableDefinitions = this.generateVariableJsDefinitions(variables, values);
+            const expression = `;${rule.expression}`;
             const script = variableDefinitions + expression;
             const fail = eval(script);
             failure ||= fail;
             if (fail) {
-                msgs.push(renderTemplate(rule.message, entry));
+                msgs.push(renderTemplate(rule.message, values));
             }
         });
-        const emit = Array.isArray(app.emit)
-            ? app.emit.reduce((acc, x) => { acc[x] = values[x]; return acc; }, {})
-            : values;
         return new SumoResult(
-            `${ app.name }`,
+            `${app.name}`,
             identifier,
             emit,
             msgs,
@@ -157,7 +152,7 @@ export class SumoEvaluator extends BaseEvaluator {
         const vars = variables.map(key => {
             const varValue = generateValueForVariable(entry[key]);
             usedKeys.add(key);
-            return `let ${ key } = ${ varValue };`;
+            return `let ${key} = ${varValue};`;
         });
         variables.forEach(key => {
             const loweredKey = key.toLowerCase();
@@ -166,7 +161,7 @@ export class SumoEvaluator extends BaseEvaluator {
             }
             usedKeys.add(loweredKey);
             const value = generateValueForVariable(entry[key]);
-            vars.push(`let ${ loweredKey } = ${ value };`);
+            vars.push(`let ${loweredKey} = ${value};`);
         });
         const variableString = vars.join("\n");
         return variableString;
@@ -192,7 +187,7 @@ export class SumoEvaluator extends BaseEvaluator {
         if (this.isMetricsMode(app)) {
             return this.startMetricSearch(app);
         }
-        throw new Error(`unsupported sumo mode: ${ app.mode }`);
+        throw new Error(`unsupported sumo mode: ${app.mode}`);
     }
 
     async startLogSearch(app: IApp) {
@@ -208,7 +203,7 @@ export class SumoEvaluator extends BaseEvaluator {
             search,
             getRequestConfig(app.token))
         );
-        log(`started sumo job search for '${ app.name }'`, result.data);
+        log(`started sumo job search for '${app.name}'`, result.data);
         return result.data.id;
     }
 
@@ -228,12 +223,12 @@ export class SumoEvaluator extends BaseEvaluator {
             search,
             getRequestConfig(app.token))
         );
-        log(`started sumo metric search for '${ app.name }'`, result.data);
+        log(`started sumo metric search for '${app.name}'`, result.data);
         const response = result.data?.response;
         if (!response || response.length === 0) {
-            throw new Error(`unsupported sumo metric response for ${app.name}, response: ${ JSON.stringify(result.data) }`);
+            throw new Error(`unsupported sumo metric response for ${app.name}, response: ${JSON.stringify(result.data)}`);
         }
-        log(`raw metrics result: ${ JSON.stringify(result.data) }`);
+        log(`raw metrics result: ${JSON.stringify(result.data)}`);
         return parseMetricResults(response[0].results);
     }
 
@@ -246,7 +241,7 @@ export class SumoEvaluator extends BaseEvaluator {
         await sleepMs(JobInitialPollMillis);
         while (+new Date() - startTime < app.timeout) {
             try {
-                const status = await executeSumoRequest(app.token, () => axios.get(`${ SumoLogsUrl }/${ app.job }`, getRequestConfig(app.token)));
+                const status = await executeSumoRequest(app.token, () => axios.get(`${SumoLogsUrl}/${app._job}`, getRequestConfig(app.token)));
                 if (status.data.state.match(/done gathering results/i)) {
                     return status.data;
                 }
@@ -263,27 +258,27 @@ export class SumoEvaluator extends BaseEvaluator {
         try {
             await this.deleteJob(app);
         } finally {
-            throw new Error(`timed out after ${ timedOutAfter }ms`);
+            throw new Error(`timed out after ${timedOutAfter}ms`);
         }
     }
 
     async getSearchResult(app: IApp) {
         if (this.isMetricsMode(app)) {
-            return app.job;
+            return app._job;
         }
         try {
-            const result = await executeSumoRequest(app.token, () => axios.get(`${ SumoLogsUrl }/${ app.job }/records?offset=0&limit=100`, getRequestConfig(app.token)));
-            log(`successfully completed sumo job search for '${ app.name }', result:`, result.data);
+            const result = await executeSumoRequest(app.token, () => axios.get(`${SumoLogsUrl}/${app._job}/records?offset=0&limit=100`, getRequestConfig(app.token)));
+            log(`successfully completed sumo job search for '${app.name}', result:`, result.data);
             return result.data;
         } catch (err) {
-            log(`failed to complete sumo job search for '${ app.name }', result:`, err.response?.data);
+            log(`failed to complete sumo job search for '${app.name}', result:`, err.response?.data);
             throw err;
         }
     }
 
     async deleteJob(app: IApp) {
         try {
-            await executeSumoRequest(app.token, () => axios.delete(`${ SumoLogsUrl }/${ app.job }`, getRequestConfig(app.token)));
+            await executeSumoRequest(app.token, () => axios.delete(`${SumoLogsUrl}/${app._job}`, getRequestConfig(app.token)));
         } catch (error) {
             log("error: could not delete job", { app, error });
             // no-op
@@ -301,14 +296,14 @@ export class SumoEvaluator extends BaseEvaluator {
 
 function getRequestConfig(tokenName: string): AxiosRequestConfig {
     if (!getEnvVar(tokenName)) {
-        throw new Error(`missing sumo logic env var with name '${ tokenName }'`);
+        throw new Error(`missing sumo logic env var with name '${tokenName}'`);
     }
     return {
         timeout: 10000,
         headers: {
             "Content-Type": "application/json",
             Accept: "application/json",
-            Authorization: `Basic ${ Buffer.from(getEnvVar(tokenName)).toString('base64') }`
+            Authorization: `Basic ${Buffer.from(getEnvVar(tokenName)).toString('base64')}`
         }
     };
 }

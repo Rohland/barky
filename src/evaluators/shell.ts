@@ -51,7 +51,7 @@ export class ShellEvaluator extends BaseEvaluator {
                 status: err?.response?.status,
                 data: err?.response?.data
             };
-            log(`error executing shell evaluator for '${ app.name }': ${ err.message }`, errorInfo);
+            log(`error executing shell evaluator for '${app.name}': ${err.message}`, errorInfo);
             return new MonitorFailureResult(
                 "shell",
                 app.name,
@@ -105,25 +105,27 @@ export class ShellEvaluator extends BaseEvaluator {
                 identifier);
         }
         const rules = findTriggerRulesFor(identifier, app);
-        const variables = { identifier, ...parsed.variables };
+        const row = parsed.type === "object"
+            ? { ...(parsed.value as object), exitCode: parsed.variables.exitCode }
+            : { ...parsed.variables };
+        const { variables, values, emit } = this.generateVariablesAndValues(
+            row,
+            app);
         let failure = false;
         const msgs = [];
         rules.find(rule => {
-            const variableDefinitions = Object.keys(variables).map(x => `const ${ x } = ${ generateValueForVariable(variables[x]) }`).join(";");
-            const expression = `;${ rule.expression }`;
+            const variableDefinitions = variables.map(x => `const ${x} = ${generateValueForVariable(values[x])}`).join(";");
+            const expression = `;${rule.expression}`;
             const fail = eval(variableDefinitions + expression);
             failure ||= fail;
             if (fail) {
-                msgs.push(renderTemplate(rule.message, variables));
+                msgs.push(renderTemplate(rule.message, values));
             }
         });
-        const resultOutput = parsed.type === "object"
-            ? { ...(parsed.value as object), exitCode: parsed.variables.exitCode }
-            : { ...parsed.variables };
         return new ShellResult(
-            `${ app.name }`,
+            `${app.name}`,
             identifier,
-            this.filterResultWithEmitConfig(app, resultOutput),
+            emit,
             msgs,
             app.timeTaken,
             !failure,
@@ -151,7 +153,7 @@ export class ShellEvaluator extends BaseEvaluator {
                     variables: { ...variables, ...parsed }
                 }];
             } catch (err) {
-                throw new Error(`Invalid JSON result from shell script (${err.toString().replace(/^Error:\s+/, "")}), result: ${ result.stdout }`)
+                throw new Error(`Invalid JSON result from shell script (${err.toString().replace(/^Error:\s+/, "")}), result: ${result.stdout}`)
             }
         }
         return [
@@ -161,17 +163,6 @@ export class ShellEvaluator extends BaseEvaluator {
                 variables
             }
         ]
-    }
-
-    private filterResultWithEmitConfig(app: IApp, resultOutput: any): any {
-        if (!app.emit || !Array.isArray(app.emit)) {
-            return resultOutput;
-        }
-        const final = {};
-        app.emit.forEach(x => {
-            final[x] = resultOutput[x];
-        });
-        return final;
     }
 }
 
@@ -184,12 +175,12 @@ interface IParsedResult {
 function tryParseJsonResult(result: IShellResult) {
     try {
         return JSON.parse(result.stdout);
-    } catch(err) {
+    } catch (err) {
         try {
-        const lines = result.stdout.split(/[\r\n]+/g);
-        return lines.map(x => JSON.parse(x));
-        } catch(err2) {
-            throw new Error(`failed to parse JSON result as JSON/JSONL [json:${ err.message };jsonl:${ err2.message }]`)
+            const lines = result.stdout.split(/[\r\n]+/g);
+            return lines.map(x => JSON.parse(x));
+        } catch (err2) {
+            throw new Error(`failed to parse JSON result as JSON/JSONL [json:${err.message};jsonl:${err2.message}]`)
         }
     }
 }

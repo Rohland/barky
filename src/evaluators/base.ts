@@ -253,7 +253,7 @@ export abstract class BaseEvaluator {
                 const isEqual = values.every((v, i) => v === filled[i]);
                 return isEqual;
             });
-            if (foundRow){
+            if (foundRow) {
                 return;
             }
             const others = Object.keys(x).filter(key => key !== "identifier");
@@ -262,6 +262,41 @@ export abstract class BaseEvaluator {
             });
             entries.push(filledEntry);
         });
+    }
+
+    public generateVariablesAndValues(row: any, app: IApp) {
+        const variables = Object.keys(row);
+        const values = {};
+        const emitValues = {};
+        const emit: Array<string> = app.emit ?? [];
+        const shouldEmitAll = emit.length === 0;
+        const identifierKeys = [app.identifier ?? "identifier"].flat();
+        variables.forEach(x => {
+            values[x] = row[x];
+            if (identifierKeys.includes(x) && !emit.includes(x)) {
+                return;
+            }
+            if (shouldEmitAll || emit.includes(x)) {
+                emitValues[x] = row[x];
+            }
+        });
+        const appVar = {};
+        Object.keys(app).forEach(key => {
+            const isPrivate = key.startsWith("_");
+            if (isPrivate) {
+                return;
+            }
+            appVar[key] = app[key];
+        });
+        variables.push("_context");
+        return {
+            variables,
+            values: {
+                ...values,
+                _context: appVar,
+            },
+            emit: emitValues
+        };
     }
 }
 

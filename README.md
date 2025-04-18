@@ -513,6 +513,11 @@ shell:
       # see web evaluator for example alert configuration
 ```
 
+### Advanced
+
+When defining expressions or messages, you can access all fields on each result set using the `{{ field_name }}` syntax.
+In addition, you can access configuration for the current app/scope using `_context`, e.g. `{{ _context.name }}` returns the current app name.
+
 ---
 ## Digest
 

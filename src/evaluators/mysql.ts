@@ -78,19 +78,6 @@ export class MySqlEvaluator extends BaseEvaluator {
             app)];
     }
 
-    private generateVariablesAndValues(row: any, app: IApp) {
-        const variables = Object.keys(row).filter(x => x !== app.identifier);
-        const values = {};
-        const emit: Array<string> = app.emit ?? [];
-        const shouldEmitAll = emit.length === 0;
-        variables.forEach(x => {
-            if (shouldEmitAll || emit.includes(x)) {
-                values[x] = row[x];
-            }
-        });
-        return { variables, values };
-    }
-
     private validateRow(
         app: IApp,
         identifier: string,
@@ -101,21 +88,21 @@ export class MySqlEvaluator extends BaseEvaluator {
         }
         this.convertRowValuesToInferredType(row);
         let failure = false;
-        const { variables, values } = this.generateVariablesAndValues(row, app);
+        const { variables, values, emit } = this.generateVariablesAndValues(row, app);
         const msgs = [];
         rules.find(rule => {
-            const variableDefinitions = variables.map(x => `const ${x} = ${generateValueForVariable(row[x])}`).join(";");
+            const variableDefinitions = variables.map(x => `const ${x} = ${generateValueForVariable(values[x])}`).join(";");
             const expression = `;${rule.expression}`;
             const fail = eval(variableDefinitions + expression);
             failure ||= fail;
             if (fail) {
-                msgs.push(renderTemplate(rule.message, row));
+                msgs.push(renderTemplate(rule.message, values));
             }
         });
         return new MySqlResult(
             `${app.name}`,
             identifier,
-            values,
+            emit,
             msgs,
             app.timeTaken,
             !failure,
