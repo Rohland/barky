@@ -4,85 +4,192 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Barky - Status</title>
-
     <link rel="icon" type="image/png" href="/assets/favicon-96x96.png" sizes="96x96"/>
     <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg"/>
     <link rel="shortcut icon" href="/assets/favicon.ico"/>
     <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png"/>
     <link rel="manifest" href="/assets/site.webmanifest"/>
-
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@latest/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.global.prod.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class'
+        }
+        // detect default theme - run early to prevent flash of un-styled content
+        const shouldInitAsDark = localStorage.theme === 'dark';
+        if (shouldInitAsDark || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    </script>
     <style>
         td a {
-            color: darkblue;
+            color: #3b82f6; /* blue-500 */
             text-decoration: underline;
+        }
+
+        .dark td a {
+            color: #60a5fa; /* blue-400 */
+        }
+
+        /* Ensure consistent button background in dark mode */
+        .dark button.bg-blue-500 {
+            background-color: #3b82f6; /* Explicitly set blue-500 */
+        }
+
+        .dark button.bg-blue-500:hover {
+            background-color: #60a5fa; /* Explicitly set blue-400 */
+        }
+
+        .dark button.bg-green-500 {
+            background-color: #22c55e; /* Explicitly set green-500 */
+        }
+
+        .dark button.bg-green-500:hover {
+            background-color: #16a34a; /* Explicitly set green-600 */
+        }
+
+        .dark button.bg-red-500 {
+            background-color: #ef4444; /* Explicitly set red-500 */
+        }
+
+        .dark button.bg-red-500:hover {
+            background-color: #dc2626; /* Explicitly set red-600 */
+        }
+
+        .dark button.bg-gray-500 {
+            background-color: #6b7280; /* Explicitly set gray-500 */
+        }
+
+        .dark button.bg-gray-500:hover {
+            background-color: #4b5563; /* Explicitly set gray-600 */
+        }
+
+        /* Explicit dark styles for muted status spans */
+        .dark .bg-green-300 {
+            background-color: #4ade80; /* green-400, adjust as needed */
+            color: #1f2937; /* gray-800, adjust as needed */
+        }
+
+        .dark .bg-green-500 {
+            background-color: #22c55e; /* green-500 */
+        }
+
+        #theme-toggle {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            z-index: 50; /* Ensure it's above other content */
+            padding: 0.5rem;
+            border-radius: 9999px; /* Fully rounded */
+            background-color: rgba(209, 213, 219, 0.7); /* gray-300 with transparency */
+            color: #374151; /* gray-700 */
+            border: 1px solid transparent;
+            transition: background-color 0.2s, color 0.2s;
+        }
+
+        #theme-toggle:hover {
+            background-color: rgba(156, 163, 175, 0.8); /* gray-400 with transparency */
+        }
+
+        .dark #theme-toggle {
+            background-color: rgba(55, 65, 81, 0.7); /* gray-700 with transparency */
+            color: #d1d5db; /* gray-300 */
+        }
+
+        .dark #theme-toggle:hover {
+            background-color: rgba(75, 85, 99, 0.8); /* gray-600 with transparency */
         }
     </style>
 </head>
-<body class="bg-gray-100 p-4 sm:p-8 flex justify-center">
+<body class="bg-gray-100 dark:bg-gray-800 p-4 sm:p-8 flex justify-center min-h-screen transition-colors duration-300">
 
-<div id="app" class="bg-white p-4 sm:p-6 rounded-lg shadow-md w-full max-w-8xl overflow-auto">
+<div id="app"
+     class="bg-white dark:bg-gray-900 p-4 sm:p-6 rounded-lg shadow-md dark:shadow-lg w-full max-w-8xl overflow-auto relative">
+
+    <button id="theme-toggle" @click="toggleTheme" aria-label="Toggle dark mode">
+        <svg v-if="isDarkMode" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+             stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+        </svg>
+        <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+             stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+        </svg>
+    </button>
 
     <div v-if="data">
         <div class="flex justify-between items-center mb-4">
-            <h2 class="text-xl font-bold">🔥 Active {{ data.active.length > 0 ? `(${data.active.length})` : '' }}
-                <div v-if="data.summary" class="text-xs text-gray-500 font-normal">Alerts active for
-                    {{ humanizeTime(data.summary.startTime)
-                    }}
+            <h2 class="text-xl font-bold text-gray-800 dark:text-gray-100">🔥 Active
+                {{ data.active.length > 0 ? `(${data.active.length})` : '' }}
+                <div v-if="data.summary" class="text-xs text-gray-500 dark:text-gray-400 font-normal">Alerts active for
+                    {{ humanizeTime(data.summary.startTime) }}
                 </div>
-                <div v-else class="text-xs text-gray-500 font-normal">
+                <div v-else class="text-xs text-gray-500 dark:text-gray-400 font-normal">
                     No active alerts
                 </div>
             </h2>
-            <div style="float:right" class="text-xs text-gray-500 font-normal">
+            <div style="float:right" class="text-xs text-gray-500 dark:text-gray-400 font-normal">
                 Refreshing in {{ timeToRefresh }}s
             </div>
         </div>
 
-        <table v-if="data.active.length > 0" class="min-w-full table-fixed text-left border border-gray-50 text-sm">
+        <table v-if="data.active.length > 0"
+               class="min-w-full table-fixed text-left border border-gray-200 dark:border-gray-700 text-sm">
             <thead>
-            <tr class="bg-gray-100">
-                <th class="p-2 border-b border-gray-200 align-top w-1/12">Started</th>
-                <th class="p-2 border-b border-gray-200 align-top w-2/12">Rule</th>
-                <th class="p-2 border-b border-gray-200 align-top">Description</th>
-                <th class="p-2 border-b border-gray-200 align-top text-right">Action</th>
+            <tr class="bg-gray-100 dark:bg-gray-700">
+                <th class="p-2 border-b border-gray-200 dark:border-gray-600 align-top w-1/12 text-gray-700 dark:text-gray-200">
+                    Started
+                </th>
+                <th class="p-2 border-b border-gray-200 dark:border-gray-600 align-top w-2/12 text-gray-700 dark:text-gray-200">
+                    Rule
+                </th>
+                <th class="p-2 border-b border-gray-200 dark:border-gray-600 align-top text-gray-700 dark:text-gray-200">
+                    Description
+                </th>
+                <th class="p-2 border-b border-gray-200 dark:border-gray-600 align-top text-right text-gray-700 dark:text-gray-200">
+                    Action
+                </th>
             </tr>
             </thead>
             <tbody>
             <tr v-for="snapshot in data.active" :key="snapshot.id"
-                class="hover:bg-gray-50">
-                <td class="p-2 border-b border-gray-200 text-gray-500">
+                class="hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-800 dark:text-gray-300">
+                <td class="p-2 border-b border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400">
                     {{ humanizeTime(snapshot.startTime, false) }} ago
                 </td>
-                <td class="p-2 border-b border-gray-200">
-                    <span class="font-bold">{{ snapshot.type }}:{{ snapshot.label }} → <span
-                            style="color: orangered">{{ snapshot.identifier }}</span></span>
+                <td class="p-2 border-b border-gray-200 dark:border-gray-700">
+                     <span class="font-bold">{{ snapshot.type }}:{{ snapshot.label }} → <span
+                             class="text-red-600 dark:text-red-500">{{ snapshot.identifier }}</span></span>
                 </td>
-                <td class="p-2 border-b border-gray-200">
-                    <span v-html="linkifyUrls(snapshot.last_result)">
-                    </span>
+                <td class="p-2 border-b border-gray-200 dark:border-gray-700">
+                     <span v-html="linkifyUrls(snapshot.last_result)">
+                     </span>
                     <span v-if="snapshot.links.length">
-                        &nbsp;
-                        <template v-for="(link, index) in snapshot.links" :key="index">
-                            <a class="font-small text-xs text-blue-600 dark:text-blue-500 hover:underline"
-                               :href="link.url" target="_blank">{{ link.label }}</a>
-                            <span v-if="index < snapshot.links.length - 1"> | </span>
-                        </template>
-                    </span>
+                         &nbsp;
+                         <template v-for="(link, index) in snapshot.links" :key="index">
+                             <a class="font-small text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                                :href="link.url" target="_blank">{{ link.label }}</a>
+                             <span v-if="index < snapshot.links.length - 1"> | </span>
+                         </template>
+                     </span>
                 </td>
-                <td class="p-1 border-b border-gray-200 text-right text-xs">
+                <td class="p-1 border-b border-gray-200 dark:border-gray-700 text-right text-xs">
                     <button v-if="snapshot.dynamicMutes.length === 0" @click="showMuteModal(snapshot)"
-                            class="bg-blue-500 text-white px-2 py-2 rounded hover:bg-blue-400 ">🔇&nbsp;Mute
+                            class="bg-blue-500 text-white px-2 py-2 rounded hover:bg-blue-600 dark:hover:bg-blue-400">🔇&nbsp;Mute
                     </button>
                     <span v-else
-                          class="relative inline-flex items-center px-3 py-1 text-sm font-semibold text-black bg-green-300 rounded-lg">
-                            Muting...
-                            <span class="absolute -top-1 -right-1 flex h-3 w-3">
-                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75"></span>
-                                <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-                            </span>
-                        </span>
+                          class="relative inline-flex items-center px-3 py-1 text-sm font-semibold text-black bg-green-300 dark:bg-green-400 dark:text-gray-900 rounded-lg">
+                             Muting...
+                             <span class="absolute -top-1 -right-1 flex h-3 w-3">
+                                 <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75"></span>
+                                 <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                             </span>
+                         </span>
                 </td>
             </tr>
             </tbody>
@@ -90,105 +197,129 @@
 
         <div class="">
             <div class="flex justify-between items-center mb-4 pt-10">
-                <h2 class="text-xl font-bold">✅ Resolved {{ data.resolved.length > 0 ? `(${data.resolved.length})` : ''
-                    }}
-                    <div class="text-xs text-gray-500 font-normal">Resolved or muted alerts</div>
+                <h2 class="text-xl font-bold text-gray-800 dark:text-gray-100">✅ Resolved
+                    {{ data.resolved.length > 0 ? `(${data.resolved.length})` : '' }}
+                    <div class="text-xs text-gray-500 dark:text-gray-400 font-normal">Resolved or muted alerts</div>
                 </h2>
             </div>
 
-            <table v-if="data.resolved.length > 0" class="min-w-full table-fixed text-left border border-gray-50 text-sm">
+            <table v-if="data.resolved.length > 0"
+                   class="min-w-full table-fixed text-left border border-gray-200 dark:border-gray-700 text-sm">
                 <thead>
-                <tr class="bg-gray-200">
-                    <th class="p-2 border-b border-gray-200 align-top w-1/12">Started</th>
-                    <th class="p-2 border-b border-gray-200 align-top w-2/12">Rule</th>
-                    <th class="p-2 border-b border-gray-200 align-top">Description</th>
-                    <th class="p-2 border-b border-gray-200 align-top w-2/12">Duration</th>
+                <tr class="bg-gray-100 dark:bg-gray-700">
+                    <th class="p-2 border-b border-gray-200 dark:border-gray-600 align-top w-1/12 text-gray-700 dark:text-gray-200">
+                        Started
+                    </th>
+                    <th class="p-2 border-b border-gray-200 dark:border-gray-600 align-top w-2/12 text-gray-700 dark:text-gray-200">
+                        Rule
+                    </th>
+                    <th class="p-2 border-b border-gray-200 dark:border-gray-600 align-top text-gray-700 dark:text-gray-200">
+                        Description
+                    </th>
+                    <th class="p-2 border-b border-gray-200 dark:border-gray-600 align-top w-2/12 text-gray-700 dark:text-gray-200">
+                        Duration
+                    </th>
                 </tr>
                 </thead>
                 <tbody>
-                <tr v-for="snapshot in data.resolved" :key="snapshot.id" class="hover:bg-gray-50">
-                    <td class="p-2 border-b border-gray-200 text-gray-500">
+                <tr v-for="snapshot in data.resolved" :key="snapshot.id"
+                    class="hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-800 dark:text-gray-300">
+                    <td class="p-2 border-b border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400">
                         {{ simpleTime(snapshot.startTime) }}
                     </td>
-                    <td class="p-2 border-b border-gray-200">
-                        <span class="font-bold">{{ snapshot.type }}:{{ snapshot.label }} → <span
-                                style="color: orangered">{{ snapshot.identifier }}</span></span>
+                    <td class="p-2 border-b border-gray-200 dark:border-gray-700">
+                         <span class="font-bold">{{ snapshot.type }}:{{ snapshot.label }} → <span
+                                 class="text-red-600 dark:text-red-500">{{ snapshot.identifier }}</span></span>
                     </td>
-                    <td class="p-2 border-b border-gray-200">
+                    <td class="p-2 border-b border-gray-200 dark:border-gray-700">
                         <span v-html="linkifyUrls(snapshot.last_result)"></span>
                         <span v-if="snapshot.links.length">
-                        &nbsp;
-                        <template v-for="(link, index) in snapshot.links" :key="index">
-                            <a class="font-small text-xs text-blue-600 dark:text-blue-500 hover:underline"
-                               :href="link.url" target="_blank">{{ link.label }}</a>
-                            <span v-if="index < snapshot.links.length - 1"> | </span>
-                        </template>
-                    </span>
+                         &nbsp;
+                         <template v-for="(link, index) in snapshot.links" :key="index">
+                             <a class="font-small text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                                :href="link.url" target="_blank">{{ link.label }}</a>
+                             <span v-if="index < snapshot.links.length - 1"> | </span>
+                         </template>
+                     </span>
                     </td>
-                    <td class="p-2 border-b border-gray-200 text-gray-500; color: darkgreen">
+                    <td class="p-2 border-b border-gray-200 dark:border-gray-700 text-green-600 dark:text-green-400">
                         {{ humanizeDuration(snapshot.durationInMinutes, "m") }} ({{ simpleTime(snapshot.resolvedTime)
                         }})
                     </td>
                 </tr>
                 </tbody>
             </table>
-
         </div>
 
         <div class="">
             <div class="flex justify-between items-center mb-4 pt-10">
-                <h2 class="text-xl font-bold">🔇 Muted {{ data.muted.length > 0 ? `(${data.muted.length})` : '' }}
-                    <div class="text-xs text-gray-500 font-normal">Alerts that have been muted through mute rules</div>
+                <h2 class="text-xl font-bold text-gray-800 dark:text-gray-100">🔇 Muted
+                    {{ data.muted.length > 0 ? `(${data.muted.length})` : '' }}
+                    <div class="text-xs text-gray-500 dark:text-gray-400 font-normal">Alerts that have been muted
+                        through mute rules
+                    </div>
                 </h2>
             </div>
-            <table v-if="data.muted.length > 0" class="min-w-full table-fixed text-left border border-gray-50 text-sm">
+            <table v-if="data.muted.length > 0"
+                   class="min-w-full table-fixed text-left border border-gray-200 dark:border-gray-700 text-sm">
                 <thead>
-                <tr class="bg-gray-200">
-                    <th class="p-2 border-b border-gray-200 align-top w-1/12">Started</th>
-                    <th class="p-2 border-b border-gray-200 align-top w-2/12">Rule</th>
-                    <th class="p-2 border-b border-gray-200 align-top">Description</th>
-                    <th class="p-2 border-b border-gray-200 align-top text-right w-1/12">Action</th>
+                <tr class="bg-gray-100 dark:bg-gray-700">
+                    <th class="p-2 border-b border-gray-200 dark:border-gray-600 align-top w-1/12 text-gray-700 dark:text-gray-200">
+                        Started
+                    </th>
+                    <th class="p-2 border-b border-gray-200 dark:border-gray-600 align-top w-2/12 text-gray-700 dark:text-gray-200">
+                        Rule
+                    </th>
+                    <th class="p-2 border-b border-gray-200 dark:border-gray-600 align-top text-gray-700 dark:text-gray-200">
+                        Description
+                    </th>
+                    <th class="p-2 border-b border-gray-200 dark:border-gray-600 align-top text-right w-1/12 text-gray-700 dark:text-gray-200">
+                        Action
+                    </th>
                 </tr>
                 </thead>
                 <tbody>
-                <tr v-for="snapshot in data.muted" :key="snapshot.id" class="hover:bg-gray-50">
-                    <td class="p-2 border-b border-gray-50">
+                <tr v-for="snapshot in data.muted" :key="snapshot.id"
+                    class="hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-800 dark:text-gray-300">
+                    <td class="p-2 border-b border-gray-200 dark:border-gray-700">
                         {{ simpleTime(snapshot.startTime) }}<br/>
-                        <span class="text-xs text-gray-500 font-normal">{{ humanizeTime(snapshot.startTime, false) }} ago</span>
+                        <span class="text-xs text-gray-500 dark:text-gray-400 font-normal">{{ humanizeTime(snapshot.startTime, false)
+                            }} ago</span>
                     </td>
-                    <td class="p-2 border-b border-gray-50">
+                    <td class="p-2 border-b border-gray-200 dark:border-gray-700">
                         <span class="font-bold">{{ snapshot.type }}:{{ snapshot.label }} → {{ snapshot.identifier
                             }}</span>
                     </td>
-                    <td class="p-2 border-b border-gray-50">
+                    <td class="p-2 border-b border-gray-200 dark:border-gray-700">
                         <span v-html="linkifyUrls(snapshot.last_result)"></span>
                         <span v-if="snapshot.links.length">
-                        &nbsp;
-                        <template v-for="(link, index) in snapshot.links" :key="index">
-                            <a class="font-small text-xs text-blue-600 dark:text-blue-500 hover:underline"
-                               :href="link.url" target="_blank">{{ link.label }}</a>
-                            <span v-if="index < snapshot.links.length - 1"> | </span>
-                        </template>
-                        </span>
-                        <div class="text-xs text-gray-500 font-normal">
+                         &nbsp;
+                         <template v-for="(link, index) in snapshot.links" :key="index">
+                             <a class="font-small text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                                :href="link.url" target="_blank">{{ link.label }}</a>
+                             <span v-if="index < snapshot.links.length - 1"> | </span>
+                         </template>
+                         </span>
+                        <div class="text-xs text-gray-500 dark:text-gray-400 font-normal">
                             Mute end: {{ snapshot.muteDescriptor }}
                         </div>
                     </td>
-                    <td class="p-1 border-b border-gray-50 text-right text-xs">
+                    <td class="p-1 border-b border-gray-200 dark:border-gray-700 text-right text-xs">
                         <button v-if="snapshot.dynamicMutes.length > 0" @click="showUnMuteModal(snapshot)"
-                                class="bg-blue-500 text-white px-2 py-2 rounded hover:bg-blue-400 ">📢&nbsp;Unmute
+                                class="bg-blue-500 text-white px-2 py-2 rounded hover:bg-blue-600 dark:hover:bg-blue-400">
+                            📢&nbsp;Unmute
                         </button>
                         <span v-else-if="snapshot.dynamicMutes.length === 0 && snapshot.mutedBy?.every(x => x.dynamic)"
-                              class="relative inline-flex items-center px-3 py-1 text-sm font-semibold text-black bg-green-300 rounded-lg">
-                            Unmuting...
-                            <span class="absolute -top-1 -right-1 flex h-3 w-3">
-                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75"></span>
-                                <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-                            </span>
-                        </span>
-                        <span v-else class="text-xs text-gray-500 font-normal">
-                            Muted by Digest Rule
-                        </span>
+                              class="relative inline-flex items-center px-3 py-1 text-sm font-semibold text-black bg-green-300 dark:bg-green-400 dark:text-gray-900 rounded-lg">
+                             Unmuting...
+                             <span class="absolute -top-1 -right-1 flex h-3 w-3">
+                                 <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75"></span>
+                                 <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                             </span>
+                         </span>
+                        <span v-else class="text-xs text-gray-500 dark:text-gray-400 font-normal">
+                             Muted by Digest Rule
+                         </span>
                     </td>
                 </tr>
                 </tbody>
@@ -196,35 +327,37 @@
         </div>
     </div>
 
-    <div v-else>
+    <div v-else class="text-gray-800 dark:text-gray-100">
         <p>Loading...</p>
     </div>
 
-    <div v-if="muteModal.show" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
-        <div class="bg-white p-6 rounded-lg shadow-lg max-w-2xl w-full">
-            <h2 class="text-2xl font-semibold text-gray-800 mb-4">🤫 Mute Alert</h2>
+    <div v-if="muteModal.show" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-75 z-40">
+        <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl dark:shadow-lg max-w-2xl w-full m-4">
+            <h2 class="text-2xl font-semibold text-gray-800 dark:text-gray-100 mb-4">🤫 Mute Alert</h2>
 
-            <p class="text-gray-700 mb-4">
-                <strong class="text-gray-900">ID:</strong>
-                <span class="bg-red-100 text-red-800 text-s font-medium me-2 px-2.5 py-0.5 rounded-sm dark:bg-red-900 dark:text-red-300">{{ mutePatternForIdentifier(muteModal.snapshot.id)
+            <p class="text-gray-700 dark:text-gray-300 mb-4">
+                <strong class="text-gray-900 dark:text-gray-100">ID: </strong>
+                <span class="bg-red-100 text-red-800 text-s font-medium me-2 px-1 py-0.5 rounded-sm dark:bg-red-900 dark:text-red-300">{{ mutePatternForIdentifier(muteModal.snapshot.id)
                     }}</span>
             </p>
 
             <div class="mb-4">
-                <label for="mute_date" class="block text-sm font-medium text-gray-700 mb-1">Mute Until</label>
+                <label for="mute_date" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mute
+                    Until</label>
                 <input
                         id="mute_date"
                         v-model="muteModal.date"
                         type="date"
-                        class="border border-gray-300 focus:ring-blue-500 focus:border-blue-500 rounded-lg p-2 w-full"
+                        class="border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 focus:ring-blue-500 focus:border-blue-500 rounded-lg p-2 w-full"
                 >
             </div>
 
             <div class="mb-4">
-                <label for="mute_time" class="block text-sm font-medium text-gray-700 mb-1">Mute Time</label>
+                <label for="mute_time" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mute
+                    Time</label>
                 <select v-model="muteModal.time"
                         id="mute_time"
-                        class="border border-gray-300 focus:ring-blue-500 focus:border-blue-500 rounded-lg p-2 w-full"
+                        class="border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 focus:ring-blue-500 focus:border-blue-500 rounded-lg p-2 w-full"
                 >
                     <option value="">Select time</option>
                     <option v-for="time in muteModal.times">{{ time.time }}</option>
@@ -232,11 +365,10 @@
             </div>
 
             <div class="mt-6 flex justify-end gap-3">
-
                 <button v-if="muteModal.time"
                         @click="mute(muteModal.snapshot)"
                         :disabled="muteModal.isSaving"
-                        class="flex items-center justify-center bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition duration-200 disabled:bg-green-300 disabled:cursor-not-allowed"
+                        class="flex items-center justify-center bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition duration-200 disabled:bg-green-300 dark:disabled:bg-green-700 disabled:cursor-not-allowed"
                 >
                     <svg v-if="muteModal.isSaving" class="animate-spin h-5 w-5 mr-2 text-white" viewBox="0 0 24 24"
                          fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -246,8 +378,6 @@
                     </svg>
                     {{ muteModal.isSaving ? "Saving..." : "Save" }}
                 </button>
-
-
                 <button
                         @click="muteModal.show = false"
                         class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition duration-200"
@@ -258,30 +388,37 @@
         </div>
     </div>
 
-    <div v-if="unMuteModal.show" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
-        <div class="bg-white p-6 rounded-lg shadow-lg max-w-4xl w-full">
-            <h2 class="text-2xl font-semibold text-gray-800 mb-4">📣 Unmute Alert</h2>
+    <div v-if="unMuteModal.show" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-75 z-40">
+        <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl dark:shadow-lg max-w-4xl w-full m-4">
+            <h2 class="text-2xl font-semibold text-gray-800 dark:text-gray-100 mb-4">📣 Unmute Alert</h2>
 
-            <p class="text-gray-700 mb-4">
-                <strong class="text-gray-900">ID:</strong>
-                <span class="bg-red-100 text-red-800 text-s font-medium me-2 px-2.5 py-0.5 rounded-sm dark:bg-red-900 dark:text-red-300">{{ mutePatternForIdentifier(unMuteModal.snapshot.id)
+            <p class="text-gray-700 dark:text-gray-300 mb-4">
+                <strong class="text-gray-900 dark:text-gray-100">ID: </strong>
+                <span class="bg-red-100 text-red-800 text-s font-medium me-2 px-1 py-0.5 rounded-sm dark:bg-red-900 dark:text-red-300">{{ mutePatternForIdentifier(unMuteModal.snapshot.id)
                     }}</span>
             </p>
 
-            <div>
+            <div class="overflow-x-auto">
                 <table class="w-full text-left text-sm">
                     <thead>
-                    <tr class="bg-gray-100">
-                        <th class="p-2 border-b border-gray-200 align-top">Match</th>
-                        <th class="p-2 border-b border-gray-200 align-top">Muted From</th>
-                        <th class="p-2 border-b border-gray-200 align-top">Muted To</th>
+                    <tr class="bg-gray-100 dark:bg-gray-700">
+                        <th class="p-2 border-b border-gray-200 dark:border-gray-600 align-top text-gray-700 dark:text-gray-200">
+                            Match
+                        </th>
+                        <th class="p-2 border-b border-gray-200 dark:border-gray-600 align-top text-gray-700 dark:text-gray-200">
+                            Muted From
+                        </th>
+                        <th class="p-2 border-b border-gray-200 dark:border-gray-600 align-top text-gray-700 dark:text-gray-200">
+                            Muted To
+                        </th>
                     </tr>
                     </thead>
-                    <tbody>
-                    <tr v-for="match in unMuteModal.snapshot.dynamicMutes" class="hover:bg-gray-50">
-                        <td>{{ match.match }}</td>
-                        <td>{{ new Date(match.from).toLocaleString()}}</td>
-                        <td>{{ new Date(match.to).toLocaleString() }}</td>
+                    <tbody class="text-gray-800 dark:text-gray-300">
+                    <tr v-for="match in unMuteModal.snapshot.dynamicMutes"
+                        class="hover:bg-gray-50 dark:hover:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                        <td class="p-2">{{ match.match }}</td>
+                        <td class="p-2">{{ new Date(match.from).toLocaleString()}}</td>
+                        <td class="p-2">{{ new Date(match.to).toLocaleString() }}</td>
                     </tr>
                     </tbody>
                 </table>
@@ -291,7 +428,7 @@
                 <button
                         @click="unmute(unMuteModal.snapshot)"
                         :disabled="unMuteModal.isSaving"
-                        class="flex items-center justify-center bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition duration-200 disabled:bg-green-300 disabled:cursor-not-allowed"
+                        class="flex items-center justify-center bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition duration-200 disabled:bg-red-300 dark:disabled:bg-red-700 disabled:cursor-not-allowed"
                 >
                     <svg v-if="unMuteModal.isSaving" class="animate-spin h-5 w-5 mr-2 text-white" viewBox="0 0 24 24"
                          fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -299,7 +436,7 @@
                                 stroke-width="4"></circle>
                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
                     </svg>
-                    {{ muteModal.isSaving ? "Saving..." : "Unmute" }}
+                    {{ unMuteModal.isSaving ? "Saving..." : "Unmute" }}
                 </button>
 
 
@@ -313,7 +450,7 @@
         </div>
     </div>
 </div>
-</div>
+
 <script type="text/javascript">
     const {createApp, ref, onMounted} = Vue;
 
@@ -453,8 +590,8 @@
         if (isTodayOnly) {
             const end = todaysMute.endTime;
             const days = todaysMute.days ?? [];
-            const daysString = days.length > 0 ? `[${ days.join(", ")}]` :""
-            return `${ end.time } ${daysString}`;
+            const daysString = days.length > 0 ? `[${days.join(", ")}]` : ""
+            return `${end.time} ${daysString}`;
         }
         const maxDateRule = muteRules.reduce((acc, x) => {
             if (acc === null) {
@@ -463,7 +600,7 @@
             return new Date(acc.date) > new Date(x.date) ? acc : x;
         }, null);
         const until = simpleDate(maxDateRule.date) + " at " + maxDateRule.endTime.time
-        return `${ until}`;
+        return `${until}`;
     }
 
     createApp({
@@ -484,7 +621,18 @@
             });
             const currentTime = ref(Date.now());
             const timeToRefresh = ref(refreshInterval);
+            const isDarkMode = ref(document.documentElement.classList.contains('dark'));
 
+            function toggleTheme() {
+                isDarkMode.value = !isDarkMode.value;
+                if (isDarkMode.value) {
+                    document.documentElement.classList.add('dark');
+                    localStorage.theme = 'dark';
+                } else {
+                    document.documentElement.classList.remove('dark');
+                    localStorage.theme = 'light';
+                }
+            }
 
             Vue.watch(() => muteModal.value.date, () => {
                 muteModal.value.times = getTimeChunksForRestOfDay(muteModal.value.date);
@@ -595,20 +743,34 @@
                     console.error('Mute failed:', error);
                 }
             };
+
             onMounted(() => {
+                const oneSec = 1_000;
                 fetchStatus();
-                setInterval(fetchStatus, refreshInterval * 1000);
+                setInterval(fetchStatus, refreshInterval * oneSec);
                 setInterval(() => {
                     currentTime.value = Date.now();
-                    timeToRefresh.value -= 1;
-                    if (timeToRefresh.value < 0) {
-                        timeToRefresh.value = 0;
-                    }
-                }, 1000);
+                    timeToRefresh.value = Math.max(0, timeToRefresh.value - 1);
+                }, oneSec);
+
+                window
+                    .matchMedia('(prefers-color-scheme: dark)')
+                    .addEventListener('change', event => {
+                        const userHasSetTheme = ('theme' in localStorage);
+                        if (!userHasSetTheme) {
+                            if (event.matches) {
+                                document.documentElement.classList.add('dark');
+                                isDarkMode.value = true;
+                            } else {
+                                document.documentElement.classList.remove('dark');
+                                isDarkMode.value = false;
+                            }
+                        }
+                    });
             });
+
             return {
                 data,
-                getMuteEndDescriptor,
                 muteModal,
                 unMuteModal,
                 timeToRefresh,
@@ -621,7 +783,8 @@
                 humanizeTime,
                 humanizeDuration,
                 simpleTime,
-                today
+                isDarkMode,
+                toggleTheme
             };
         },
     }).mount('#app');
