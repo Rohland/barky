@@ -148,7 +148,7 @@ export class MySqlEvaluator extends BaseEvaluator {
         const query = `set innodb_lock_wait_timeout=${timeoutSeconds}; ${app.query}`;
         const results = await connection.query({
             sql: query,
-            timeout: app.timeout ?? 15000,
+            timeout: timeout,
         });
         let resultIndex = parseInt(app["result-index"]);
         if (Number.isNaN(resultIndex)) {
@@ -176,7 +176,7 @@ export class MySqlEvaluator extends BaseEvaluator {
             port: getEnvVar(`mysql-${app.connection}-port`),
             database: getEnvVar(`mysql-${app.connection}-database`),
             timezone: 'Z',
-            multipleStatements: true
+            multipleStatements: true,
         };
         this.configureSSLForConnection(app, config);
         // @ts-ignore
