@@ -143,12 +143,10 @@ export class MySqlEvaluator extends BaseEvaluator {
     async runQuery(
         connection: mysql.Connection,
         app: IApp) {
-        const timeout = app.timeout ?? 15000;
-        const timeoutSeconds = Math.round(timeout / 1000);
-        const query = `set innodb_lock_wait_timeout=${timeoutSeconds}; ${app.query}`;
+        const timeout = app.timeout || 15000;
         const results = await connection.query({
-            sql: query,
-            timeout: timeout,
+            sql: app.query,
+            timeout: timeout
         });
         let resultIndex = parseInt(app["result-index"]);
         if (Number.isNaN(resultIndex)) {
