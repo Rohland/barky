@@ -144,9 +144,10 @@ export class MySqlEvaluator extends BaseEvaluator {
         connection: mysql.Connection,
         app: IApp) {
         const timeout = app.timeout || 15000;
+        const query = `set session max_execution_time = ${ timeout }; ${ app.query };`;
         const results = await connection.query({
-            sql: app.query,
-            timeout: timeout
+            sql: query,
+            timeout
         });
         let resultIndex = parseInt(app["result-index"]);
         if (Number.isNaN(resultIndex)) {
