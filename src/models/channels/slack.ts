@@ -260,6 +260,7 @@ export class SlackChannelConfig extends ChannelConfig {
                 const config = {
                     method: 'post',
                     url,
+                    timeout: 5000,
                     headers: {
                         'Authorization': `Bearer ${ this.token }`,
                         'Content-type': 'application/json;charset=utf-8',

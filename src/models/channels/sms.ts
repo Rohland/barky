@@ -62,6 +62,7 @@ export class SMSChannelConfig extends ChannelConfig {
             const config = {
                 method: 'post',
                 url: 'https://api.clickatell.com/http/sendmsg',
+                timeout: 5000,
                 headers: {
                     ...data.getHeaders()
                 },
