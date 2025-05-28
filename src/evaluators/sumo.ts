@@ -121,7 +121,7 @@ export class SumoEvaluator extends BaseEvaluator {
             entry,
             app.identifier,
             app.name);
-        this.convertEntryValuesToInferredType(entry);
+        this.convertItemValuesToInferredType(entry);
         const rules = findTriggerRulesFor(identifier, app);
         let failure = false;
         const { variables, values, emit } = this.generateVariablesAndValues(entry, app);
@@ -165,19 +165,6 @@ export class SumoEvaluator extends BaseEvaluator {
         });
         const variableString = vars.join("\n");
         return variableString;
-    }
-
-    convertEntryValuesToInferredType(entry) {
-        Object.entries(entry).forEach(([key, value]) => {
-            const valueAsFloat = parseFloat(value as string);
-            const isFloat = !Number.isNaN(valueAsFloat);
-            if (!isFloat) {
-                return;
-            }
-            const valueAsInt = parseInt(value as string);
-            const isInt = valueAsInt == valueAsFloat;
-            entry[key] = isInt ? valueAsInt : valueAsFloat.toFixed(3);
-        });
     }
 
     async startSearch(app: IApp) {

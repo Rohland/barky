@@ -86,7 +86,7 @@ export class MySqlEvaluator extends BaseEvaluator {
         if (!rules || rules.length === 0) {
             throw new Error(`trigger for app '${app.name}' has no rules`);
         }
-        this.convertRowValuesToInferredType(row);
+        this.convertItemValuesToInferredType(row);
         let failure = false;
         const { variables, values, emit } = this.generateVariablesAndValues(row, app);
         const msgs = [];
@@ -125,19 +125,6 @@ export class MySqlEvaluator extends BaseEvaluator {
 
     protected isResultForApp(app: IApp, result: Result): boolean {
         return app.name === result.label;
-    }
-
-    private convertRowValuesToInferredType(entry) {
-        Object.entries(entry).forEach(([key, value]) => {
-            const valueAsFloat = parseFloat(value as string);
-            const isFloat = !Number.isNaN(valueAsFloat);
-            if (!isFloat) {
-                return;
-            }
-            const valueAsInt = parseInt(value as string);
-            const isInt = valueAsInt == valueAsFloat;
-            entry[key] = isInt ? valueAsInt : valueAsFloat.toFixed(3);
-        });
     }
 
     async runQuery(
