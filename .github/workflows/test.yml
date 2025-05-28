@@ -27,7 +27,18 @@ jobs:
           cache: 'npm'
           cache-dependency-path: 'package-lock.json'
 
+      - uses: actions/cache@v4
+        id: modules
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-modules-${{ hashFiles('package-lock.json') }}
+          restore-keys: ${{ runner.os }}-modules-
+
+      - name: 📦 Install Node Modules
+        if: steps.modules.outputs.cache-hit != 'true'
+        run: |
+          npm ci --prefer-offline --no-audit --progress=false
+
       - name: Run Tests
         run: |
-          npm install
           npm test
