@@ -9,6 +9,7 @@ import { DefaultTrigger, IRule } from "../models/trigger";
 import { DayAndTimeEvaluator } from "../lib/time";
 import { MonitorFailureResult, Result } from "../models/result";
 import { startClock, stopClock } from "../lib/profiler";
+import { formatType } from "../lib/type";
 
 const executionCounter = new Map<string, number>();
 
@@ -297,6 +298,12 @@ export abstract class BaseEvaluator {
             },
             emit: emitValues
         };
+    }
+
+    public convertItemValuesToInferredType(entry: any) {
+        Object.entries(entry).forEach(([key, value]) => {
+            entry[key] = formatType(value);
+        });
     }
 }
 
