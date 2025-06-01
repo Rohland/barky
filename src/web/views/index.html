@@ -542,7 +542,7 @@
     }
 
     function linkifyUrls(text) {
-        const regex = /((https?:\/\/)?((([a-z\d]([a-z\d-]*[a-z\d])*)\.)+[a-z]{2,})(:\d+)?(\/[-a-z\d%_.~+&:]*)*(\?[;&a-z\d%_.~+=-]*)?(\#[-a-z\d_]*)?)/ig;
+        const regex = /(https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.\S{2,}|www\.[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.\S{2,}|https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9]+\.\S{2,}|www\.[a-zA-Z0-9]+\.\S{2,})/gi;
         return text.replace(regex, '<a href="$1" target="_blank">$1</a>');
     }
 
