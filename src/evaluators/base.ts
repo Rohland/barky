@@ -226,11 +226,15 @@ export abstract class BaseEvaluator {
         if (object) {
             if (isArray) {
                 value = identifier
-                    .map(x => object[x])
+                    // try grab the identifier from the object using both the case provided, and lowercase, as some
+                    // providers (like sumo), seem to randomly lowercase the field name
+                    .map(x => object[x] ?? object[x?.toLowerCase()])
                     .filter(x => x)
                     .join(separator);
             } else {
-                value = object[identifier];
+                // try grab the identifier from the object using both the case provided, and lowercase, as some
+                // providers (like sumo), seem to randomly lowercase the field name
+                value = object[identifier] ?? object[identifier?.toLowerCase()];
             }
             if (typeof value === "string" && value.trim() === "") {
                 value = null;
