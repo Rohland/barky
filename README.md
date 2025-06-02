@@ -553,7 +553,7 @@ alert-policies:
     rules:
       - description: More than 3 monitor errors in a 10 minute window
         any: 3
-        window: 10m
+        window: -10m
 
 channels:
   sms:
