@@ -277,7 +277,7 @@ function evaluateNewFailureResult(
             context.addSnapshotForResult(result);
             break;
         default:
-            throw new Error(`Unhandled rule type: ${ rule.type }`);
+            throw new Error(`Unhandled rule type: ${rule.type}`);
     }
 }
 
@@ -304,7 +304,7 @@ function evaluateNewSuccessResult(
             context.deleteLogs(previousLogs);
             break;
         default:
-            throw new Error(`Unhandled rule type: ${ rule.type }`);
+            throw new Error(`Unhandled rule type: ${rule.type}`);
     }
 }
 

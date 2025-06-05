@@ -41,6 +41,7 @@ export class AlertRule {
     public any?: number;
     public fromDate?: Date;
     public match?: string;
+    public window?: string;
     private _isDefault: boolean;
     private _dayAndTimeEvaluator: DayAndTimeEvaluator;
 
@@ -50,6 +51,7 @@ export class AlertRule {
         this.count = rule.count;
         this.any = rule.any;
         this.match = rule.match;
+        this.window = rule.window;
         const noTypeConfigured = !this.count && !this.any;
         if (noTypeConfigured) {
             this.count = 1;

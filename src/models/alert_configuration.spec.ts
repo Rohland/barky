@@ -21,7 +21,8 @@ describe("AlertRule", () => {
         it("should set values and return correct type", () => {
             // arrange
             const config = {
-                any: 1
+                any: 1,
+                window: "-100m"
             } as IAlertRule;
 
             // act
@@ -29,6 +30,9 @@ describe("AlertRule", () => {
             // assert
             expect(rule.any).toEqual(1);
             expect(rule.type).toEqual(AlertRuleType.AnyInWindow);
+            // we need the window on the object, even though it doesn't appear to be used, because
+            // the type is serialised when a snapshot is taken
+            expect(rule.window).toEqual("-100m");
         });
         describe("with no window defined", () => {
             it("should define window of -5m ", async () => {

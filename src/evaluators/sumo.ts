@@ -254,7 +254,7 @@ export class SumoEvaluator extends BaseEvaluator {
             return app._job;
         }
         try {
-            const result = await executeSumoRequest(app.token, () => axios.get(`${SumoLogsUrl}/${app._job}/records?offset=0&limit=100`, getRequestConfig(app.token)));
+            const result = await executeSumoRequest(app.token, () => axios.get(`${SumoLogsUrl}/${app._job}/records?offset=0&limit=1000`, getRequestConfig(app.token)));
             log(`successfully completed sumo job search for '${app.name}', result:`, result.data);
             return result.data;
         } catch (err) {
