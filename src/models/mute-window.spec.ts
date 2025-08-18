@@ -8,7 +8,7 @@ describe("mute-windows", () => {
             const config = {};
 
             // act
-            expect(() => new MuteWindow(config)).toThrowError("expected mute window to have a time");
+            expect(() => new MuteWindow(config)).toThrow("expected mute window to have a time");
         });
     });
     describe("with startTime and endTime", () => {
@@ -25,7 +25,7 @@ describe("mute-windows", () => {
             const config = { time: "invalid" };
 
             // act
-            expect(() => new MuteWindow(config)).toThrowError("invalid mute-window time range 'invalid'");
+            expect(() => new MuteWindow(config)).toThrow("invalid mute-window time range 'invalid'");
         });
     });
     describe("in mute Window", () => {

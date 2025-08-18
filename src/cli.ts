@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-import * as Dotenv from "dotenv";
+import dotenv from 'dotenv'
 
 const envPath = ['.env.local', '.env'];
-Dotenv.config({ path: envPath });
+dotenv.config({ path: envPath, quiet: true });
 
 import yargs from "yargs/yargs";
 import { hideBin } from "yargs/helpers";

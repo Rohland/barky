@@ -12,7 +12,6 @@ describe("cli", () => {
                 const args = {
                     rules: rel
                 };
-                console.log(__dirname);
 
                 // act
                 const config = getConfig(args);

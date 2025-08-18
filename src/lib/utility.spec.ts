@@ -96,7 +96,7 @@ describe("utility functions", () => {
                 const date = new Date("2020-01-01T00:00:00.000Z");
 
                 // act
-                expect(() => toLocalTimeString(date)).toThrowError("Invalid locale or timezone (locale: 'xxx', timezone: 'abc')");
+                expect(() => toLocalTimeString(date)).toThrow("Invalid locale or timezone (locale: 'xxx', timezone: 'abc')");
             });
         });
         describe("with specified timezone", () => {
