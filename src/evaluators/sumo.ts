@@ -323,13 +323,16 @@ function getRoundRobinState(tokenName: string): IRoundRobinState {
         tokenNames: [],
     };
     while (true) {
-        const candidate = state.count === 0 ? tokenName : `${tokenName}-${state.count}`;
-        const value = getEnvVar(candidate);
-        if (!value) {
+        const candidates = state.count === 0
+            ? [tokenName]
+            : [`${tokenName}-${state.count}`, `${tokenName}_${state.count}`];
+        const candidateValues = candidates.map(x => getEnvVar(x));
+        const firstMatching = candidateValues.findIndex(x => x);
+        if (firstMatching < 0) {
             break;
         }
         state.count++;
-        state.tokenNames.push(candidate);
+        state.tokenNames.push(candidates[firstMatching]);
     }
     roundRobinTokens.set(tokenName, state);
     return state;

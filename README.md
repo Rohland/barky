@@ -395,7 +395,8 @@ Tokens for Sumo Logic are referred to by name. The tool will expect an environme
 To avoid rate limits, Barky has built in sequencing to manage concurrent requests to Sumo Logic. In addition, its possible
 to configure a number of different tokens and have these rotated in a round-robin fashion. To do this simply define
 additional tokens with the convention `token-1`, `token-2` etc. For example, for a given token called `my-sumo-token`,
-you could define an additional token called `my-sumo-token-1`, `my-sumo-token-2` etc.
+you could define an additional token called `my-sumo-token-1`, `my-sumo-token-2` etc. Note that the suffix format `_1`, `_2` etc
+is also supported.
 
 ##### MySQL Configuration
 
