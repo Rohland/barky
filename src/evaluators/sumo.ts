@@ -21,8 +21,8 @@ const JobPollMillis = 1000;
 const JobInitialPollMillis = 3000;
 
 // sumo logic has strict concurrency rules, limited to 10 per key - let's be cautious
-const MaxSumoConcurrency = 3;
-const MaxSumoRequestsPerSecond = 5;
+const MaxSumoConcurrency = 5;
+const MaxSumoRequestsPerSecond = 4;
 
 export class SumoEvaluator extends BaseEvaluator {
     constructor(config: any) {
