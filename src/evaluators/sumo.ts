@@ -21,8 +21,8 @@ const JobPollMillis = 1000;
 const JobInitialPollMillis = 3000;
 
 // sumo logic has strict concurrency rules, limited to 10 per key - let's be cautious
-const MaxSumoConcurrency = 3;
-const MaxSumoRequestsPerSecond = 5;
+const MaxSumoConcurrency = 5;
+const MaxSumoRequestsPerSecond = 4;
 
 export class SumoEvaluator extends BaseEvaluator {
     constructor(config: any) {
@@ -185,12 +185,12 @@ export class SumoEvaluator extends BaseEvaluator {
             timeZone: "UTC",
             autoParsingMode: "intelligent"
         };
-        const result = await executeSumoRequest(app.token, () => axios.post(
+        const result = await executeSumoRequest(app, (config) => axios.post(
             SumoLogsUrl,
             search,
-            getRequestConfig(app.token))
+            config)
         );
-        log(`started sumo job search for '${app.name}'`, result.data);
+        log(`[sumo] started sumo job search for '${app.name}'`, result.data);
         return result.data.id;
     }
 
@@ -205,10 +205,10 @@ export class SumoEvaluator extends BaseEvaluator {
             endTime: +app.period.to,
             startTime: +app.period.from,
         };
-        const result = await executeSumoRequest(app.token, () => axios.post(
+        const result = await executeSumoRequest(app, (config) => axios.post(
             SumoMetricsUrl,
             search,
-            getRequestConfig(app.token))
+            config)
         );
         log(`started sumo metric search for '${app.name}'`, result.data);
         const response = result.data?.response;
@@ -228,7 +228,7 @@ export class SumoEvaluator extends BaseEvaluator {
         await sleepMs(JobInitialPollMillis);
         while (+new Date() - startTime < app.timeout) {
             try {
-                const status = await executeSumoRequest(app.token, () => axios.get(`${SumoLogsUrl}/${app._job}`, getRequestConfig(app.token)));
+                const status = await executeSumoRequest(app, (config) => axios.get(`${SumoLogsUrl}/${app._job}`, config));
                 if (status.data.state.match(/done gathering results/i)) {
                     return status.data;
                 }
@@ -254,18 +254,18 @@ export class SumoEvaluator extends BaseEvaluator {
             return app._job;
         }
         try {
-            const result = await executeSumoRequest(app.token, () => axios.get(`${SumoLogsUrl}/${app._job}/records?offset=0&limit=1000`, getRequestConfig(app.token)));
-            log(`successfully completed sumo job search for '${app.name}', result:`, result.data);
+            const result = await executeSumoRequest(app, (config) => axios.get(`${SumoLogsUrl}/${app._job}/records?offset=0&limit=1000`, config));
+            log(`[sumo] successfully completed sumo job search for '${app.name}', result:`, result.data);
             return result.data;
         } catch (err) {
-            log(`failed to complete sumo job search for '${app.name}', result:`, err.response?.data);
+            log(`[sumo] failed to complete sumo job search for '${app.name}', result:`, err.response?.data);
             throw err;
         }
     }
 
     async deleteJob(app: IApp) {
         try {
-            await executeSumoRequest(app.token, () => axios.delete(`${SumoLogsUrl}/${app._job}`, getRequestConfig(app.token)));
+            await executeSumoRequest(app, (config) => axios.delete(`${SumoLogsUrl}/${app._job}`, config));
         } catch (error) {
             log("error: could not delete job", { app, error });
             // no-op
@@ -282,7 +282,8 @@ export class SumoEvaluator extends BaseEvaluator {
 }
 
 function getRequestConfig(tokenName: string): AxiosRequestConfig {
-    if (!getEnvVar(tokenName)) {
+    const secret = getEnvVar(tokenName);
+    if (!secret) {
         throw new Error(`missing sumo logic env var with name '${tokenName}'`);
     }
     return {
@@ -290,7 +291,7 @@ function getRequestConfig(tokenName: string): AxiosRequestConfig {
         headers: {
             "Content-Type": "application/json",
             Accept: "application/json",
-            Authorization: `Basic ${Buffer.from(getEnvVar(tokenName)).toString('base64')}`
+            Authorization: `Basic ${Buffer.from(secret).toString('base64')}`
         }
     };
 }
@@ -300,13 +301,67 @@ function toSumoTime(date: Date): string {
 }
 
 const rateLimiters = new Map<string, RateLimiter>();
+interface IRoundRobinState {
+    count: number;
+    index: number;
+    tokenNames: string[];
+}
+const roundRobinTokens = new Map<string, IRoundRobinState>();
 
+export function resetState() {
+    rateLimiters.clear();
+    roundRobinTokens.clear();
+}
+
+function getRoundRobinState(tokenName: string): IRoundRobinState {
+    if (roundRobinTokens.has(tokenName)) {
+        return roundRobinTokens.get(tokenName);
+    }
+    const state = {
+        count: 0,
+        index: 0,
+        tokenNames: [],
+    };
+    while (true) {
+        const candidates = state.count === 0
+            ? [tokenName]
+            : [`${tokenName}-${state.count}`, `${tokenName}_${state.count}`];
+        const candidateValues = candidates.map(x => getEnvVar(x));
+        const firstMatching = candidateValues.findIndex(x => x);
+        if (firstMatching < 0) {
+            break;
+        }
+        state.count++;
+        state.tokenNames.push(candidates[firstMatching]);
+    }
+    roundRobinTokens.set(tokenName, state);
+    return state;
+}
+
+function roundRobin(tokenName: string): string {
+    const state = getRoundRobinState(tokenName);
+    if (!state) {
+        throw new Error(`missing round robin state for token '${tokenName}'`);
+    }
+    const tokenNameToUse = state.tokenNames[state.index];
+    state.index = (state.index + 1) % state.count;
+    return tokenNameToUse;
+}
+
+/*
+ * Sumo Logic has strict rate limits - so we do our best to avoid hitting these by managing how many requests are
+ * in flight at any given time. In addition, we support round-robin across multiple Sumo Logic keys, so that
+ * we can spread the load. This is achieved using the following convention. For a given key `xyz`, you can have
+ * multiple keys like `xyz`, `xyz-1`, `xyz-2`, etc. Each of these keys will be used in a round-robin fashion.
+ */
 export async function executeSumoRequest<T>(
-    key: string,
-    request: () => Promise<T>): Promise<T> {
-    let limiter = rateLimiters.get(key) ?? new RateLimiter(MaxSumoRequestsPerSecond, MaxSumoConcurrency);
-    rateLimiters.set(key, limiter);
-    return await limiter.execute(request);
+    app: IApp,
+    request: (config: AxiosRequestConfig) => Promise<T>): Promise<T> {
+    const token = roundRobin(app.token);
+    log('[sumo] using token: ' + token);
+    let limiter = rateLimiters.get(token) ?? new RateLimiter(MaxSumoRequestsPerSecond, MaxSumoConcurrency);
+    rateLimiters.set(token, limiter);
+    return await limiter.execute(async () => request(getRequestConfig(token)));
 }
 
 export function parseMetricResults(results: any[]) {

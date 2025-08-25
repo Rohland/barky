@@ -123,7 +123,7 @@ describe("period parsing", () => {
             it("should throw an error", async () => {
                 // arrange
                 // act
-                expect(() => parsePeriod(input)).toThrowError("invalid period - expected format: Integer{s|m|h|d} (example: -10s or 5m)");
+                expect(() => parsePeriod(input)).toThrow("invalid period - expected format: Integer{s|m|h|d} (example: -10s or 5m)");
             });
         });
         describe("when period defined in seconds", () => {
@@ -223,7 +223,7 @@ describe("period parsing", () => {
             it("should throw an error", async () => {
                 // arrange
                 // act
-                expect(() => parsePeriodRange(input)).toThrowError("invalid period - expected format: -fromInteger{s|m|h|d} to -toInteger{s|m|h|d}");
+                expect(() => parsePeriodRange(input)).toThrow("invalid period - expected format: -fromInteger{s|m|h|d} to -toInteger{s|m|h|d}");
             });
         });
         describe("when period defined in seconds", () => {

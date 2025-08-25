@@ -111,7 +111,7 @@ describe("digest", () => {
 
                     // act
                     // assert
-                    expect(() => new DigestConfiguration(digestConfig)).toThrowError("Unsupported channel type: 'bar'");
+                    expect(() => new DigestConfiguration(digestConfig)).toThrow("Unsupported channel type: 'bar'");
                 });
             });
             describe("with prefix and postfix including vars", () => {

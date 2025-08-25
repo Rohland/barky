@@ -14,7 +14,7 @@ export class RateLimiter {
     private executing: IRequest[] = [];
     private rateLimiter = new Map<number, number>();
 
-    constructor(maxRatePerSecond, maxConcurrent) {
+    constructor(maxRatePerSecond: number, maxConcurrent: number) {
         this.maxRatePerSecond = maxRatePerSecond;
         this.maxConcurrent = maxConcurrent;
     }

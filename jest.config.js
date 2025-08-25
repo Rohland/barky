@@ -4,13 +4,7 @@ module.exports = {
     verbose: false, // turn on to see each test and result in the output, but errors don't summarise at the end
     preset: "ts-jest/presets/js-with-ts",
     testEnvironment: 'node',
-    transform: {
-        "^.+\\.tsx?$": [
-            "ts-jest", {
-                isolatedModules: true
-            }
-        ]
-    },
+    transform: { '^.+\\.tsx?$': ['ts-jest', { tsconfig: 'tsconfig.json' }] },
     testMatch: [
         "**/**/*.spec.ts"
     ],

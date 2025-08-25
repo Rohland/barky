@@ -1,30 +1,76 @@
-import { executeSumoRequest, parseMetricResults, SumoEvaluator } from "./sumo";
+import { executeSumoRequest, parseMetricResults, resetState, SumoEvaluator } from "./sumo";
 import { IApp } from "../models/app";
+import { getEnvVar } from "../lib/env";
+jest.mock("../lib/env");
 
 describe('sumo ', () => {
+    beforeEach(() => {
+        resetState();
+    })
     describe('executeSumoRequest', () => {
         describe("when executed with success", () => {
             it("should return result", async () => {
                 // arrange
+                const secrets = { "test": "test-token"};
+                (getEnvVar as jest.Mock).mockImplementation(x => secrets[x]);
                 const request = jest.fn().mockResolvedValue("result");
 
                 // act
-                const result = await executeSumoRequest("test", request);
+                const result = await executeSumoRequest({ token: "test" }, request);
 
                 // assert
+                expect(getEnvVar).toHaveBeenCalledWith("test");
                 expect(result).toEqual("result");
                 expect(request).toHaveBeenCalledTimes(1);
+                expect(request).toHaveBeenCalledWith(expect.objectContaining({
+                    headers: expect.objectContaining({
+                        "Authorization": "Basic " + btoa("test-token")
+                    })
+                }));
+            });
+        });
+        describe("when multiple instances of tokens available", () => {
+            it("should round robin between them", async () => {
+                // arrange
+                const secrets = { "test": "test-token", "test-1": "test-token-1"};
+                (getEnvVar as jest.Mock).mockImplementation(x => secrets[x]);
+                const request = jest.fn().mockResolvedValue("result");
+
+                // act
+                const result = await executeSumoRequest({ token: "test" }, request);
+                const result2 = await executeSumoRequest({ token: "test" }, request);
+                const result3 = await executeSumoRequest({ token: "test" }, request);
+
+                // assert
+                expect(getEnvVar).toHaveBeenCalledWith("test");
+                expect(getEnvVar).toHaveBeenCalledWith("test-1");
+                expect(result).toEqual("result");
+                expect(result2).toEqual("result");
+                expect(result3).toEqual("result");
+                expect(request).toHaveBeenCalledTimes(3);
+                expect(request).toHaveBeenCalledWith(expect.objectContaining({
+                    headers: expect.objectContaining({
+                        "Authorization": "Basic " + btoa("test-token")
+                    })
+                }));
+                expect(request).toHaveBeenCalledWith(expect.objectContaining({
+                    headers: expect.objectContaining({
+                        "Authorization": "Basic " + btoa("test-token-1")
+                    })
+                }));
             });
         });
         describe("when failure", () => {
             it("should throw error", async () => {
                 // arrange
+                const secrets = { "test": "test-token"};
+                (getEnvVar as jest.Mock).mockImplementation(x => secrets[x]);
                 const request = jest.fn().mockRejectedValue(new Error("error"));
 
                 // act
                 let error;
                 try {
-                    await executeSumoRequest("test", request);
+                    await executeSumoRequest({ token: "test"}, request);
                 } catch (err) {
                     error = err;
                 }
@@ -37,11 +83,13 @@ describe('sumo ', () => {
         describe("when request takes some time", () => {
             it("should wait", async () => {
                 // arrange
+                const secrets = { "test": "test-token"};
+                (getEnvVar as jest.Mock).mockImplementation(x => secrets[x]);
                 const request = jest.fn().mockImplementation(() => new Promise(resolve => setTimeout(() => resolve("result"), 100)));
 
                 // act
                 const start = performance.now();
-                const result = await executeSumoRequest("test", request);
+                const result = await executeSumoRequest({ token: "test"}, request);
                 const end = performance.now();
 
                 // assert
@@ -53,6 +101,8 @@ describe('sumo ', () => {
         describe("when multiple requests sent", () => {
             it("should queue them and only execute 5 per second", async () => {
                 // arrange
+                const secrets = { "test": "test-token"};
+                (getEnvVar as jest.Mock).mockImplementation(x => secrets[x]);
                 const count = 20;
                 const requests = [];
                 const countPerSecond = new Map<number, number>();
@@ -68,7 +118,7 @@ describe('sumo ', () => {
 
                 // act
                 const start = performance.now();
-                const result = await Promise.all(requests.map(x => executeSumoRequest("test", x)));
+                const result = await Promise.all(requests.map(x => executeSumoRequest({ token: "test"}, x)));
                 const end = performance.now();
 
                 // assert

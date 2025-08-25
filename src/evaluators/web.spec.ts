@@ -342,7 +342,7 @@ describe("web evaluator", () => {
                         expect(response.certInfo).toBeDefined();
                         expect(response.certInfo.validFrom).toBeDefined();
                         expect(response.certInfo.validTo).toBeDefined();
-                    });
+                    }, 10_000);
                 });
                 describe("with bad certificate", () => {
                     it("should throw", async () => {

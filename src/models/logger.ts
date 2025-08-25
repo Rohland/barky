@@ -4,9 +4,10 @@ let logger : (msg: string, data?: any) => void = () => {};
 
 function _log(msg: string, data?: any) {
     if (this.debug) {
+        const prefix = `${ new Date().toISOString() }: `;
         data
-            ? console.log(msg, Util.inspect(data))
-            : console.log(msg);
+            ? console.log(prefix + msg, Util.inspect(data))
+            : console.log(prefix + msg);
     }
 }
 
