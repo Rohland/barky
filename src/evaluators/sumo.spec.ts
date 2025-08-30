@@ -30,11 +30,31 @@ describe('sumo ', () => {
             });
         });
         describe("when multiple instances of tokens available", () => {
+            it("should use the same token for the same app", async () => {
+                // arrange
+                const secrets = { "test": "test-token", "test-1": "test-token-1"};
+                (getEnvVar as jest.Mock).mockImplementation(x => secrets[x]);
+                const request = jest.fn().mockImplementation((config) => config.headers["Authorization"]);
+                const app1 = { token: "test" };
+                const app2 = { token: "test" };
+
+                // act
+                const resultA = await executeSumoRequest(app1, request);
+                const resultA2 = await executeSumoRequest(app1, request);
+                const resultB = await executeSumoRequest(app2, request);
+                const resultB2 = await executeSumoRequest(app2, request);
+
+                // assert
+                expect(getEnvVar).toHaveBeenCalledWith("test");
+                expect(getEnvVar).toHaveBeenCalledWith("test-1");
+                expect(resultA2).toEqual(resultA);
+                expect(resultB2).toEqual(resultB);
+            });
             it("should round robin between them", async () => {
                 // arrange
                 const secrets = { "test": "test-token", "test-1": "test-token-1"};
                 (getEnvVar as jest.Mock).mockImplementation(x => secrets[x]);
-                const request = jest.fn().mockResolvedValue("result");
+                const request = jest.fn().mockImplementation((config) => config.headers["Authorization"]);
 
                 // act
                 const result = await executeSumoRequest({ token: "test" }, request);
@@ -44,9 +64,9 @@ describe('sumo ', () => {
                 // assert
                 expect(getEnvVar).toHaveBeenCalledWith("test");
                 expect(getEnvVar).toHaveBeenCalledWith("test-1");
-                expect(result).toEqual("result");
-                expect(result2).toEqual("result");
-                expect(result3).toEqual("result");
+                // tokens used for result and result 3 should be the same
+                expect(result).toEqual(result3);
+                expect(result2).not.toEqual(result);
                 expect(request).toHaveBeenCalledTimes(3);
                 expect(request).toHaveBeenCalledWith(expect.objectContaining({
                     headers: expect.objectContaining({

@@ -1,5 +1,5 @@
-import { faker } from "@faker-js/faker/locale/en";
 import { asyncSingleton, deregisterSingleton, singleton } from "./singleton";
+import { faker } from '@faker-js/faker';
 
 describe("singleton", () => {
     describe("when not registered", () => {

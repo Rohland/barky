@@ -15,11 +15,18 @@ module.exports = {
         "js",
         "ts"
     ],
+    "transformIgnorePatterns": [
+        "/node_modules/(?!@faker-js/faker)",
+    ],
     coverageDirectory: 'coverage',
     collectCoverageFrom: [
-        '**/*.{ts,tsx,js,jsx}',
+        '**/*.{ts,tsx,js,jx}',
+        "!**/*.d.ts"
     ],
     coveragePathIgnorePatterns: [
-        "node_modules",
-    ],
+        "/node_modules/",
+        "\\.d\\.ts$",
+        "<rootDir>/dist/",
+        "<rootDir>/coverage",
+    ]
 };

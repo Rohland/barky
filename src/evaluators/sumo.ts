@@ -338,13 +338,19 @@ function getRoundRobinState(tokenName: string): IRoundRobinState {
     return state;
 }
 
-function roundRobin(tokenName: string): string {
+function roundRobin(app: IApp): string {
+    const key = "_sumo_token";
+    if (app[key]) {
+        return app[key];
+    }
+    const tokenName = app.token;
     const state = getRoundRobinState(tokenName);
     if (!state) {
         throw new Error(`missing round robin state for token '${tokenName}'`);
     }
     const tokenNameToUse = state.tokenNames[state.index];
     state.index = (state.index + 1) % state.count;
+    app[key] = tokenNameToUse;
     return tokenNameToUse;
 }
 
@@ -357,7 +363,7 @@ function roundRobin(tokenName: string): string {
 export async function executeSumoRequest<T>(
     app: IApp,
     request: (config: AxiosRequestConfig) => Promise<T>): Promise<T> {
-    const token = roundRobin(app.token);
+    const token = roundRobin(app);
     log('[sumo] using token: ' + token);
     let limiter = rateLimiters.get(token) ?? new RateLimiter(MaxSumoRequestsPerSecond, MaxSumoConcurrency);
     rateLimiters.set(token, limiter);
