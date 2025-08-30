@@ -338,16 +338,17 @@ function getRoundRobinState(tokenName: string): IRoundRobinState {
     return state;
 }
 
+const stickyTokenMap = new Map<any, string>();
+
 /*
  * round-robin across multiple tokens if available, however, if an app is already assigned a token, keep using that one
  * for all calls relevant to that app (sumo will throw a 404 if a token from another user attempts to access a job it
  * didn't create)
  */
 function roundRobin(app: IApp): string {
-    const key = "_sumo_token";
-    const appHasStickyTokenAssigned = !!app[key];
-    if (appHasStickyTokenAssigned) {
-        return app[key];
+    const stickyToken = stickyTokenMap.get(app);
+    if (stickyToken) {
+        return stickyToken;
     }
     const tokenName = app.token;
     const state = getRoundRobinState(tokenName);
@@ -356,7 +357,7 @@ function roundRobin(app: IApp): string {
     }
     const tokenNameToUse = state.tokenNames[state.index];
     state.index = (state.index + 1) % state.count;
-    app[key] = tokenNameToUse;
+    stickyTokenMap.set(app, tokenNameToUse);
     return tokenNameToUse;
 }
 
