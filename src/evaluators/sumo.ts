@@ -338,7 +338,7 @@ function getRoundRobinState(tokenName: string): IRoundRobinState {
     return state;
 }
 
-const stickyTokenMap = new Map<any, string>();
+const stickyTokenMap = new Map<IApp, string>();
 
 /*
  * round-robin across multiple tokens if available, however, if an app is already assigned a token, keep using that one
