@@ -338,13 +338,26 @@ function getRoundRobinState(tokenName: string): IRoundRobinState {
     return state;
 }
 
-function roundRobin(tokenName: string): string {
+const stickyTokenMap = new Map<IApp, string>();
+
+/*
+ * round-robin across multiple tokens if available, however, if an app is already assigned a token, keep using that one
+ * for all calls relevant to that app (sumo will throw a 404 if a token from another user attempts to access a job it
+ * didn't create)
+ */
+function roundRobin(app: IApp): string {
+    const stickyToken = stickyTokenMap.get(app);
+    if (stickyToken) {
+        return stickyToken;
+    }
+    const tokenName = app.token;
     const state = getRoundRobinState(tokenName);
     if (!state) {
         throw new Error(`missing round robin state for token '${tokenName}'`);
     }
     const tokenNameToUse = state.tokenNames[state.index];
     state.index = (state.index + 1) % state.count;
+    stickyTokenMap.set(app, tokenNameToUse);
     return tokenNameToUse;
 }
 
@@ -357,7 +370,7 @@ function roundRobin(tokenName: string): string {
 export async function executeSumoRequest<T>(
     app: IApp,
     request: (config: AxiosRequestConfig) => Promise<T>): Promise<T> {
-    const token = roundRobin(app.token);
+    const token = roundRobin(app);
     log('[sumo] using token: ' + token);
     let limiter = rateLimiters.get(token) ?? new RateLimiter(MaxSumoRequestsPerSecond, MaxSumoConcurrency);
     rateLimiters.set(token, limiter);
