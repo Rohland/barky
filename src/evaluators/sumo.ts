@@ -338,9 +338,15 @@ function getRoundRobinState(tokenName: string): IRoundRobinState {
     return state;
 }
 
+/*
+ * round-robin across multiple tokens if available, however, if an app is already assigned a token, keep using that one
+ * for all calls relevant to that app (sumo will throw a 404 if a token from another user attempts to access a job it
+ * didn't create)
+ */
 function roundRobin(app: IApp): string {
     const key = "_sumo_token";
-    if (app[key]) {
+    const appHasStickyTokenAssigned = !!app[key];
+    if (appHasStickyTokenAssigned) {
         return app[key];
     }
     const tokenName = app.token;
