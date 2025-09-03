@@ -1,4 +1,5 @@
 import { sleepMs } from "./sleep";
+import { log } from "../models/logger";
 
 class Request {
 
@@ -80,6 +81,7 @@ export class RateLimiter {
     async processRequests(poll: boolean = true) {
         while (this.requestQueue.length > 0) {
             if (this.canExecuteNow) {
+                this.log("request allowed");
                 const request = this.requestQueue.shift();
                 if (!request) {
                     return;
@@ -108,6 +110,7 @@ export class RateLimiter {
     public get canExecuteNow(): boolean {
         const hasConcurrentCapacity = this.executing.length < this.maxConcurrent;
         if (!hasConcurrentCapacity) {
+            this.log("limited - max concurrent reached", { maxConcurrent: this.maxConcurrent, executing: this.executing.length });
             return false;
         }
         const oneSecondAgo = new Date(Date.now() - 1000);
@@ -116,6 +119,12 @@ export class RateLimiter {
             .filter(x => x >= oneSecondAgo)
             .length;
         const rateLimitPerSecondHasCapacity = executedInLastSecond < this.maxRatePerSecond;
+        if (!rateLimitPerSecondHasCapacity) {
+            this.log("limited - max per second reached", {
+                maxRatePerSecond: this.maxRatePerSecond,
+                executedInLastSecond
+            });
+        }
         return rateLimitPerSecondHasCapacity;
     }
 
@@ -128,5 +137,9 @@ export class RateLimiter {
         const oneSecondAgo = new Date(Date.now() - 1000);
         const remaining = this.executed.filter(x => x.timestamp >= oneSecondAgo);
         this.executed = remaining;
+    }
+
+    private log(msg: string, data?: any) {
+        log("[rate limiter] " + msg, data);
     }
 }
