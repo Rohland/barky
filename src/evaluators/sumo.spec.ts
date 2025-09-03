@@ -119,7 +119,7 @@ describe('sumo ', () => {
             });
         });
         describe("when multiple requests sent", () => {
-            it("should queue them and only execute 5 per second", async () => {
+            it("should queue them and only execute 4 per second", async () => {
                 // arrange
                 const secrets = { "test": "test-token"};
                 (getEnvVar as jest.Mock).mockImplementation(x => secrets[x]);
@@ -143,8 +143,8 @@ describe('sumo ', () => {
 
                 // assert
                 expect(result).toEqual(requests.map((_x, i) => `result${ i }`));
-                expect(end - start).toBeGreaterThanOrEqual(2000);
-                expect(end - start).toBeLessThanOrEqual(4050);
+                expect(end - start).toBeGreaterThanOrEqual(4000);
+                expect(end - start).toBeLessThanOrEqual(4200);
                 requests.forEach(x => expect(x).toHaveBeenCalledTimes(1));
                 countPerSecond.forEach((value, _) => {
                     expect(value).toBeLessThanOrEqual(5);
