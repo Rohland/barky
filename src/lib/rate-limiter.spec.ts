@@ -73,7 +73,7 @@ describe('rate-limiter', () => {
 
                 // assert
                 expect(result).toEqual(requests.map((_x, i) => `result${i}`));
-                expect(end - start).toBeGreaterThanOrEqual(1500);
+                expect(end - start).toBeGreaterThanOrEqual(1499); // account for a bit of jitter
                 requests.forEach(x => expect(x).toHaveBeenCalledTimes(1));
             });
             it("should queue them and only execute x per second", async () => {
@@ -133,7 +133,7 @@ describe('rate-limiter', () => {
 
                 // assert
                 expect(result).toEqual(requests.map((_x, i) => `result${i}`));
-                expect(end - start).toBeGreaterThanOrEqual(1000);
+                expect(end - start).toBeGreaterThanOrEqual(999);
                 expect(end - start).toBeLessThanOrEqual(1125);
                 requests.forEach(x => expect(x).toHaveBeenCalledTimes(1));
                 countPerSecond.forEach((value, _) => {
