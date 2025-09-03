@@ -7,7 +7,6 @@ describe('rate-limiter', () => {
                 // arrange
                 const request = jest.fn().mockResolvedValue("result");
                 const sut = getSut();
-                ;
 
                 // act
                 const result = await sut.execute(request);
@@ -22,7 +21,6 @@ describe('rate-limiter', () => {
                 // arrange
                 const request = jest.fn().mockRejectedValue(new Error("error"));
                 const sut = getSut();
-                ;
 
                 // act
                 let error;
@@ -41,7 +39,6 @@ describe('rate-limiter', () => {
             it("should wait", async () => {
                 // arrange
                 const sut = getSut();
-                ;
                 const request = jest.fn().mockImplementation(() => new Promise(resolve => setTimeout(() => resolve("result"), 100)));
 
                 // act

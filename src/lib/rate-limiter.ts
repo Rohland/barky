@@ -111,8 +111,7 @@ export class RateLimiter {
             return false;
         }
         const oneSecondAgo = new Date(Date.now() - 1000);
-        const executedInLastSecond = [...this.executing, this.executed]
-            .flat()
+        const executedInLastSecond = [...this.executing, ...this.executed]
             .map(x => x.timestamp)
             .filter(x => x >= oneSecondAgo)
             .length;
