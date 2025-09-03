@@ -6,7 +6,8 @@ describe('rate-limiter', () => {
             it("should return result", async () => {
                 // arrange
                 const request = jest.fn().mockResolvedValue("result");
-                const sut = getSut();;
+                const sut = getSut();
+                ;
 
                 // act
                 const result = await sut.execute(request);
@@ -20,7 +21,8 @@ describe('rate-limiter', () => {
             it("should throw error", async () => {
                 // arrange
                 const request = jest.fn().mockRejectedValue(new Error("error"));
-                const sut = getSut();;
+                const sut = getSut();
+                ;
 
                 // act
                 let error;
@@ -38,7 +40,8 @@ describe('rate-limiter', () => {
         describe("when request takes some time", () => {
             it("should wait", async () => {
                 // arrange
-                const sut = getSut();;
+                const sut = getSut();
+                ;
                 const request = jest.fn().mockImplementation(() => new Promise(resolve => setTimeout(() => resolve("result"), 100)));
 
                 // act
@@ -61,7 +64,7 @@ describe('rate-limiter', () => {
                 const requests = [];
                 for (let i = 0; i < count; i++) {
                     const req = jest.fn().mockImplementation(() => new Promise(resolve => {
-                        setTimeout(() => resolve(`result${ i }`), 500)
+                        setTimeout(() => resolve(`result${i}`), 500)
                     }));
                     requests.push(req);
                 }
@@ -72,7 +75,7 @@ describe('rate-limiter', () => {
                 const end = performance.now();
 
                 // assert
-                expect(result).toEqual(requests.map((_x,i) => `result${ i }`));
+                expect(result).toEqual(requests.map((_x, i) => `result${i}`));
                 expect(end - start).toBeGreaterThanOrEqual(1500);
                 requests.forEach(x => expect(x).toHaveBeenCalledTimes(1));
             });
@@ -88,7 +91,7 @@ describe('rate-limiter', () => {
                         const time = Math.round(performance.now() / 1000);
                         const count = countPerSecond.get(time) ?? 0;
                         countPerSecond.set(time, count + 1);
-                        setTimeout(() => resolve(`result${ i }`), 100)
+                        setTimeout(() => resolve(`result${i}`), 100)
                     }));
                     requests.push(req);
                 }
@@ -99,7 +102,7 @@ describe('rate-limiter', () => {
                 const end = performance.now();
 
                 // assert
-                expect(result).toEqual(requests.map((_x,i) => `result${ i }`));
+                expect(result).toEqual(requests.map((_x, i) => `result${i}`));
                 expect(end - start).toBeGreaterThanOrEqual(2000);
                 expect(end - start).toBeLessThanOrEqual(4000);
                 requests.forEach(x => expect(x).toHaveBeenCalledTimes(1));
@@ -107,8 +110,42 @@ describe('rate-limiter', () => {
                     expect(value).toBeLessThanOrEqual(maxPerSec);
                 });
             });
+            it("should burst queue once rate limited time completes", async () => {
+                // arrange
+                const maxPerSec = 4;
+                const maxConcurrent = 4;
+                const sut = getSut(maxPerSec, maxConcurrent);
+                const count = 8;
+                const requests = [];
+                const countPerSecond = new Map<number, number>();
+                for (let i = 0; i < count; i++) {
+                    const req = jest.fn().mockImplementation(() => new Promise(resolve => {
+                        const time = Math.round(performance.now() / 1000);
+                        const count = countPerSecond.get(time) ?? 0;
+                        countPerSecond.set(time, count + 1);
+                        const taskTime = i < 4 ? 1000 : 0;
+                        setTimeout(() => resolve(`result${i}`), taskTime);
+                    }));
+                    requests.push(req);
+                }
+
+                // act
+                const start = performance.now();
+                const result = await Promise.all(requests.map(x => sut.execute(x)));
+                const end = performance.now();
+
+                // assert
+                expect(result).toEqual(requests.map((_x, i) => `result${i}`));
+                expect(end - start).toBeGreaterThanOrEqual(1000);
+                expect(end - start).toBeLessThanOrEqual(1125);
+                requests.forEach(x => expect(x).toHaveBeenCalledTimes(1));
+                countPerSecond.forEach((value, _) => {
+                    expect(value).toBeLessThanOrEqual(maxPerSec);
+                });
+            });
         });
     });
+
     function getSut(perSecond = null, concurrent = null) {
         return new RateLimiter(perSecond ?? 5, concurrent ?? 3);
     }

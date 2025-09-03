@@ -1,81 +1,133 @@
 import { sleepMs } from "./sleep";
 
-interface IRequest {
-    request: () => Promise<any>;
-    resolve: (res: any) => void;
-    reject: (err: Error) => void;
+class Request {
+
+    public timestamp: Date;
+    private resolve: (res: any) => void;
+    private reject: (err: Error) => void;
+    private promise: Promise<any>;
+
+    constructor(
+        public request: () => Promise<any>,
+        public onComplete: (r: Request) => void) {
+        this.promise = new Promise<any>((res, rej) => {
+            this.resolve = res;
+            this.reject = rej;
+        });
+    }
+
+    execute() {
+        this.timestamp = new Date();
+        // we need to consider that the request function might throw synchronously
+        try {
+            Promise.resolve(this.request())
+                .then(res => {
+                    this.onComplete(this);
+                    this.resolve(res);
+                })
+                .catch(err => {
+                    this.onComplete(this);
+                    this.reject(err instanceof Error ? err : new Error(String(err)));
+                });
+        } catch (err) {
+            this.onComplete(this);
+            this.reject(err instanceof Error ? err : new Error(String(err)));
+        }
+    }
+
+    async waitUntilDone(): Promise<any> {
+        return await this.promise;
+    }
 }
 
 export class RateLimiter {
 
     private maxRatePerSecond: number;
     private maxConcurrent: number;
-    private requestQueue: IRequest[] = [];
-    private executing: IRequest[] = [];
-    private rateLimiter = new Map<number, number>();
+    private requestQueue: Request[] = [];
+    private executing: Request[] = [];
+    private executed: Request[] = [];
 
     constructor(maxRatePerSecond: number, maxConcurrent: number) {
+        if (maxRatePerSecond <= 0) {
+            throw new Error("maxRatePerSecond must be greater than 0");
+        }
+        if (maxConcurrent <= 0) {
+            throw new Error("maxConcurrent must be greater than 0");
+        }
         this.maxRatePerSecond = maxRatePerSecond;
         this.maxConcurrent = maxConcurrent;
     }
 
     async execute<T>(request: () => Promise<T>): Promise<T> {
-        let resolve, reject;
-        const promise = new Promise<T>((res, rej) => {
-            resolve = res;
-            reject = rej;
-        });
-        this.requestQueue.push({
-            request: async () => {
-                await this.waitUntilCanExecute();
-                return await request();
-            },
-            resolve,
-            reject
-        });
-        this.processRequests();
-        return await promise;
+        const r = new Request(
+            request,
+            this.onComplete.bind(this)
+        );
+        this.requestQueue.push(r);
+        void this.processRequests();
+        return await r.waitUntilDone();
     }
 
-    processRequests() {
-        this.clearOutOldRateLimitEntries();
-        const requests = this.requestQueue.splice(0, this.maxConcurrent - this.executing.length);
-        if (requests.length === 0) {
+    onComplete(request: Request) {
+        this.executed.push(request);
+        this.removeRequestFrom(request, this.executing);
+        this.cleanExecutedHistory();
+        // check-in and see if we can process more requests right now
+        void this.processRequests(false);
+    }
+
+    async processRequests(poll: boolean = true) {
+        while (this.requestQueue.length > 0) {
+            if (this.canExecuteNow) {
+                const request = this.requestQueue.shift();
+                if (!request) {
+                    return;
+                }
+                // execute request in background
+                this.executing.push(request);
+                request.execute();
+                continue;
+            }
+            if (!poll) {
+                // if we don't intend to poll (avoid multiple timers), just exit
+                return;
+            }
+            await sleepMs(this.pollTime);
+        }
+    }
+
+    public removeRequestFrom(request: Request, list: Request[]) {
+        const index = list.indexOf(request);
+        if (index < 0) {
             return;
         }
-        this.executing.push(...requests);
-        requests.map(x => x.request()
-            .then((res) => {
-                x.resolve(res);
-                this.executing.splice(this.executing.indexOf(x), 1);
-                this.processRequests();
-            })
-            .catch((err: Error) => {
-                x.reject(err);
-                this.executing.splice(this.executing.indexOf(x), 1);
-                this.processRequests();
-            }));
+        list.splice(index, 1);
     }
 
-    private async waitUntilCanExecute() {
-        while (true) {
-            const currentSlot = this.getCurrentSlot();
-            const countInCurrentSlot = this.rateLimiter.get(currentSlot) ?? 0;
-            if (countInCurrentSlot < this.maxRatePerSecond) {
-                this.rateLimiter.set(currentSlot, countInCurrentSlot + 1);
-                break;
-            }
-            await sleepMs(10);
+    public get canExecuteNow(): boolean {
+        const hasConcurrentCapacity = this.executing.length < this.maxConcurrent;
+        if (!hasConcurrentCapacity) {
+            return false;
         }
+        const oneSecondAgo = new Date(Date.now() - 1000);
+        const executedInLastSecond = [...this.executing, this.executed]
+            .flat()
+            .map(x => x.timestamp)
+            .filter(x => x >= oneSecondAgo)
+            .length;
+        const rateLimitPerSecondHasCapacity = executedInLastSecond < this.maxRatePerSecond;
+        return rateLimitPerSecondHasCapacity;
     }
 
-    private clearOutOldRateLimitEntries() {
-        const currentSlot = this.getCurrentSlot();
-        const oldSeconds = Array.from(this.rateLimiter.keys()).filter(x => x !== currentSlot);
-        oldSeconds.forEach(x => this.rateLimiter.delete(x));
+    public get pollTime(): number {
+        // divide by 2 (nyquist)
+        return Math.ceil(1000 / this.maxRatePerSecond) / 2;
     }
 
-    private getCurrentSlot() {
-        return Math.round(performance.now() / 1000);
+    private cleanExecutedHistory() {
+        const oneSecondAgo = new Date(Date.now() - 1000);
+        const remaining = this.executed.filter(x => x.timestamp >= oneSecondAgo);
+        this.executed = remaining;
     }
 }
