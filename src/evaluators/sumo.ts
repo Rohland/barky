@@ -20,9 +20,9 @@ const JobPollMillis = 1000;
 // that may lead to rate limits being reached
 const JobInitialPollMillis = 3000;
 
-// sumo logic has strict concurrency rules, limited to 10 per key - let's be cautious
+// sumo logic has strict concurrency rules, limited to 10 per key and a max of 4 requests per second
 const MaxSumoConcurrency = 10;
-const MaxSumoRequestsPerSecond = 3;
+const MaxSumoRequestsPerSecond = 4;
 
 export class SumoEvaluator extends BaseEvaluator {
     constructor(config: any) {
@@ -338,15 +338,13 @@ function getRoundRobinState(tokenName: string): IRoundRobinState {
     return state;
 }
 
-const stickyTokenMap = new Map<IApp, string>();
-
 /*
  * round-robin across multiple tokens if available, however, if an app is already assigned a token, keep using that one
  * for all calls relevant to that app (sumo will throw a 404 if a token from another user attempts to access a job it
  * didn't create)
  */
 function roundRobin(app: IApp): string {
-    const stickyToken = stickyTokenMap.get(app);
+    const stickyToken = app.__token;
     if (stickyToken) {
         return stickyToken;
     }
@@ -357,7 +355,7 @@ function roundRobin(app: IApp): string {
     }
     const tokenNameToUse = state.tokenNames[state.index];
     state.index = (state.index + 1) % state.count;
-    stickyTokenMap.set(app, tokenNameToUse);
+    app.__token = tokenNameToUse;
     return tokenNameToUse;
 }
 

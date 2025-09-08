@@ -143,8 +143,8 @@ describe('sumo ', () => {
 
                 // assert
                 expect(result).toEqual(requests.map((_x, i) => `result${ i }`));
-                expect(end - start).toBeGreaterThanOrEqual(3000);
-                expect(end - start).toBeLessThanOrEqual(3200);
+                expect(end - start).toBeGreaterThanOrEqual(2000);
+                expect(end - start).toBeLessThanOrEqual(2200);
                 requests.forEach(x => expect(x).toHaveBeenCalledTimes(1));
                 countPerSecond.forEach((value, _) => {
                     expect(value).toBeLessThanOrEqual(5);
