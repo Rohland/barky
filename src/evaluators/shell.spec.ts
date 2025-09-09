@@ -1,11 +1,16 @@
 import { ShellEvaluator } from "./shell";
-import { execShellScript } from "../lib/shell-runner";
+import { execShellScript, isShellTimeout } from "../lib/shell-runner";
 import { MonitorFailureResult, ShellResult } from "../models/result";
 import { IApp } from "../models/app";
 
 jest.mock("../lib/shell-runner");
 
 describe("shell evaluator", () => {
+
+    beforeEach(() => {
+        (isShellTimeout as jest.Mock).mockReturnValue(false);
+    })
+
     describe("generateSkippedAppUniqueKey", () => {
         it("should return wildcard for identifier", async () => {
             // arrange
@@ -73,6 +78,34 @@ describe("shell evaluator", () => {
             expect(result.identifier).toEqual("test");
             expect(result.result).toEqual(JSON.stringify(res));
             expect(result.success).toEqual(true);
+        });
+        xit("should emit failure result if timeout", async () => {
+            // arrange
+            const res = {
+                stdout: "TIMEOUT",
+                exitCode: 110
+            };
+            const app = {
+                name: "test",
+                path: "test.sh",
+                timeout: 1000,
+                __configPath: "/Users/Test/SomeDir/Hello.yaml"
+            };
+            (isShellTimeout as jest.Mock).mockReturnValue(true);
+            (execShellScript as jest.Mock).mockResolvedValue(res);
+            const sut = new ShellEvaluator({});
+
+            // act
+            const results = await sut.tryEvaluate(app);
+            const result = [results].flat()[0];
+
+            // assert
+            expect(execShellScript).toHaveBeenCalledWith("/Users/Test/SomeDir/test.sh", 1000, undefined);
+            expect(result).toBeInstanceOf(ShellResult);
+            expect(result.label).toEqual("shell");
+            expect(result.identifier).toEqual("test");
+            expect(result.result).toEqual("TIMEOUT");
+            expect(result.success).toEqual(false);
         });
         describe("with json response type", () => {
             it("should respond with json data", async () => {
@@ -508,7 +541,6 @@ describe("shell evaluator", () => {
         describe("when error", () => {
             it("should return monitor result", async () => {
                 // arrange
-
                 const app = {
                     name: "test",
                     path: "test.sh",
