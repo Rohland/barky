@@ -3,7 +3,7 @@ import { IApp } from "../models/app";
 import { IUniqueKey } from "../lib/key";
 import { MonitorFailureResult, Result, ShellResult } from "../models/result";
 import { log } from "../models/logger";
-import { execShellScript, IShellResult } from "../lib/shell-runner";
+import { execShellScript, IShellResult, isShellTimeout } from "../lib/shell-runner";
 import { renderTemplate } from "../lib/renderer";
 import path from "path";
 
@@ -69,6 +69,16 @@ export class ShellEvaluator extends BaseEvaluator {
     }
 
     validateShellResult(app: IApp, result: IShellResult): Result[] {
+        if (isShellTimeout(result)) {
+            return [new ShellResult(
+                this.type,
+                app.name,
+                "TIMEOUT",
+                `shell timed out after ${app.timeout}ms`,
+                app.timeout,
+                false,
+                app)];
+        }
         const variables = {
             stdout: result.stdout,
             exitCode: result.exitCode,

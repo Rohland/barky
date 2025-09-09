@@ -24,6 +24,12 @@ export function resetShellEnvironment() {
     _envVars = null;
 }
 
+const TIMEOUT_EXIT_CODE = 110;
+
+export function isShellTimeout(result: IShellResult): boolean {
+    return result?.exitCode === TIMEOUT_EXIT_CODE && result?.stdout === "TIMEOUT";
+}
+
 export async function execShellScript(
     scriptPath: string,
     timeout: number,
@@ -48,7 +54,7 @@ export async function execShellScript(
             const timeoutHandle = setTimeout(() => {
                 worker.kill("SIGKILL");
                 resolver({
-                    exitCode: 110,
+                    exitCode: TIMEOUT_EXIT_CODE,
                     stdout: "TIMEOUT"
                 });
             }, timeout);

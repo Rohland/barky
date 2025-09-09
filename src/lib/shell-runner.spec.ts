@@ -1,4 +1,4 @@
-import { execShellScript, resetShellEnvironment } from "./shell-runner";
+import { execShellScript, isShellTimeout, resetShellEnvironment } from "./shell-runner";
 import path from "path";
 
 describe("execShellScript", () => {
@@ -99,6 +99,32 @@ describe("execShellScript", () => {
             // assert
             expect(result.exitCode).toEqual(110);
             expect(result.stdout).toContain("TIMEOUT");
+        });
+    });
+    describe("isShellTimeout", () => {
+        describe("with timeout", () => {
+            it("should return true", async () => {
+                expect(isShellTimeout({
+                    exitCode: 110,
+                    stdout: "TIMEOUT"
+                })).toBe(true);
+            });
+        });
+        describe("if not matching exit code", () => {
+            it("should return false", async () => {
+                expect(isShellTimeout({
+                    exitCode: 100,
+                    stdout: "TIMEOUT"
+                })).toBe(false);
+            });
+        });
+        describe("if not matching stdout", () => {
+            it("should return false", async () => {
+                expect(isShellTimeout({
+                    exitCode: 110,
+                    stdout: "NOT_TIMEOUT"
+                })).toBe(false);
+            });
         });
     });
 });

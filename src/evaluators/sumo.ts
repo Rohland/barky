@@ -15,13 +15,13 @@ const SumoDomain = getEnvVar("sumo-domain") ?? "api.eu.sumologic.com";
 const SumoLogsUrl = `https://${SumoDomain}/api/v1/search/jobs`;
 const SumoMetricsUrl = `https://${SumoDomain}/api/v1/metrics/results`;
 
-const JobPollMillis = 1000;
+const JobPollMillis = 2000;
 // sumo logic queries tend to be quite slow (upwards of 2-3s+), so no point in polling every second right from the outset
 // that may lead to rate limits being reached
-const JobInitialPollMillis = 3000;
+const JobInitialPollMillis = 4000;
 
-// sumo logic has strict concurrency rules, limited to 10 per key - let's be cautious
-const MaxSumoConcurrency = 5;
+// sumo logic has strict concurrency rules, limited to 10 per key and a max of 4 requests per second
+const MaxSumoConcurrency = 10;
 const MaxSumoRequestsPerSecond = 4;
 
 export class SumoEvaluator extends BaseEvaluator {
@@ -338,7 +338,7 @@ function getRoundRobinState(tokenName: string): IRoundRobinState {
     return state;
 }
 
-const stickyTokenMap = new Map<IApp, string>();
+const appTokenLookup = new WeakMap();
 
 /*
  * round-robin across multiple tokens if available, however, if an app is already assigned a token, keep using that one
@@ -346,7 +346,7 @@ const stickyTokenMap = new Map<IApp, string>();
  * didn't create)
  */
 function roundRobin(app: IApp): string {
-    const stickyToken = stickyTokenMap.get(app);
+    const stickyToken = appTokenLookup.get(app);
     if (stickyToken) {
         return stickyToken;
     }
@@ -357,7 +357,7 @@ function roundRobin(app: IApp): string {
     }
     const tokenNameToUse = state.tokenNames[state.index];
     state.index = (state.index + 1) % state.count;
-    stickyTokenMap.set(app, tokenNameToUse);
+    appTokenLookup.set(app, tokenNameToUse);
     return tokenNameToUse;
 }
 
