@@ -48,6 +48,7 @@ describe('sumo ', () => {
                 expect(getEnvVar).toHaveBeenCalledWith("test");
                 expect(getEnvVar).toHaveBeenCalledWith("test-1");
                 expect(resultA2).toEqual(resultA);
+                expect(resultB).not.toEqual(resultA);
                 expect(resultB2).toEqual(resultB);
             });
             it("should round robin between them", async () => {
