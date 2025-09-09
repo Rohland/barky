@@ -47,7 +47,7 @@ export class RateLimiter {
     private maxConcurrent: number;
     private requestQueue: Request[] = [];
     private executing: Request[] = [];
-    private executed: Request[] = [];
+    private lastExecutedTimestamp: Date = new Date(0);
 
     constructor(maxRatePerSecond: number, maxConcurrent: number) {
         if (maxRatePerSecond <= 0) {
@@ -71,9 +71,7 @@ export class RateLimiter {
     }
 
     onComplete(request: Request) {
-        this.executed.push(request);
         this.removeRequestFrom(request, this.executing);
-        this.cleanExecutedHistory();
         // check-in and see if we can process more requests right now
         void this.processRequests(false);
     }
@@ -88,6 +86,7 @@ export class RateLimiter {
                 }
                 // execute request in background
                 this.executing.push(request);
+                this.lastExecutedTimestamp = new Date();
                 request.execute();
                 continue;
             }
@@ -95,7 +94,7 @@ export class RateLimiter {
                 // if we don't intend to poll (avoid multiple timers), just exit
                 return;
             }
-            await sleepMs(this.pollTime);
+            await sleepMs(this.waitTime);
         }
     }
 
@@ -107,36 +106,32 @@ export class RateLimiter {
         list.splice(index, 1);
     }
 
+    public get timeBetweenRequestsAllowed(): number {
+        const jitterBufferMs = 50;
+        return (1000 / this.maxRatePerSecond) + jitterBufferMs;
+    }
+
+    public get waitTime(): number {
+        const timeSinceLastExecuted = Date.now() - +this.lastExecutedTimestamp;
+        const timeUntilNextAllowed = this.timeBetweenRequestsAllowed - timeSinceLastExecuted;
+        return Math.max(0, timeUntilNextAllowed);
+    }
+
     public get canExecuteNow(): boolean {
         const hasConcurrentCapacity = this.executing.length < this.maxConcurrent;
         if (!hasConcurrentCapacity) {
             this.log("limited - max concurrent reached", { maxConcurrent: this.maxConcurrent, executing: this.executing.length });
             return false;
         }
-        const oneSecondAgo = new Date(Date.now() - 1000);
-        const executedInLastSecond = [...this.executing, ...this.executed]
-            .map(x => x.timestamp)
-            .filter(x => x >= oneSecondAgo)
-            .length;
-        const rateLimitPerSecondHasCapacity = executedInLastSecond < this.maxRatePerSecond;
-        if (!rateLimitPerSecondHasCapacity) {
-            this.log("limited - max per second reached", {
-                maxRatePerSecond: this.maxRatePerSecond,
-                executedInLastSecond
+        const timeSinceLastExecuted = Date.now() - +this.lastExecutedTimestamp;
+        if (timeSinceLastExecuted < this.timeBetweenRequestsAllowed) {
+            this.log("limited - time between requests not elapsed", {
+                timeSinceLastExecuted,
+                timeBetweenRequestsAllowed: this.timeBetweenRequestsAllowed
             });
+            return false;
         }
-        return rateLimitPerSecondHasCapacity;
-    }
-
-    public get pollTime(): number {
-        // divide by 2 (nyquist)
-        return Math.ceil(1000 / this.maxRatePerSecond) / 2;
-    }
-
-    private cleanExecutedHistory() {
-        const oneSecondAgo = new Date(Date.now() - 1000);
-        const remaining = this.executed.filter(x => x.timestamp >= oneSecondAgo);
-        this.executed = remaining;
+        return true;
     }
 
     private log(msg: string, data?: any) {

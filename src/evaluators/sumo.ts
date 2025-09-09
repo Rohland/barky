@@ -15,10 +15,10 @@ const SumoDomain = getEnvVar("sumo-domain") ?? "api.eu.sumologic.com";
 const SumoLogsUrl = `https://${SumoDomain}/api/v1/search/jobs`;
 const SumoMetricsUrl = `https://${SumoDomain}/api/v1/metrics/results`;
 
-const JobPollMillis = 1000;
+const JobPollMillis = 2000;
 // sumo logic queries tend to be quite slow (upwards of 2-3s+), so no point in polling every second right from the outset
 // that may lead to rate limits being reached
-const JobInitialPollMillis = 3000;
+const JobInitialPollMillis = 4000;
 
 // sumo logic has strict concurrency rules, limited to 10 per key and a max of 4 requests per second
 const MaxSumoConcurrency = 10;

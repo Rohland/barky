@@ -100,13 +100,13 @@ describe('rate-limiter', () => {
 
                 // assert
                 expect(result).toEqual(requests.map((_x, i) => `result${i}`));
-                expect(end - start).toBeGreaterThanOrEqual(2000);
-                expect(end - start).toBeLessThanOrEqual(4000);
+                expect(end - start).toBeGreaterThanOrEqual(4000);
+                expect(end - start).toBeLessThanOrEqual(5000);
                 requests.forEach(x => expect(x).toHaveBeenCalledTimes(1));
                 countPerSecond.forEach((value, _) => {
                     expect(value).toBeLessThanOrEqual(maxPerSec);
                 });
-            });
+            }, 10_000);
             it("should burst queue once rate limited time completes", async () => {
                 // arrange
                 const maxPerSec = 4;
@@ -133,8 +133,8 @@ describe('rate-limiter', () => {
 
                 // assert
                 expect(result).toEqual(requests.map((_x, i) => `result${i}`));
-                expect(end - start).toBeGreaterThanOrEqual(999);
-                expect(end - start).toBeLessThanOrEqual(1125);
+                expect(end - start).toBeGreaterThanOrEqual(2000);
+                expect(end - start).toBeLessThanOrEqual(2250);
                 requests.forEach(x => expect(x).toHaveBeenCalledTimes(1));
                 countPerSecond.forEach((value, _) => {
                     expect(value).toBeLessThanOrEqual(maxPerSec);
