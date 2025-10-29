@@ -48,6 +48,7 @@ describe('sumo ', () => {
                 expect(getEnvVar).toHaveBeenCalledWith("test");
                 expect(getEnvVar).toHaveBeenCalledWith("test-1");
                 expect(resultA2).toEqual(resultA);
+                expect(resultB).not.toEqual(resultA);
                 expect(resultB2).toEqual(resultB);
             });
             it("should round robin between them", async () => {
@@ -119,11 +120,11 @@ describe('sumo ', () => {
             });
         });
         describe("when multiple requests sent", () => {
-            it("should queue them and only execute 5 per second", async () => {
+            it("should queue them and only execute 4 per second", async () => {
                 // arrange
                 const secrets = { "test": "test-token"};
                 (getEnvVar as jest.Mock).mockImplementation(x => secrets[x]);
-                const count = 20;
+                const count = 10;
                 const requests = [];
                 const countPerSecond = new Map<number, number>();
                 for (let i = 0; i < count; i++) {
@@ -143,8 +144,8 @@ describe('sumo ', () => {
 
                 // assert
                 expect(result).toEqual(requests.map((_x, i) => `result${ i }`));
-                expect(end - start).toBeGreaterThanOrEqual(2000);
-                expect(end - start).toBeLessThanOrEqual(4050);
+                expect(end - start).toBeGreaterThanOrEqual(2500);
+                expect(end - start).toBeLessThanOrEqual(3000);
                 requests.forEach(x => expect(x).toHaveBeenCalledTimes(1));
                 countPerSecond.forEach((value, _) => {
                     expect(value).toBeLessThanOrEqual(5);
