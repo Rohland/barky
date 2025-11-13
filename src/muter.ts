@@ -51,18 +51,13 @@ export class Muter {
         from: Date,
         to: Date) {
         await addMuteWindow({
-            match: this.escapeMatch(match),
+            match,
             from,
             to
         });
     }
 
-    private escapeMatch(match: string) {
-        return match.replace(/\\/g, "\\\\");
-    }
-
     public async unmute(matches: string[]) {
-        matches = matches.map(x => this.escapeMatch(x));
         const windows = await this.getDynamicMutes();
         const toDelete = [];
         windows.forEach(window => {
