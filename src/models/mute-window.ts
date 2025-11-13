@@ -76,6 +76,7 @@ export class MuteWindow {
 
     public static getRegex(match: RegExp | string): RegExp {
         if (typeof match === "string") {
+            // escape a trailing backslash, JavaScript string literal quirk!
             if (/[^\\]+\\$/.test(match)) {
                 match = match + "\\";
             }
