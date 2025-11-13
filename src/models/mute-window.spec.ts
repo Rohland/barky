@@ -127,7 +127,9 @@ describe("mute-windows", () => {
             ["foo", "bar", false],
             ["\\dfoo", "123foobar", true],
             ["\\dFOO", "123foobar", true],
-            ["test::123", "test::123", true]
+            ["test::123", "test::123", true],
+            ["test::123\\", "TEST::123\\", true],
+            ["test::/123/", "TEST::/123/", true],
         ])(`when given %s and %s`, (match, identifier, expected) => {
             it("should generate regex that works", async () => {
                 // arrange

@@ -37,7 +37,7 @@ export class MuteWindow {
             throw new Error("expected mute window to have a time range, or a startTime and endTime");
         }
         if (data.match) {
-            this.identifierMatcher = new RegExp(data.match, "i");
+            this.identifierMatcher = MuteWindow.getRegex(data.match);
         }
         if (data.date) {
             this.date = new Date(data.date);
@@ -74,14 +74,24 @@ export class MuteWindow {
         return MuteWindow.isMatchForIdentifier(identifier, this.identifierMatcher);
     }
 
+    public static getRegex(match: RegExp | string): RegExp {
+        if (typeof match === "string") {
+            if (/[^\\]+\\$/.test(match)) {
+                match = match + "\\";
+            }
+            return new RegExp(match, "i");
+        } else {
+            return match;
+        }
+    }
+
     public static isMatchForIdentifier(
         identifier: string,
         match: RegExp | string): boolean {
         if (!match) {
             return true;
         }
-        const regex = typeof match === "string" ? new RegExp(match, "i") : match;
-        const isMatch = regex.test(identifier);
+        const isMatch = MuteWindow.getRegex(match).test(identifier);
         return isMatch;
     }
 }
