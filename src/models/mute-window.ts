@@ -14,7 +14,6 @@ export class MuteWindow {
     public startTime: Time;
     public endTime: Time;
     public identifierMatcher?: RegExp;
-    public identifierRegex: string;
     public dateString?: string;
     public date: Date;
     public daysOfWeek: number[];
@@ -38,8 +37,7 @@ export class MuteWindow {
             throw new Error("expected mute window to have a time range, or a startTime and endTime");
         }
         if (data.match) {
-            this.identifierRegex = data.match;
-            this.identifierMatcher = new RegExp(data.match, "i");
+            this.identifierMatcher = MuteWindow.getRegex(data.match);
         }
         if (data.date) {
             this.date = new Date(data.date);
@@ -50,7 +48,9 @@ export class MuteWindow {
         this.dynamic = data.dynamic ?? false;
     }
 
-    isMuted(identifer: string, date?: Date): boolean {
+    isMuted(
+        identifer: string,
+        date?: Date): boolean {
         return this.isMatchForIdentifier(identifer) && this.isMutedAt(date);
     }
 
@@ -74,11 +74,25 @@ export class MuteWindow {
         return MuteWindow.isMatchForIdentifier(identifier, this.identifierMatcher);
     }
 
-    public static isMatchForIdentifier(identifier: string, match: RegExp | string): boolean {
+    public static getRegex(match: RegExp | string): RegExp {
+        if (typeof match === "string") {
+            // escape a trailing backslash, JavaScript string literal quirk!
+            if (/[^\\]+\\$/.test(match)) {
+                match = match + "\\";
+            }
+            return new RegExp(match, "i");
+        } else {
+            return match;
+        }
+    }
+
+    public static isMatchForIdentifier(
+        identifier: string,
+        match: RegExp | string): boolean {
         if (!match) {
             return true;
         }
-        const regex = typeof match === "string" ? new RegExp(match, "i") : match;
-        return regex.test(identifier);
+        const isMatch = MuteWindow.getRegex(match).test(identifier);
+        return isMatch;
     }
 }

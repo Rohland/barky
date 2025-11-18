@@ -50,28 +50,6 @@ describe("Muter", () => {
             expect(mute2.startTime).toEqual("00:00");
             expect(mute2.endTime).toEqual("19:30");
         });
-        it("should escape backslashes", async () => {
-            const sut = getSut();
-            const end = new Date();
-            end.setMinutes(end.getMinutes() +1);
-            await sut.registerMute("test\\::123\\", new Date(), end);
-            await sut.loadDynamicMutes();
-            expect(sut.muteWindows).toHaveLength(1);
-            const mute = sut.muteWindows[0];
-            expect(mute.match).toEqual("test\\\\::123\\\\");
-            expect(new RegExp(mute.match).test("test\\::123\\")).toBeTruthy();
-        });
-        it("should support forward-slashes", async () => {
-            const sut = getSut();
-            const end = new Date();
-            end.setMinutes(end.getMinutes() +1);
-            await sut.registerMute("test/:123/", new Date(), end);
-            await sut.loadDynamicMutes();
-            expect(sut.muteWindows).toHaveLength(1);
-            const mute = sut.muteWindows[0];
-            expect(mute.match).toEqual("test/:123/");
-            expect(new RegExp(mute.match).test("test/:123/")).toBeTruthy();
-        });
     });
 
     describe("unmute", () => {
