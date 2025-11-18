@@ -130,7 +130,7 @@ export class MySqlEvaluator extends BaseEvaluator {
     async runQuery(
         connection: mysql.Connection,
         app: IApp) {
-        const timeout = app.timeout || 15_000;
+        const timeout = Math.max(app.timeout || 15_000, 30_000);
         const query = `set session max_execution_time = ${ timeout }; ${ app.query };`;
         const results = await connection.query({
             sql: query,

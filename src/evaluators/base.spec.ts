@@ -9,6 +9,7 @@ import { DefaultTrigger } from "../models/trigger";
 import { initLocaleAndTimezone } from "../lib/utility";
 import { MySqlResult, Result } from "../models/result";
 import { ShellEvaluator } from "./shell";
+import { sleepMs } from "../lib/sleep";
 
 describe("base evaluator", () => {
 
@@ -956,6 +957,25 @@ describe("base evaluator", () => {
                         expect(value).toEqual("hello:world");
                     });
                 });
+            });
+        });
+
+
+        describe("evaluateWithTimeout", () => {
+            it("should return result if within timeout", async () => {
+                const e = new CustomEvaluator({});
+                e["tryEvaluate"] = jest.fn().mockResolvedValue(["ok"]);
+                const result = await e.evaluateWithTimeout({} as IApp);
+                expect(result).toEqual(["ok"]);
+            });
+            it("should return error if timed out", async () => {
+                const e = new CustomEvaluator({});
+                e.timeout = jest.fn().mockResolvedValue("timeout");
+                e["tryEvaluate"] = jest.fn().mockImplementation(async () => {
+                    await sleepMs(100);
+                    return ["ok"];
+                });
+                await expect(() => e.evaluateWithTimeout({} as IApp)).rejects.toThrow("timeout");
             });
         });
     });
