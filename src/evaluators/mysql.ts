@@ -130,12 +130,13 @@ export class MySqlEvaluator extends BaseEvaluator {
     async runQuery(
         connection: mysql.Connection,
         app: IApp) {
-        const timeout = app.timeout || 15000;
+        const timeout = app.timeout || 15_000;
         const query = `set session max_execution_time = ${ timeout }; ${ app.query };`;
         const results = await connection.query({
             sql: query,
             timeout
         });
+        log("[mysql] query executed", { host: connection.config.host, query, app: app.name });
         let resultIndex = parseInt(app["result-index"]);
         if (Number.isNaN(resultIndex)) {
             // @ts-ignore
@@ -165,8 +166,10 @@ export class MySqlEvaluator extends BaseEvaluator {
             multipleStatements: true,
         };
         this.configureSSLForConnection(app, config);
+        log(`[mysql] connecting to: ${config.host}`);
         // @ts-ignore
         const connection = await mysql.createConnection(config);
+        log(`[mysql] connected to: ${config.host}`);
         connections.push(connection);
         return connection;
     }
