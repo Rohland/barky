@@ -1,4 +1,4 @@
-import mysql from "mysql2/promise";
+import mysql, { ConnectionOptions } from "mysql2/promise";
 import { renderTemplate } from "../lib/renderer";
 import { MonitorFailureResult, MySqlResult, Result } from "../models/result";
 import { log } from "../models/logger";
@@ -156,7 +156,7 @@ export class MySqlEvaluator extends BaseEvaluator {
     }
 
     async getConnection(app: IApp): Promise<mysql.Connection> {
-        const config = {
+        const config: ConnectionOptions = {
             host: getEnvVar(`mysql-${app.connection}-host`),
             user: getEnvVar(`mysql-${app.connection}-user`),
             password: getEnvVar(`mysql-${app.connection}-password`),
