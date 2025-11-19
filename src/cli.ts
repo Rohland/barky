@@ -39,7 +39,11 @@ async function bootstrapWebApp(port: number = null) {
     }
     webApp = await NestFactory.create(AppModule, { logger: new DebugLogger() });
     webApp.useStaticAssets(path.join(__dirname, './web/views'));
-    port ??= 3000;
+    if (process.env.HTTP_PORT) {
+        port = parseInt(process.env.HTTP_PORT);
+    } else {
+        port ??= 3000;
+    }
     log(`starting web app on port ${ port }`);
     await webApp.listen(port);
 }

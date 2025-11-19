@@ -10,6 +10,7 @@ import { DayAndTimeEvaluator } from "../lib/time";
 import { MonitorFailureResult, Result } from "../models/result";
 import { startClock, stopClock } from "../lib/profiler";
 import { formatType } from "../lib/type";
+import { sleepMs } from "../lib/sleep";
 
 const executionCounter = new Map<string, number>();
 
@@ -63,12 +64,29 @@ export abstract class BaseEvaluator {
 
     protected abstract isResultForApp(app: IApp, result: Result): boolean;
 
+    public async timeout() {
+        const maxEvaluatorTime = 30_000;
+        await sleepMs(maxEvaluatorTime);
+        return `evaluator of type '${ this.type }' timed out after ${maxEvaluatorTime/1000}s`;
+    }
+
+    public async evaluateWithTimeout(app: IApp): Promise<Result | Result []> {
+        const results = await Promise.race([
+            this.tryEvaluate(app),
+            this.timeout()
+        ]);
+        if (typeof results === "string") {
+            throw new Error(results);
+        }
+        return results;
+    }
+
     public async evaluate(): Promise<EvaluatorResult> {
         const apps = this.getAppsToEvaluate();
         const results = await Promise.allSettled(apps.map(async app => {
             try {
                 const timer = startClock();
-                const results = await this.tryEvaluate(app);
+                const results = await this.evaluateWithTimeout(app);
                 const timeTaken = stopClock(timer);
                 [results].flat().map(x => x.timeTaken ||= timeTaken);
                 return results;

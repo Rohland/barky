@@ -3,7 +3,7 @@ import * as Util from "util";
 let logger : (msg: string, data?: any) => void = () => {};
 
 function _log(msg: string, data?: any) {
-    if (this.debug) {
+    if (this.debug || process.env.DEBUG) {
         const prefix = `${ new Date().toISOString() }: `;
         data
             ? console.log(prefix + msg, Util.inspect(data))

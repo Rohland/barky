@@ -69,7 +69,7 @@ The `config` keyword in the YAML file defines locale and timezone as per the exa
 config:
   locale: en-ZA
   timezone: Africa/Johannesburg
-  port: 3000 # the port to run the web UI on (defaults to 3000)
+  port: 3000 # the port to run the web UI on (defaults to HTTP_PORT env var, otherwise 3000)
 ```
 
 The following high level keys are supported (note, it is case sensitive):
@@ -187,7 +187,7 @@ If there is a problem with an evaluator, you can expect a monitor output like th
 2023-08-23T15:13:33.467Z|web|monitor|www.codeo.co.za|0|missing url for web app 'www.codeo.co.za'||0.00
 ```
 
-You can get further information about any error by running the tool using the `--debug` switch.
+You can get further information about any error by running the tool using the `--debug` switch or setting DEBUG env var to 1 or true.
 
 
 Additional values that can be configured:

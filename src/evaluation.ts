@@ -11,7 +11,9 @@ export async function evaluate(
     config: any,
     evals: string): Promise<Result[]> {
     const types = getEvaluators(config, evals);
-    const results = await Promise.all(types.map(evaluateType));
+    const results = await Promise.all(types.map(async type => {
+        return await evaluateType(type)
+    }));
     return flatten(results);
 }
 
