@@ -67,7 +67,7 @@ export abstract class BaseEvaluator {
     public async timeout() {
         const maxEvaluatorTime = 30_000;
         await sleepMs(maxEvaluatorTime);
-        return `evaluator of type '${ this.type }' timed out after ${maxEvaluatorTime}ms`;
+        return `evaluator of type '${ this.type }' timed out after ${maxEvaluatorTime/1000}s`;
     }
 
     public async evaluateWithTimeout(app: IApp): Promise<Result | Result []> {
