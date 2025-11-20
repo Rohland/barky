@@ -25,6 +25,11 @@
         }
     </script>
     <style>
+
+        [v-cloak] {
+            display:none;
+        }
+
         td a {
             color: #3b82f6; /* blue-500 */
             text-decoration: underline;
@@ -107,6 +112,7 @@
 <body class="bg-gray-100 dark:bg-gray-800 p-4 sm:p-8 flex justify-center min-h-screen transition-colors duration-300">
 
 <div id="app"
+     v-cloak
      class="bg-white dark:bg-gray-900 p-4 sm:p-6 rounded-lg shadow-md dark:shadow-lg w-full max-w-8xl overflow-auto relative">
 
     <button id="theme-toggle" @click="toggleTheme" aria-label="Toggle dark mode">
@@ -337,7 +343,8 @@
 
             <p class="text-gray-700 dark:text-gray-300 mb-4">
                 <strong class="text-gray-900 dark:text-gray-100">ID: </strong>
-                <span class="bg-red-100 text-red-800 text-s font-medium me-2 px-1 py-0.5 rounded-sm dark:bg-red-900 dark:text-red-300">{{ muteModal.snapshot.id }}</span>
+                <span class="bg-red-100 text-red-800 text-s font-medium me-2 px-1 py-0.5 rounded-sm dark:bg-red-900 dark:text-red-300">{{ muteModal.snapshot.id
+                    }}</span>
             </p>
 
             <div class="mb-4">
@@ -364,6 +371,26 @@
             </div>
 
             <div class="mt-6 flex justify-end gap-3">
+                <button @click="mute(muteModal.snapshot, MuteOptions.OneHour)" v-if="!muteModal.time" title="Mute for 1 hour"
+                        class="flex items-center justify-center bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition duration-200 disabled:bg-green-300 dark:disabled:bg-green-700 disabled:cursor-not-allowed">
+                    1hr
+                </button>
+                <button @click="mute(muteModal.snapshot, MuteOptions.FourHours)" v-if="!muteModal.time" title="Mute for 4 hours"
+                        class="flex items-center justify-center bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition duration-200 disabled:bg-green-300 dark:disabled:bg-green-700 disabled:cursor-not-allowed">
+                    4hrs
+                </button>
+                <button @click="mute(muteModal.snapshot, MuteOptions.OneDay)" v-if="!muteModal.time" title="Mute for 1 day"
+                        class="flex items-center justify-center bg-green-700 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition duration-200 disabled:bg-green-300 dark:disabled:bg-green-700 disabled:cursor-not-allowed">
+                    1 day
+                </button>
+                <button @click="mute(muteModal.snapshot, MuteOptions.Tomorrow)" v-if="!muteModal.time" title="Mute until tomorrow 8AM"
+                        class="flex items-center justify-center bg-green-700 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition duration-200 disabled:bg-green-300 dark:disabled:bg-green-700 disabled:cursor-not-allowed">
+                    Tomorrow
+                </button>
+                <button @click="mute(muteModal.snapshot, MuteOptions.Monday)" v-if="!muteModal.time" title="Mute until the next Monday at 8AM"
+                        class="flex items-center justify-center bg-green-800 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition duration-200 disabled:bg-green-300 dark:disabled:bg-green-700 disabled:cursor-not-allowed">
+                    Monday
+                </button>
                 <button v-if="muteModal.time"
                         @click="mute(muteModal.snapshot)"
                         :disabled="muteModal.isSaving"
@@ -393,7 +420,8 @@
 
             <p class="text-gray-700 dark:text-gray-300 mb-4">
                 <strong class="text-gray-900 dark:text-gray-100">ID: </strong>
-                <span class="bg-red-100 text-red-800 text-s font-medium me-2 px-1 py-0.5 rounded-sm dark:bg-red-900 dark:text-red-300">{{ unMuteModal.snapshot.id }}</span>
+                <span class="bg-red-100 text-red-800 text-s font-medium me-2 px-1 py-0.5 rounded-sm dark:bg-red-900 dark:text-red-300">{{ unMuteModal.snapshot.id
+                    }}</span>
             </p>
 
             <div class="overflow-x-auto">
@@ -451,6 +479,15 @@
 
 <script type="text/javascript">
     const {createApp, ref, onMounted} = Vue;
+
+    const MuteOptions = {
+        Custom: "Custom",
+        OneHour: "OneHour",
+        FourHours: "FourHours",
+        OneDay: "OneDay",
+        Tomorrow: "Tomorrow",
+        Monday: "Monday"
+    };
 
     function humanizeDuration(time, type, includeSeconds = true) {
         let minutes = time;
@@ -518,6 +555,9 @@
         return simpleTime(date).split(" ")[0];
     }
 
+    function dateString(dt) {
+        return `${dt.getFullYear()}-${padZero(dt.getMonth() + 1)}-${padZero(dt.getDate())}`;
+    }
 
     function simpleTime(date) {
         const dt = typeof date === 'string' ? new Date(date) : date;
@@ -535,7 +575,7 @@
         if (isToday) {
             return time;
         }
-        const dateComponent = `${dt.getFullYear()}-${padZero(dt.getMonth() + 1)}-${padZero(dt.getDate())}`;
+        const dateComponent = dateString(dt);
         return `${dateComponent} ${time}`;
     }
 
@@ -715,10 +755,47 @@
                 }
             }
 
-            const mute = async (snapshot) => {
+            function getMuteModalDateTimeStateFor(type) {
+                const dt = new Date();
+                let date = muteModal.value.date;
+                let time = muteModal.value.time;
+                switch (type) {
+                    case MuteOptions.OneHour:
+                        dt.setHours(dt.getHours() + 1);
+                        date = dateString(dt);
+                        time = padZero(dt.getHours()) + ":" + padZero(dt.getMinutes());
+                        break;
+                    case MuteOptions.FourHours:
+                        dt.setHours(dt.getHours() + 4);
+                        date = dateString(dt);
+                        time = padZero(dt.getHours()) + ":" + padZero(dt.getMinutes());
+                        break;
+                    case MuteOptions.OneDay:
+                        dt.setDate(dt.getDate() + 1);
+                        date = dateString(dt);
+                        time = "08:00";
+                        break;
+                    case MuteOptions.Tomorrow:
+                        dt.setDate(dt.getDate() + 1);
+                        date = dateString(dt);
+                        time = "08:00";
+                        break;
+                    case MuteOptions.Monday:
+                        const day = dt.getDay();
+                        const daysUntilMonday = (8 - day) % 7;
+                        dt.setDate(dt.getDate() + daysUntilMonday);
+                        date = dateString(dt);
+                        time = "08:00";
+                        break;
+                }
+                return new Date(`${date} ${time}:00.000`);
+            }
+
+            const mute = async (snapshot, type) => {
+                type ||= MuteOptions.Custom;
+                const to = getMuteModalDateTimeStateFor(type);
                 muteModal.value.isSaving = true;
                 try {
-                    const to = new Date(`${muteModal.value.date} ${muteModal.value.time}:00.000`);
                     const body = JSON.stringify({
                         from: new Date(),
                         to,
@@ -783,7 +860,8 @@
                 humanizeDuration,
                 simpleTime,
                 isDarkMode,
-                toggleTheme
+                toggleTheme,
+                MuteOptions
             };
         },
     }).mount('#app');
