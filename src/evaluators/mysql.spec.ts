@@ -21,34 +21,36 @@ describe("mysql", () => {
             describe.each([
                 [undefined],
                 [null],
-                []
-            ])(`when validator.rules is %s`, (rules) => {
-                it("should return ok", () => {
-                    // arrange
-                    const app = {
-                        name: "app",
-                        identifier: "id",
-                        triggers: [
-                            {
-                                match: ".*",
-                                rules
-                            }
-                        ]
-                    };
-                    // @ts-ignore
-                    const row = {
-                        id: "123"
-                    } as Result;
+                [undefined]
+            ])(
+                `when validator.rules is %s`,
+                (rules: any) => {
+                    it("should return ok", () => {
+                        // arrange
+                        const app = {
+                            name: "app",
+                            identifier: "id",
+                            triggers: [
+                                {
+                                    match: ".*",
+                                    rules
+                                }
+                            ]
+                        };
+                        // @ts-ignore
+                        const row = {
+                            id: "123"
+                        } as Result;
 
-                    const evaluator = new MySqlEvaluator({});
+                        const evaluator = new MySqlEvaluator({});
 
-                    // act
-                    const result = evaluator.validateResults(app, [row]);
+                        // act
+                        const result = evaluator.validateResults(app, [row]);
 
-                    // assert
-                    expect(result[0].success).toEqual(true);
+                        // assert
+                        expect(result[0].success).toEqual(true);
+                    });
                 });
-            });
         });
         describe("when no trigger rules", () => {
             it("should return success for each row", async () => {

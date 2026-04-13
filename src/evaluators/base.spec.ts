@@ -777,7 +777,6 @@ describe("base evaluator", () => {
             describe.each([
                 [null],
                 [undefined],
-                [],
                 [""]
             ])(`when given %s`, (varyBy) => {
                 it("should return app as is", async () => {
