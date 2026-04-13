@@ -1,6 +1,6 @@
 import { Injectable, LoggerService, Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { log } from "../models/logger";
+import { AppController } from './app.controller.js';
+import { log } from "../models/logger.js";
 
 @Injectable()
 export class DebugLogger implements LoggerService {

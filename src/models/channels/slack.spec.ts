@@ -1,6 +1,6 @@
-import { SlackChannelConfig } from "./slack";
-import { Snapshot } from "../snapshot";
-import { AlertState } from "../alerts";
+import { SlackChannelConfig } from "./slack.js";
+import { Snapshot } from "../snapshot.js";
+import { AlertState } from "../alerts.js";
 import * as os from "os";
 
 describe("slack", () => {

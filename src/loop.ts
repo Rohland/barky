@@ -1,6 +1,6 @@
-import { sleepMs } from "./lib/sleep";
-import { startClock, stopClock } from "./lib/profiler";
-import { canLockProcessFor } from "./lib/process-lock";
+import { sleepMs } from "./lib/sleep.js";
+import { startClock, stopClock } from "./lib/profiler.js";
+import { canLockProcessFor } from "./lib/process-lock.js";
 
 export const LoopMs = 30000;
 

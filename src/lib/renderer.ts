@@ -1,4 +1,4 @@
-import { humanizeDuration } from "./time";
+import { humanizeDuration } from "./time.js";
 
 const utilityFunctionDefinitions = [
     [humanizeNum, humanizeNum.name],

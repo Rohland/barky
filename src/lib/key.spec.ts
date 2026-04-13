@@ -1,4 +1,4 @@
-import { explodeUniqueKey, uniqueKey } from "./key";
+import { explodeUniqueKey, uniqueKey } from "./key.js";
 
 describe("unique key", () => {
     describe("uniqueKey", () => {

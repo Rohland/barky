@@ -1,12 +1,12 @@
-import { asyncSingleton, deregisterSingleton, singleton } from "./singleton";
-import { faker } from '@faker-js/faker';
+import { asyncSingleton, deregisterSingleton, singleton } from "./singleton.js";
+import { uuid } from "./uuid.js";
 
 describe("singleton", () => {
     describe("when not registered", () => {
         it("should create a new instance", () => {
             // arrange
-            const key = faker.string.uuid();
-            const value = faker.string.uuid();
+            const key = uuid();
+            const value = uuid();
             const generator = jest.fn().mockReturnValue(value);
 
             // act
@@ -19,8 +19,8 @@ describe("singleton", () => {
     });
     describe("when registered and another instance requested", () => {
         it("should return original instance", () => {
-            const key = faker.string.uuid();
-            const generator = jest.fn().mockImplementation(() =>faker.string.uuid());
+            const key = uuid();
+            const generator = jest.fn().mockImplementation(() =>uuid());
 
             // act
             const instance1 = singleton(key, () => generator());
@@ -37,9 +37,9 @@ describe("singleton", () => {
         });
         describe("but using a different key", () => {
             it("should generate a new instance", () => {
-                const key = faker.string.uuid();
-                const generator = jest.fn().mockReturnValue(faker.string.uuid());
-                const generator2 = jest.fn().mockReturnValue(faker.string.uuid());
+                const key = uuid();
+                const generator = jest.fn().mockReturnValue(uuid());
+                const generator2 = jest.fn().mockReturnValue(uuid());
 
                 // act
                 const instance1 = singleton(key, () => generator());
@@ -61,7 +61,7 @@ describe("singleton", () => {
         it("should throw", () => {
             // arrange
             // act
-            expect(() => singleton(key, () => faker.string.uuid())).toThrow();
+            expect(() => singleton(key, () => uuid())).toThrow();
         });
     });
 });
@@ -70,8 +70,8 @@ describe("asyncSingleton", () => {
     describe("when not registered", () => {
         it("should create a new instance", async () => {
             // arrange
-            const key = faker.string.uuid();
-            const value = faker.string.uuid();
+            const key = uuid();
+            const value = uuid();
             const generator = jest.fn().mockReturnValue(value);
 
             // act
@@ -84,8 +84,8 @@ describe("asyncSingleton", () => {
     });
     describe("when registered and another instance requested", () => {
         it("should return original instance", async () => {
-            const key = faker.string.uuid();
-            const value = faker.string.uuid();
+            const key = uuid();
+            const value = uuid();
             const generator = jest.fn().mockResolvedValue(value);
 
             // act
@@ -99,9 +99,9 @@ describe("asyncSingleton", () => {
         });
         describe("but using a different key", () => {
             it("should generate a new instance", async () => {
-                const key = faker.string.uuid();
-                const generator = jest.fn().mockResolvedValue(faker.string.uuid());
-                const generator2 = jest.fn().mockResolvedValue(faker.string.uuid());
+                const key = uuid();
+                const generator = jest.fn().mockResolvedValue(uuid());
+                const generator2 = jest.fn().mockResolvedValue(uuid());
 
                 // act
                 const instance1 = await asyncSingleton(key, () => generator());
@@ -123,7 +123,7 @@ describe("asyncSingleton", () => {
         it("should throw", async () => {
             // arrange
             // act
-            await expect(() => asyncSingleton(key, () => Promise.resolve(faker.string.uuid()))).rejects.toThrow();
+            await expect(() => asyncSingleton(key, () => Promise.resolve(uuid()))).rejects.toThrow();
         });
     });
 });

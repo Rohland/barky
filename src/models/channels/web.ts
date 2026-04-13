@@ -1,6 +1,6 @@
-import { Snapshot } from "../snapshot";
-import { AlertState } from "../alerts";
-import { ChannelConfig, ChannelType } from "./base";
+import { Snapshot } from "../snapshot.js";
+import { AlertState } from "../alerts.js";
+import { ChannelConfig, ChannelType } from "./base.js";
 
 export class WebChannelConfig extends ChannelConfig {
     constructor(name: string, config: any) {

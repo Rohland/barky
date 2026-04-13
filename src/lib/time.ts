@@ -1,5 +1,5 @@
-import { dayOfWeek, flatten, toLocalTimeString } from "./utility";
-import { parseDaysOfWeek, parseTimeRange } from "./period-parser";
+import { dayOfWeek, flatten, toLocalTimeString } from "./utility.js";
+import { parseDaysOfWeek, parseTimeRange } from "./period-parser.js";
 
 export class Time {
     time: string;

@@ -1,13 +1,19 @@
-import { Result } from "../models/result";
+// @ts-ignore
+import { importAndMock } from "../../tests/import-and-mock";
 
-const mysqlMock = {
-    createConnection: jest.fn()
-};
-jest.doMock("mysql2/promise", () => {
-    return mysqlMock;
+const mySqlMock = await importAndMock("mysql2/promise", () => {
+    const original = jest.requireActual("mysql2/promise");
+    const mock = {
+        ...original,
+        createConnection: jest.fn()
+    };
+    return mock;
 });
-import { IApp } from "../models/app";
-import { MySqlEvaluator } from "./mysql";
+
+import { Result } from "../models/result.js";
+import { IApp } from "../models/app.js";
+
+const { MySqlEvaluator } = await import("./mysql.js");
 
 describe("mysql", () => {
     describe("validateResults", () => {
@@ -100,8 +106,7 @@ describe("mysql", () => {
                         const app = {
                             name: "app",
                             identifier: "id",
-                            triggers: [
-                            ]
+                            triggers: []
                         };
                         const evaluator = new MySqlEvaluator({});
 
@@ -240,7 +245,7 @@ describe("mysql", () => {
                 const mockConnection = {
                     end: jest.fn()
                 };
-                mysqlMock.createConnection.mockResolvedValue(mockConnection);
+                mySqlMock.createConnection.mockResolvedValue(mockConnection);
                 const evaluator = new MySqlEvaluator({});
                 // @ts-ignore
                 const connection = await evaluator.getConnection({});

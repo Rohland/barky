@@ -1,4 +1,4 @@
-import { sortBy } from "./sort";
+import { sortBy } from "./sort.js";
 
 describe("sortBy", () => {
     describe.each([

@@ -1,4 +1,4 @@
-import { AppVariant } from "./app";
+import { AppVariant } from "./app.js";
 
 describe("AppVariant", () => {
     describe("with variant", () => {

@@ -8,16 +8,20 @@ import yargs from "yargs/yargs";
 import { hideBin } from "yargs/helpers";
 import fs from 'fs';
 import path from 'path';
-import { MonitorFailureResult } from "./models/result";
-import { destroy } from "./models/db";
-import { emitAndPersistResults, execute } from "./exec";
-import { loop } from "./loop";
-import { initLogger, log } from "./models/logger";
+import { MonitorFailureResult } from "./models/result.js";
+import { destroy } from "./models/db.js";
+import { emitAndPersistResults, execute } from "./exec.js";
+import { loop } from "./loop.js";
+import { initLogger, log } from "./models/logger.js";
 import { Argv } from "yargs";
-import { initialiseGlobalConfig } from "./config";
+import { initialiseGlobalConfig } from "./config.js";
 import { NestFactory } from "@nestjs/core";
-import { AppModule, DebugLogger } from "./web/app.module";
+import { AppModule, DebugLogger } from "./web/app.module.js";
 import { NestExpressApplication } from "@nestjs/platform-express";
+import { fileURLToPath } from "node:url";
+import { dirname } from "node:path";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 (async () => {
     const args = await getArgs();
@@ -59,7 +63,7 @@ async function run(args: any) {
             args.eval);
         return 0;
     } catch (err) {
-        log(err, err);
+        log(err.toString(), err);
         // emits a global config error - assume cloud watch monitor is set up for this as a safety net
         await emitAndPersistResults([MonitorFailureResult.ConfigurationError(err)]);
         return -1;

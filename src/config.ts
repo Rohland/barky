@@ -1,12 +1,12 @@
 import path from "path";
 import fs from "fs";
-import { log } from "./models/logger";
+import { log } from "./models/logger.js";
 import YAML from "yaml";
-import { initLocaleAndTimezone } from "./lib/utility";
+import { initLocaleAndTimezone } from "./lib/utility.js";
 import * as process from "process";
-import { EvaluatorType } from "./evaluators/base";
-import { Muter } from "./muter";
-import { initConnection } from "./models/db";
+import { EvaluatorType } from "./evaluators/base.js";
+import { Muter } from "./muter.js";
+import { initConnection } from "./models/db.js";
 
 interface IConfigSettings {
     locale: string;
@@ -73,8 +73,8 @@ function getConfigurationFromFile(
     } catch (err) {
         const error = `invalid yaml definition in file '${ fileInfo.filePath }'`;
         log(`error: ${ error }`);
-        err.message = `${ error } - ${ err.message }}`;
-        throw err;
+        const newError = new Error(error, { cause: err});
+        throw newError;
     }
 }
 

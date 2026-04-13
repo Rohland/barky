@@ -1,4 +1,4 @@
-import { renderTemplate } from "./renderer";
+import { renderTemplate } from "./renderer.js";
 
 describe("renderTemplate", () => {
     describe.each([

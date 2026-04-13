@@ -1,9 +1,9 @@
-import { ConsoleChannelConfig } from "./channels/console";
-import { ChannelType } from "./channels/base";
-import { SlackChannelConfig } from "./channels/slack";
-import { SMSChannelConfig } from "./channels/sms";
-import { DigestConfiguration } from "./digest";
-import { MuteWindow } from "./mute-window";
+import { ConsoleChannelConfig } from "./channels/console.js";
+import { ChannelType } from "./channels/base.js";
+import { SlackChannelConfig } from "./channels/slack.js";
+import { SMSChannelConfig } from "./channels/sms.js";
+import { DigestConfiguration } from "./digest.js";
+import { MuteWindow } from "./mute-window.js";
 
 describe("digest", () => {
     describe("with no digest", () => {

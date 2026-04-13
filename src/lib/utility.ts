@@ -1,7 +1,7 @@
 import * as crypto from "crypto";
-import { log } from "../models/logger";
-import { sleepMs } from "./sleep";
-import { getEnvVar } from "./env";
+import { log } from "../models/logger.js";
+import { sleepMs } from "./sleep.js";
+import { getEnvVar } from "./env.js";
 
 Error.stackTraceLimit = Infinity;
 
@@ -119,7 +119,7 @@ export async function tryExecuteTimes<T>(
         try {
             return await func();
         } catch(err) {
-            const msg = `Error ${ label }: ${ err.message }`;
+            const msg = `Error ${ label }: ${ err["message"] }`;
             log(msg, err);
             lastError = err;
         }

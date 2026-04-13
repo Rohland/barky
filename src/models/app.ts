@@ -1,6 +1,6 @@
-import { IAlertConfig } from "./alert_configuration";
-import { flatten } from "../lib/utility";
-import { ITrigger } from "./trigger";
+import { IAlertConfig } from "./alert_configuration.js";
+import { flatten } from "../lib/utility.js";
+import { ITrigger } from "./trigger.js";
 
 export interface IApp {
     [key: string]: any;

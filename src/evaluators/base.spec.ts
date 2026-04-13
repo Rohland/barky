@@ -1,15 +1,15 @@
-import { BaseEvaluator, EvaluatorType, findTriggerRulesFor, resetExecutionCounter } from "./base";
-import { IApp } from "../models/app";
-import { EvaluatorResult } from "./types";
-import { WebEvaluator } from "./web";
-import { MySqlEvaluator } from "./mysql";
-import { SumoEvaluator } from "./sumo";
-import { IUniqueKey } from "../lib/key";
-import { DefaultTrigger } from "../models/trigger";
-import { initLocaleAndTimezone } from "../lib/utility";
-import { MySqlResult, Result } from "../models/result";
-import { ShellEvaluator } from "./shell";
-import { sleepMs } from "../lib/sleep";
+import { BaseEvaluator, EvaluatorType, findTriggerRulesFor, resetExecutionCounter } from "./base.js";
+import { IApp } from "../models/app.js";
+import { EvaluatorResult } from "./types.js";
+import { WebEvaluator } from "./web.js";
+import { MySqlEvaluator } from "./mysql.js";
+import { SumoEvaluator } from "./sumo.js";
+import { IUniqueKey } from "../lib/key.js";
+import { DefaultTrigger } from "../models/trigger.js";
+import { initLocaleAndTimezone } from "../lib/utility.js";
+import { MySqlResult, Result } from "../models/result.js";
+import { ShellEvaluator } from "./shell.js";
+import { sleepMs } from "../lib/sleep.js";
 
 describe("base evaluator", () => {
 

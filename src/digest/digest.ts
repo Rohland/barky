@@ -1,11 +1,11 @@
-import { Result, SkippedResult } from "../models/result";
-import { getLogs, getSnapshots, mutateAndPersistSnapshotState } from "../models/db";
-import { MonitorLog } from "../models/log";
-import { Snapshot } from "../models/snapshot";
-import { executeAlerts } from "./alerter";
-import { ChannelConfig } from "../models/channels/base";
-import { AlertRule, AlertRuleType } from "../models/alert_configuration";
-import { DigestConfiguration } from "../models/digest";
+import { Result, SkippedResult } from "../models/result.js";
+import { getLogs, getSnapshots, mutateAndPersistSnapshotState } from "../models/db.js";
+import { MonitorLog } from "../models/log.js";
+import { Snapshot } from "../models/snapshot.js";
+import { executeAlerts } from "./alerter.js";
+import { ChannelConfig } from "../models/channels/base.js";
+import { AlertRule, AlertRuleType } from "../models/alert_configuration.js";
+import { DigestConfiguration } from "../models/digest.js";
 import {
     explodeUniqueKey,
     findMatchingKeyFor,
@@ -13,8 +13,8 @@ import {
     hasWildcard,
     IUniqueKey,
     uniqueKey
-} from "../lib/key";
-import { emitResults } from "../result-emitter";
+} from "../lib/key.js";
+import { emitResults } from "../result-emitter.js";
 
 export async function digest(
     config: DigestConfiguration,

@@ -1,15 +1,15 @@
 {
   "compilerOptions": {
-    "target": "es6",
-    "baseUrl": ".",
+    "target": "ES2022",
+    "rootDir": "./",
     "declaration": true,
     "experimentalDecorators": true,
     "outDir": "dist",
-    "module": "commonjs",
-    "esModuleInterop": true,
-    "moduleResolution": "node",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "allowSyntheticDefaultImports": true,
-    "allowJs": false,
+    "allowJs": true,
+    "esModuleInterop": true,
     "importHelpers": true,
     "isolatedModules": true,
     "jsx": "react",
@@ -23,11 +23,14 @@
     "noImplicitAny": false,
     "noImplicitThis": false,
     "strictNullChecks": false,
+    "types": ["jest"],
     "typeRoots": [
       "node_modules/@types",
       "types"
     ],
     "lib": [
+      "es5",
+      "es2021",
       "esnext"
     ]
   },

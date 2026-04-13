@@ -1,10 +1,10 @@
-import { MonitorFailureResult, Result } from "./models/result";
-import { persistResults } from "./models/db";
-import { digest } from "./digest/digest";
-import { emitResults } from "./result-emitter";
-import { evaluate } from "./evaluation";
-import { DigestConfiguration } from "./models/digest";
-import { log } from "./models/logger";
+import { MonitorFailureResult, Result } from "./models/result.js";
+import { persistResults } from "./models/db.js";
+import { digest } from "./digest/digest.js";
+import { emitResults } from "./result-emitter.js";
+import { evaluate } from "./evaluation.js";
+import { DigestConfiguration } from "./models/digest.js";
+import { log } from "./models/logger.js";
 
 export async function execute(
     config: any,

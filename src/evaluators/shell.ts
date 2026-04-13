@@ -1,10 +1,10 @@
-import { BaseEvaluator, EvaluatorType, findTriggerRulesFor, generateValueForVariable } from "./base";
-import { IApp } from "../models/app";
-import { IUniqueKey } from "../lib/key";
-import { MonitorFailureResult, Result, ShellResult } from "../models/result";
-import { log } from "../models/logger";
-import { execShellScript, IShellResult, isShellTimeout } from "../lib/shell-runner";
-import { renderTemplate } from "../lib/renderer";
+import { BaseEvaluator, EvaluatorType, findTriggerRulesFor, generateValueForVariable } from "./base.js";
+import { IApp } from "../models/app.js";
+import { IUniqueKey } from "../lib/key.js";
+import { MonitorFailureResult, Result, ShellResult } from "../models/result.js";
+import { log } from "../models/logger.js";
+import { execShellScript, IShellResult, isShellTimeout } from "../lib/shell-runner.js";
+import { renderTemplate } from "../lib/renderer.js";
 import path from "path";
 
 export class ShellEvaluator extends BaseEvaluator {
@@ -44,18 +44,18 @@ export class ShellEvaluator extends BaseEvaluator {
                     true,
                     app);
         } catch (err) {
-            const errorInfo = new Error(err.message);
-            errorInfo.stack = err.stack;
+            const errorInfo = new Error(err["message"], { cause: err });
+            errorInfo.stack = err["stack"];
             // @ts-ignore
             errorInfo.response = {
-                status: err?.response?.status,
-                data: err?.response?.data
+                status: err ? err["response"]?.status : null,
+                data: err ? err["response"]?.data: null
             };
-            log(`error executing shell evaluator for '${app.name}': ${err.message}`, errorInfo);
+            log(`error executing shell evaluator for '${app.name}': ${err["message"]}`, errorInfo);
             return new MonitorFailureResult(
                 "shell",
                 app.name,
-                err.message,
+                err["message"],
                 app);
         }
     }
@@ -190,7 +190,7 @@ function tryParseJsonResult(result: IShellResult) {
             const lines = result.stdout.split(/[\r\n]+/g);
             return lines.map(x => JSON.parse(x));
         } catch (err2) {
-            throw new Error(`failed to parse JSON result as JSON/JSONL [json:${err.message};jsonl:${err2.message}]`)
+            throw new Error(`failed to parse JSON result as JSON/JSONL [json:${err["message"]};jsonl:${err2["message"]}]`)
         }
     }
 }

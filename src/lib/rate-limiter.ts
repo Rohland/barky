@@ -1,5 +1,5 @@
-import { sleepMs } from "./sleep";
-import { log } from "../models/logger";
+import { sleepMs } from "./sleep.js";
+import { log } from "../models/logger.js";
 
 class Request {
 

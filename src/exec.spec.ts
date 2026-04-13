@@ -1,17 +1,17 @@
 import mockConsole from "jest-mock-console";
+import { importAndMock } from "../tests/import-and-mock.js";
 
-const evaluateMock = jest.fn()
-jest.doMock("./evaluation", () => {
+const evaluateMock = await importAndMock("./evaluation.ts", () => {
     return {
-        evaluate: evaluateMock
+        evaluate: jest.fn()
     };
 });
-import { configureMonitorLogsWithAlertConfiguration, execute } from "./exec";
-import { MonitorFailureResult, WebResult } from "./models/result";
-import { deleteDbIfExists, destroy, initConnection } from "./models/db";
-import { AlertConfiguration } from "./models/alert_configuration";
-import { DigestConfiguration } from "./models/digest";
 
+const { configureMonitorLogsWithAlertConfiguration, execute } = await import("./exec.js");
+import { MonitorFailureResult, WebResult } from "./models/result.js";
+import { deleteDbIfExists, destroy, initConnection } from "./models/db.js";
+import { AlertConfiguration } from "./models/alert_configuration.js";
+import { DigestConfiguration } from "./models/digest.js";
 
 describe("exec", () => {
 
@@ -73,8 +73,7 @@ describe("exec", () => {
                                 new MonitorFailureResult("web", "www.codeo.co.za", "Runtime Error", { alert })
                             ];
                             const digest = {
-                                "alert-policies": {
-                                }
+                                "alert-policies": {}
                             };
                             // act
                             expect(() => configureMonitorLogsWithAlertConfiguration(results, new DigestConfiguration(digest)))
@@ -155,13 +154,13 @@ describe("exec", () => {
                         channels: []
                     }
                 };
-                evaluateMock.mockResolvedValue([]);
+                evaluateMock.evaluate.mockResolvedValue([]);
 
                 // act
                 await execute(config, "test");
 
                 // assert
-                expect(evaluateMock).toHaveBeenCalledTimes(1);
+                expect(evaluateMock.evaluate).toHaveBeenCalledTimes(1);
                 expect(console.log).not.toHaveBeenCalled();
             });
         });
@@ -175,7 +174,7 @@ describe("exec", () => {
                             "alert-policies": {
                                 monitor: {
                                     channels: ["console"],
-                                    rules: [{count: 1}]
+                                    rules: [{ count: 1 }]
                                 }
                             },
                             channels: []
@@ -185,7 +184,7 @@ describe("exec", () => {
                         "exception-policy": "monitor"
                     };
                     const result = new MonitorFailureResult("web", "www.codeo.co.za", "Runtime Error", { alert });
-                    evaluateMock.mockResolvedValue([result]);
+                    evaluateMock.evaluate.mockResolvedValue([result]);
 
                     // act
                     await execute(config, "test");
@@ -214,7 +213,7 @@ describe("exec", () => {
                             "exception-policy": "abc"
                         };
                         const result = new MonitorFailureResult("web", "www.codeo.co.za", "Runtime Error", { alert });
-                        evaluateMock.mockResolvedValue([result]);
+                        evaluateMock.evaluate.mockResolvedValue([result]);
 
                         // act and assert
                         await expect(async () => await execute(config, "test")).rejects.toThrow("alert exception policy 'abc' not found in digest config");
@@ -239,7 +238,7 @@ describe("exec", () => {
                             "exception-policy": "monitor"
                         };
                         const result = new MonitorFailureResult("web", "www.codeo.co.za", "Runtime Error", { alert });
-                        evaluateMock.mockResolvedValue([result]);
+                        evaluateMock.evaluate.mockResolvedValue([result]);
 
                         // act
                         await execute(config, "test");
@@ -269,10 +268,10 @@ describe("exec", () => {
                             "exception-policy": "monitor"
                         };
                         const fail = new MonitorFailureResult("web", "www.codeo.co.za", "Runtime Error", { alert });
-                        evaluateMock.mockResolvedValue([fail]);
+                        evaluateMock.evaluate.mockResolvedValue([fail]);
                         await execute(config, "test");
                         const ok = new WebResult(new Date(), "health-check", "www.codeo.co.za", true, "200", "OK", 0, { alert });
-                        evaluateMock.mockResolvedValue([ok]);
+                        evaluateMock.evaluate.mockResolvedValue([ok]);
 
                         // act
                         await execute(config, "test");
@@ -296,7 +295,7 @@ describe("exec", () => {
                         rules: [{ count: 1 }]
                     };
                     const result = new WebResult(new Date(), "health-check", "www.codeo.co.za", false, "400", "FAIL", 0, { alert });
-                    evaluateMock.mockResolvedValue([result]);
+                    evaluateMock.evaluate.mockResolvedValue([result]);
 
                     // act
                     await execute(config, "test");
@@ -320,10 +319,10 @@ describe("exec", () => {
                             rules: [{ count: 1 }]
                         };
                         const fail = new WebResult(new Date(), "health-check", "www.codeo.co.za", false, "400", "FAIL", 0, { alert });
-                        evaluateMock.mockResolvedValue([fail]);
+                        evaluateMock.evaluate.mockResolvedValue([fail]);
                         await execute(config, "test");
                         const ok = new WebResult(new Date(), "health-check", "www.codeo.co.za", true, "200", "OK", 0, { alert });
-                        evaluateMock.mockResolvedValue([ok]);
+                        evaluateMock.evaluate.mockResolvedValue([ok]);
 
                         // act
                         await execute(config, "test");

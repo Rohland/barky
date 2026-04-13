@@ -1,7 +1,7 @@
-import { Snapshot } from "../snapshot";
-import { AlertState } from "../alerts";
-import { pluraliseWithS } from "../../lib/utility";
-import { ChannelConfig, ChannelType } from "./base";
+import { Snapshot } from "../snapshot.js";
+import { AlertState } from "../alerts.js";
+import { pluraliseWithS } from "../../lib/utility.js";
+import { ChannelConfig, ChannelType } from "./base.js";
 
 export class ConsoleChannelConfig extends ChannelConfig {
     constructor(name: string, config: any) {

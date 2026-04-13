@@ -1,8 +1,12 @@
 import { Body, Controller, Get, Post, Res } from '@nestjs/common';
 import { Response } from 'express';
 import path, { join } from 'path';
-import { WebState } from "./web.state";
-import { Muter } from "../muter";
+import { WebState } from "./web.state.js";
+import { Muter } from "../muter.js";
+import { fileURLToPath } from "node:url";
+import { dirname } from "node:path";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 @Controller()
 export class AppController {

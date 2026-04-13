@@ -1,6 +1,6 @@
-import { parseDaysOfWeek, parseTimeRange } from "../lib/period-parser";
-import { Time } from "../lib/time";
-import { dayOfWeek, isToday } from "../lib/utility";
+import { parseDaysOfWeek, parseTimeRange } from "../lib/period-parser.js";
+import { Time } from "../lib/time.js";
+import { dayOfWeek, isToday } from "../lib/utility.js";
 
 export interface IMuteWindowDb {
     id?: number;

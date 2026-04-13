@@ -1,16 +1,19 @@
-const sleepMock = jest.fn();
-const canLockProcessForMock = jest.fn().mockReturnValue(true);
-jest.doMock("./lib/sleep", () => {
-    return {
-        sleepMs: sleepMock
-    }
+import { importAndMock } from "../tests/import-and-mock.js";
+
+const processLock = await importAndMock("./lib/process-lock.ts", () => {
+   return {
+       canLockProcessFor: jest.fn().mockReturnValue(true)
+   }
 });
-jest.doMock("./lib/process-lock", () => {
+
+const sleepMock = await importAndMock("./lib/sleep.ts", () => {
     return {
-        canLockProcessFor: canLockProcessForMock
-    }
+        sleepMs: jest.fn()
+    };
 });
-import { loop } from "./loop";
+
+
+const { loop } = await import("./loop.js");
 
 describe("loop", () => {
     describe("when loop not set", () => {
@@ -25,7 +28,7 @@ describe("loop", () => {
             // assert
             expect(result).toEqual(0);
             expect(runner).toHaveBeenCalledTimes(1);
-            expect(sleepMock).not.toHaveBeenCalled();
+            expect(sleepMock.sleepMs).not.toHaveBeenCalled();
         });
     });
     describe("when loop set", () => {
@@ -38,7 +41,7 @@ describe("loop", () => {
                     eval: "test-eval",
                     digest: "test-digest",
                 }
-                canLockProcessForMock.mockReturnValue(false);
+                processLock.canLockProcessFor.mockReturnValue(false);
                 const runner = jest.fn().mockResolvedValue(0);
 
                 // act
@@ -46,13 +49,13 @@ describe("loop", () => {
 
                 // assert
                 expect(runner).not.toHaveBeenCalled();
-                expect(canLockProcessForMock).toHaveBeenCalledWith("test-env;test-eval;test-digest");
+                expect(processLock.canLockProcessFor).toHaveBeenCalledWith("test-env;test-eval;test-digest");
                 expect(result).toEqual(-1);
             });
         });
         it("should loop until error", async () => {
             // arrange
-            canLockProcessForMock.mockReturnValue(true);
+            processLock.canLockProcessFor.mockReturnValue(true);
             const args = { loop: "1" };
             let count = 0;
             const runner = async () => {
@@ -68,8 +71,8 @@ describe("loop", () => {
             // assert
             expect(result).toEqual(-1);
             expect(count).toEqual(2);
-            expect(sleepMock).toHaveBeenCalledTimes(1);
-            const timeToSleep = sleepMock.mock.calls[0][0];
+            expect(sleepMock.sleepMs).toHaveBeenCalledTimes(1);
+            const timeToSleep = sleepMock.sleepMs.mock.calls[0][0];
             expect(timeToSleep).toBeGreaterThan(29000);
             expect(timeToSleep).toBeLessThanOrEqual(30000);
         });

@@ -1,6 +1,6 @@
-import { IUniqueKey, uniqueKey } from "../lib/key";
-import { AlertConfiguration, AlertRule } from "./alert_configuration";
-import { IApp } from "./app";
+import { IUniqueKey, uniqueKey } from "../lib/key.js";
+import { AlertConfiguration, AlertRule } from "./alert_configuration.js";
+import { IApp } from "./app.js";
 
 export class Result implements IUniqueKey {
     public resultMsg: string;
@@ -103,11 +103,11 @@ export class MonitorFailureResult extends Result {
         return configurationFailure.type === this.type && configurationFailure.label === this.label;
     }
 
-    public static ConfigurationError(err: Error): MonitorFailureResult {
+    public static ConfigurationError(err: Error | unknown): MonitorFailureResult {
         return new MonitorFailureResult(
             "watchdog",
             "configuration",
-            err?.message);
+            err ? err["message"] : null);
     }
 }
 

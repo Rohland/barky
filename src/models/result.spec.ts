@@ -1,4 +1,4 @@
-import { Result } from "./result";
+import { Result } from "./result.js";
 
 describe("result", () => {
     describe("isDigestable", () => {

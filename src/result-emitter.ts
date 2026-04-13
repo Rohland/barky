@@ -1,4 +1,4 @@
-import { Result, SkippedResult } from "./models/result";
+import { Result, SkippedResult } from "./models/result.js";
 import path from "path";
 
 function tryGetRuleName() {

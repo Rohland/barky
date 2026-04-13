@@ -1,14 +1,22 @@
 module.exports = {
     automock: false,
     clearMocks: true,
-    verbose: false, // turn on to see each test and result in the output, but errors don't summarise at the end
-    preset: "ts-jest/presets/js-with-ts",
+    verbose: false, // turn on to see each test and result in the output, but errors don't summarize at the end
+    preset: "ts-jest/presets/js-with-ts-esm",
     testEnvironment: 'node',
-    transform: { '^.+\\.tsx?$': ['ts-jest', { tsconfig: 'tsconfig.json' }] },
+    transform: {
+        "^.+\\.tsx?$": [
+            "ts-jest",
+            {
+                useESM: true,
+            }
+        ]
+    },
     testMatch: [
         "**/**/*.spec.ts"
     ],
     moduleNameMapper: {
+        "^(\\.{1,2}/.*)\\.js$": "$1",
         "@/(.*)": "<rootDir>/src/$1"
     },
     moduleFileExtensions: [
@@ -28,5 +36,6 @@ module.exports = {
         "\\.d\\.ts$",
         "<rootDir>/dist/",
         "<rootDir>/coverage",
-    ]
+    ],
+    setupFilesAfterEnv: ["./tests/setup.ts"],
 };

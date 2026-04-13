@@ -1,9 +1,9 @@
-import { DigestContext } from "./digest";
-import { getAlerts, persistAlerts } from "../models/db";
-import { AlertState } from "../models/alerts";
-import { flatten } from "../lib/utility";
-import { Snapshot } from "../models/snapshot";
-import { DigestConfiguration } from "../models/digest";
+import { DigestContext } from "./digest.js";
+import { getAlerts, persistAlerts } from "../models/db.js";
+import { AlertState } from "../models/alerts.js";
+import { flatten } from "../lib/utility.js";
+import { Snapshot } from "../models/snapshot.js";
+import { DigestConfiguration } from "../models/digest.js";
 
 
 

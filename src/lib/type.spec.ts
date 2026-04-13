@@ -1,4 +1,4 @@
-import { formatType } from "./type";
+import { formatType } from "./type.js";
 
 describe("formatType", () => {
     describe.each([

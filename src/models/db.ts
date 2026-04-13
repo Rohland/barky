@@ -1,11 +1,11 @@
-import { Result } from "./result";
-import { knex, Knex } from "knex";
-import { Snapshot } from "./snapshot";
-import { MonitorLog } from "./log";
+import { Result } from "./result.js";
+import knex, { Knex } from "knex";
+import { Snapshot } from "./snapshot.js";
+import { MonitorLog } from "./log.js";
 import fs from "fs";
-import { AlertState } from "./alerts";
+import { AlertState } from "./alerts.js";
 import path from "path";
-import { IMuteWindowDb } from "./mute-window";
+import { IMuteWindowDb } from "./mute-window.js";
 
 let _connection;
 let _context;

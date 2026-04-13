@@ -1,12 +1,13 @@
-import mysql, { ConnectionOptions } from "mysql2/promise";
-import { renderTemplate } from "../lib/renderer";
-import { MonitorFailureResult, MySqlResult, Result } from "../models/result";
-import { log } from "../models/logger";
-import { IApp } from "../models/app";
-import { BaseEvaluator, EvaluatorType, findTriggerRulesFor, generateValueForVariable } from "./base";
-import { IUniqueKey } from "../lib/key";
-import { IRule } from "../models/trigger";
-import { getEnvVar, getEnvVarAsBoolean } from "../lib/env";
+import * as mysql from "mysql2/promise";
+import type { ConnectionOptions } from "mysql2/promise";
+import { renderTemplate } from "../lib/renderer.js";
+import { MonitorFailureResult, MySqlResult, Result } from "../models/result.js";
+import { log } from "../models/logger.js";
+import { IApp } from "../models/app.js";
+import { BaseEvaluator, EvaluatorType, findTriggerRulesFor, generateValueForVariable } from "./base.js";
+import { IUniqueKey } from "../lib/key.js";
+import { IRule } from "../models/trigger.js";
+import { getEnvVar, getEnvVarAsBoolean } from "../lib/env.js";
 
 let connections: mysql.Connection[] = [];
 
@@ -39,11 +40,11 @@ export class MySqlEvaluator extends BaseEvaluator {
                     true,
                     app);
         } catch (err) {
-            log(`Error evaluating app ${app.name}: ${err.message}`, err);
+            log(`Error evaluating app ${app.name}: ${err["message"]}`, err);
             return new MonitorFailureResult(
                 "mysql",
                 app.name,
-                err.message,
+                err["message"],
                 app);
         }
     }

@@ -1,8 +1,8 @@
-import { ConsoleChannelConfig } from "./channels/console";
-import { SMSChannelConfig } from "./channels/sms";
-import { SlackChannelConfig } from "./channels/slack";
-import { ChannelConfig, ChannelType } from "./channels/base";
-import { WebChannelConfig } from "./channels/web";
+import { ConsoleChannelConfig } from "./channels/console.js";
+import { SMSChannelConfig } from "./channels/sms.js";
+import { SlackChannelConfig } from "./channels/slack.js";
+import { ChannelConfig, ChannelType } from "./channels/base.js";
+import { WebChannelConfig } from "./channels/web.js";
 
 export function getChannelConfigFor(
     name: string,

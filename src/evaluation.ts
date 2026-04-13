@@ -1,11 +1,11 @@
-import { PingResult, Result, SkippedResult } from "./models/result";
-import { flatten } from "./lib/utility";
-import { WebEvaluator } from "./evaluators/web";
-import { MySqlEvaluator } from "./evaluators/mysql";
-import { SumoEvaluator } from "./evaluators/sumo";
-import { startClock, stopClock } from "./lib/profiler";
-import { BaseEvaluator } from "./evaluators/base";
-import { ShellEvaluator } from "./evaluators/shell";
+import { PingResult, Result, SkippedResult } from "./models/result.js";
+import { flatten } from "./lib/utility.js";
+import { WebEvaluator } from "./evaluators/web.js";
+import { MySqlEvaluator } from "./evaluators/mysql.js";
+import { SumoEvaluator } from "./evaluators/sumo.js";
+import { startClock, stopClock } from "./lib/profiler.js";
+import { BaseEvaluator } from "./evaluators/base.js";
+import { ShellEvaluator } from "./evaluators/shell.js";
 
 export async function evaluate(
     config: any,

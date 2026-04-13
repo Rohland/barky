@@ -1,4 +1,4 @@
-import { getEnvVar, getEnvVarAsBoolean } from "./env";
+import { getEnvVar, getEnvVarAsBoolean } from "./env.js";
 
 describe("env", () => {
     describe("with null/undefined key", () => {
