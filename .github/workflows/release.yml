@@ -1,6 +1,12 @@
 name: Publish Package
 on:
   workflow_dispatch:
+    inputs:
+      beta:
+        description: 'Publish as beta (npm tag: beta)'
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
   group: release-${{ github.ref }}
@@ -39,6 +45,6 @@ jobs:
         run: pnpm run build
 
       - name: 🚀 Publish
-        run: pnpm publish
+        run: pnpm publish ${{ inputs.beta == true && '--tag beta' || '' }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
