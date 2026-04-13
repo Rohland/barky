@@ -97,7 +97,6 @@ async function getArgs() {
                 type: "boolean"
             });
     }
-
     const args = await yargs(hideBin(process.argv))
         .usage("$0 <cmd> [options]")
         .command("run <rules> [options]", "run the watchdog", cmdBuilder)

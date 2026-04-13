@@ -18,7 +18,7 @@ export class AppVariant implements IApp {
     [key: string]: any;
 
     constructor(app: any, variantInfo: null | string | string[]) {
-        const fieldsToTransform = ["name", "path", "query", "url"];
+        const fieldsToTransform = ["name", "path", "query", "url", "connection"];
         fieldsToTransform.forEach(field => {
             if (!app[field]) {
                 return;

@@ -6,7 +6,8 @@ describe("AppVariant", () => {
             ["name"],
             ["url"],
             ["query"],
-            ["path"]
+            ["path"],
+            ["connection"],
         ])(`when app has %s`, (field) => {
             describe(`when app has ${ field }`, () => {
                 it(`should transform ${ field }`, async () => {
