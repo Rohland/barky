@@ -48,4 +48,4 @@ jobs:
         run: pnpm run build
 
       - name: 🚀 Publish
-        run: pnpm publish ${{ inputs.beta == true && '--tag beta' || '' }} --no-git-checks
+        run: npm publish ${{ inputs.beta == true && '--tag beta' || '' }}
