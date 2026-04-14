@@ -16,7 +16,7 @@ jobs:
       TZ: Africa/Johannesburg
     strategy:
       matrix:
-        node-version: [24.x]
+        node-version: [22.x]
     steps:
       - uses: actions/checkout@v6
 
