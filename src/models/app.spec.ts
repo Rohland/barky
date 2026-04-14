@@ -43,5 +43,40 @@ describe("AppVariant", () => {
                 });
             });
         });
+        describe("with fields that are arrays", () => {
+            describe("like alert.channels", () => {
+                describe("if missing", () => {
+                    it("should do nothing", async () => {
+                        const config = {};
+                        const sut = new AppVariant(config, "1");
+                        expect(sut.alerts).toBe(undefined);
+                    });
+                });
+                describe("if empty", () => {
+                    it("should return empty array", async () => {
+                        const config = {
+                            alert: {
+                                channels: []
+                            }
+                        };
+                        const sut = new AppVariant(config, "1");
+                        expect(sut.alert.channels).toEqual([]);
+                    });
+                });
+                describe("with values", () => {
+                    it("should inject", async () => {
+                        const config = {
+                            alert: {
+                                channels: [
+                                    "my-test-$1"
+                                ]
+                            }
+                        };
+                        const sut = new AppVariant(config, "1");
+                        expect(sut.alert.channels).toEqual(["my-test-1"]);
+                    });
+                });
+            });
+        });
     });
 });
