@@ -97,7 +97,9 @@ async function getArgs() {
                 type: "boolean"
             });
     }
+    const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '../package.json'), 'utf8'));
     const args = await yargs(hideBin(process.argv))
+        .version(pkg.version)
         .usage("$0 <cmd> [options]")
         .command("run <rules> [options]", "run the watchdog", cmdBuilder)
         .command("loop <rules> [options]", "run the watchdog in a loop until terminated", cmdBuilder, configureLoop)
