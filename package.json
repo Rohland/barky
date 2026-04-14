@@ -1,6 +1,6 @@
 {
   "name": "barky",
-  "version": "1.8.0",
+  "version": "1.8.1",
   "description": "A simple cloud services watchdog with digest notification support & no external dependencies",
   "homepage": "https://github.com/Rohland/barky#readme",
   "main": "dist/src/cli.js",
@@ -27,7 +27,7 @@
     "form-data": "^4.0.5",
     "knex": "^3.1.0",
     "mysql2": "^3.15.3",
-    "sqlite3": "^6.0.1",
+    "better-sqlite3": "^11.9.1",
     "tslib": "^2.8.1",
     "tsx": "^4.21.0",
     "uuid": "^13.0.0",
@@ -59,7 +59,7 @@
     "onlyBuiltDependencies": [
       "@nestjs/core",
       "esbuild",
-      "sqlite3",
+      "better-sqlite3",
       "unrs-resolver"
     ]
   }

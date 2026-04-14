@@ -269,7 +269,7 @@ export function getConnection(context: string): Knex {
     }
     _context = context;
     _connection = knex({
-        client: 'sqlite3',
+        client: 'better-sqlite3',
         connection: {
             filename: fullPath
         },
