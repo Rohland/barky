@@ -49,7 +49,7 @@ describe("AppVariant", () => {
                     it("should do nothing", async () => {
                         const config = {};
                         const sut = new AppVariant(config, "1");
-                        expect(sut.alerts).toBe(undefined);
+                        expect(sut.alert).toBe(undefined);
                     });
                 });
                 describe("if empty", () => {

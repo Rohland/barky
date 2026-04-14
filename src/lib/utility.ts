@@ -119,7 +119,7 @@ export async function tryExecuteTimes<T>(
         try {
             return await func();
         } catch(err) {
-            const msg = `Error ${ label }: ${ err["message"] }`;
+            const msg = `Error ${ label }: ${ err ? err["message"] : "" }`;
             log(msg, err);
             lastError = err;
         }

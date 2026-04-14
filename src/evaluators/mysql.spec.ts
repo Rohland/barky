@@ -1,5 +1,5 @@
 // @ts-ignore
-import { importAndMock } from "../../tests/import-and-mock";
+import { importAndMock } from "../../tests/import-and-mock.js";
 
 const mySqlMock = await importAndMock("mysql2/promise", () => {
     const original = jest.requireActual("mysql2/promise");
@@ -21,7 +21,6 @@ describe("mysql", () => {
             describe.each([
                 [undefined],
                 [null],
-                [undefined]
             ])(
                 `when validator.rules is %s`,
                 (rules: any) => {
