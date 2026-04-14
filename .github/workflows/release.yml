@@ -46,11 +46,5 @@ jobs:
       - name: 👷🏼‍ Build
         run: pnpm run build
 
-      - name: 📦 Re-configure registry for publishing
-        uses: actions/setup-node@v6
-        with:
-          node-version: ${{ matrix.node-version }}
-          registry-url: 'https://registry.npmjs.org'
-
       - name: 🚀 Publish
-        run: npm publish ${{ inputs.beta == true && '--tag beta' || '' }} --provenance --verbose
+        run: npx npm@11 publish ${{ inputs.beta == true && '--tag beta' || '' }} --provenance --verbose
