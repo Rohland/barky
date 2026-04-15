@@ -24,7 +24,8 @@ export class AppVariant implements IApp {
             "query",
             "url",
             "connection",
-            "alert.channels"];
+            "alert.channels"
+        ];
         fieldsToTransform.forEach(field => {
             const value = AppVariant.extractFieldValue(app, field);
             if (!value) {

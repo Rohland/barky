@@ -882,6 +882,31 @@ describe("base evaluator", () => {
                         });
                     });
                 });
+                describe("with sub object like alert.channels", () => {
+                    it("should generate variations as expected", async () => {
+                        const app = {
+                            name: "codeo",
+                            "vary-by": ["a", "b"],
+                            alert: {
+                                channels: ["$1"],
+                                count: 123
+                            }
+                        };
+                        const e = new CustomEvaluator({});
+
+                        // act
+                        const result = e.getAppVariations(app);
+
+                        // assert
+                        expect(result[0]).toMatchObject({
+                            name: "codeo",
+                            alert: {
+                                channels: ["a"],
+                                count: 123
+                            }
+                        });
+                    });
+                });
             });
         });
     });

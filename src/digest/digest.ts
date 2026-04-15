@@ -15,11 +15,13 @@ import {
     uniqueKey
 } from "../lib/key.js";
 import { emitResults } from "../result-emitter.js";
+import { log } from "../models/logger.js";
 
 export async function digest(
     config: DigestConfiguration,
     results: Result[]) {
     const context = await generateDigest(results);
+    log(`digest state: ${DigestState[context.state]}`);
     // context.alertableSnapshots(config); // generate global state to support ui
     if (context.state === DigestState.OK) {
         return;
@@ -107,7 +109,9 @@ export class DigestContext {
 
     public get state(): DigestState {
         const previousCount = Array.from(this._previousSnapshotLookup.values()).filter(x => x.isDigestable).length;
+        log('digest: previous count' + previousCount);
         const newCount = this.snapshots.filter(x => x.isDigestable).length;
+        log('digest: new count' + previousCount);
         const wasInOKState = previousCount === 0;
         const hasIssues = newCount > 0;
         if (wasInOKState) {

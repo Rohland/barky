@@ -16,6 +16,7 @@ export async function execute(
 async function runDigest(
     config: any,
     results: Result[]) {
+    log(`running digest with ${results.length} results`);
     const digestConfig = new DigestConfiguration(config.digest);
     configureMonitorLogsWithAlertConfiguration(results, digestConfig);
     digestConfig.trackChannelConfigIssues(results);

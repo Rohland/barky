@@ -44,6 +44,17 @@ describe("AppVariant", () => {
             });
         });
         describe("with fields that are arrays", () => {
+            it("should not break configs with no vary by", () => {
+                const config = {
+                    alert: {
+                        channels: [
+                            "my-test-1"
+                        ]
+                    }
+                };
+                const sut = new AppVariant(config, []);
+                expect(sut.alert.channels).toEqual(["my-test-1"]);
+            });
             describe("like alert.channels", () => {
                 describe("if missing", () => {
                     it("should do nothing", async () => {

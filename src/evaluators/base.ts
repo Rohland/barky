@@ -11,6 +11,7 @@ import { MonitorFailureResult, Result } from "../models/result.js";
 import { startClock, stopClock } from "../lib/profiler.js";
 import { formatType } from "../lib/type.js";
 import { sleepMs } from "../lib/sleep.js";
+import _ from "lodash";
 
 const executionCounter = new Map<string, number>();
 
@@ -209,10 +210,7 @@ export abstract class BaseEvaluator {
             : [null];
         return variations.map(instance => {
             const variant = new AppVariant(app, instance);
-            return {
-                ...app,
-                ...variant,
-            };
+            return _.merge({}, app, variant);
         });
     }
 
