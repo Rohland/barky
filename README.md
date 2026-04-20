@@ -407,7 +407,10 @@ The trigger's rule expression is evaluated as JavaScript.
 
 The example below does not have any alerts configured, see web example above to see what you can do with alerts.
 
-Note, the `connection` value is used to lookup environment variables by convention (`mysql-{your-key}-host|password...`).
+Note, the `connection` value is used to lookup environment variables by convention (`mysql-{connection name}-host|password...`). 
+For connection name, set the `connection` key in the YAML config. 
+
+Example using the connection name `aws-aurora`.
 
 - mysql-aws-aurora-host=10.0...
 - mysql-aws-aurora-user=your_user
@@ -415,6 +418,8 @@ Note, the `connection` value is used to lookup environment variables by conventi
 - mysql-aws-aurora-port=3306
 - mysql-aws-aurora-database=your_schema
 - mysql-aws-aurora-ssl-disabled=true
+- mysql-aws-aurora-allow-public-key-retrieval=true (optional, for MySQL 8+ `caching_sha2_password` over non-TLS - dynamically fetches the public key)
+- mysql-aws-aurora-public-key=<base64-encoded PEM> (optional, base64 of the server's public key PEM — avoids the key-retrieval round-trip)
 
 
 ```yaml

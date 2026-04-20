@@ -1,4 +1,5 @@
 import * as mysql from "mysql2/promise";
+import { authPlugins } from "mysql2";
 import type { ConnectionOptions } from "mysql2/promise";
 import { renderTemplate } from "../lib/renderer.js";
 import { MonitorFailureResult, MySqlResult, Result } from "../models/result.js";
@@ -10,6 +11,13 @@ import { IRule } from "../models/trigger.js";
 import { getEnvVar, getEnvVarAsBoolean } from "../lib/env.js";
 
 let connections: mysql.Connection[] = [];
+
+export function resolvePublicKey(value?: string): string | undefined {
+    if (!value) {
+        return undefined;
+    }
+    return Buffer.from(value, "base64").toString("utf-8");
+}
 
 export class MySqlEvaluator extends BaseEvaluator {
     constructor(config: any) {
@@ -156,6 +164,20 @@ export class MySqlEvaluator extends BaseEvaluator {
         config.ssl["rejectUnauthorized"] = false;
     }
 
+    configureCachingSha2AuthForConnection(app: IApp, config: any) {
+        const publicKey = resolvePublicKey(getEnvVar(`mysql-${app.connection}-public-key`));
+        const allowRetrieval = getEnvVarAsBoolean(`mysql-${app.connection}-allow-public-key-retrieval`);
+        if (!publicKey && !allowRetrieval) {
+            return;
+        }
+        const pluginOptions: { serverPublicKey?: string } = {};
+        if (publicKey) {
+            pluginOptions.serverPublicKey = publicKey;
+        }
+        config.authPlugins ??= {};
+        config.authPlugins.caching_sha2_password = authPlugins.caching_sha2_password(pluginOptions);
+    }
+
     async getConnection(app: IApp): Promise<mysql.Connection> {
         const config: ConnectionOptions = {
             host: getEnvVar(`mysql-${app.connection}-host`),
@@ -167,6 +189,7 @@ export class MySqlEvaluator extends BaseEvaluator {
             multipleStatements: true,
         };
         this.configureSSLForConnection(app, config);
+        this.configureCachingSha2AuthForConnection(app, config);
         log(`[mysql] connecting to: ${config.host}`);
         // @ts-ignore
         const connection = await mysql.createConnection(config);

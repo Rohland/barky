@@ -13,7 +13,7 @@ const mySqlMock = await importAndMock("mysql2/promise", () => {
 import { Result } from "../models/result.js";
 import { IApp } from "../models/app.js";
 
-const { MySqlEvaluator } = await import("./mysql.js");
+const { MySqlEvaluator, resolvePublicKey } = await import("./mysql.js");
 
 describe("mysql", () => {
     describe("validateResults", () => {
@@ -239,6 +239,73 @@ describe("mysql", () => {
             });
         });
     });
+    describe("configureCachingSha2AuthForConnection", () => {
+        const connection = "test-conn";
+        const app = { connection } as IApp;
+        const envKeys = [
+            `mysql-${connection}-public-key`,
+            `mysql-${connection}-allow-public-key-retrieval`,
+        ];
+
+        beforeEach(() => {
+            envKeys.forEach(k => delete process.env[k]);
+        });
+        afterAll(() => {
+            envKeys.forEach(k => delete process.env[k]);
+        });
+
+        it("should not set authPlugins when neither env var is configured", () => {
+            // arrange
+            const evaluator = new MySqlEvaluator({});
+            const config: any = {};
+
+            // act
+            evaluator.configureCachingSha2AuthForConnection(app, config);
+
+            // assert
+            expect(config.authPlugins).toBeUndefined();
+        });
+
+        it("should install plugin when allowPublicKeyRetrieval is true", () => {
+            // arrange
+            process.env[`mysql-${connection}-allow-public-key-retrieval`] = "true";
+            const evaluator = new MySqlEvaluator({});
+            const config: any = {};
+
+            // act
+            evaluator.configureCachingSha2AuthForConnection(app, config);
+
+            // assert
+            expect(typeof config.authPlugins.caching_sha2_password).toEqual("function");
+        });
+
+        it("should install plugin with serverPublicKey when public-key is a base64 PEM", () => {
+            // arrange
+            const pem = "-----BEGIN PUBLIC KEY-----\nabc\n-----END PUBLIC KEY-----";
+            process.env[`mysql-${connection}-public-key`] = Buffer.from(pem).toString("base64");
+            const evaluator = new MySqlEvaluator({});
+            const config: any = {};
+
+            // act
+            evaluator.configureCachingSha2AuthForConnection(app, config);
+
+            // assert
+            expect(typeof config.authPlugins.caching_sha2_password).toEqual("function");
+        });
+    });
+
+    describe("resolvePublicKey", () => {
+        it("should return undefined when value is empty", () => {
+            expect(resolvePublicKey(undefined)).toBeUndefined();
+            expect(resolvePublicKey("")).toBeUndefined();
+        });
+        it("should base64-decode the value", () => {
+            const pem = "-----BEGIN PUBLIC KEY-----\nabc\n-----END PUBLIC KEY-----";
+            const encoded = Buffer.from(pem).toString("base64");
+            expect(resolvePublicKey(encoded)).toEqual(pem);
+        });
+    });
+
     describe("disposeConnections", () => {
         describe("with connections", () => {
             it("should destroy them and clear connections object", async () => {
