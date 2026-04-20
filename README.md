@@ -104,7 +104,7 @@ In addition, each evaluator app supports the following properties:
 - `name` - String - a friendly name for the relevant app
 - `quiet` - Any - if set to a truthy value, will suppress success output
 - `timeout` - Numeric - a value in milliseconds (example: 10000 for 10s)
-- `vary-by` - Array<string|string[]> - enables variations of fields like name, url or query (depending on the type of evaluator)
+- `vary-by` - Array<string|string[]> - enables variations of fields like name, url, path, query, connection or alert.channels items 
 - `every` - String value representing how often to evaluate the rule, defaults to "30s" - value must be multiples of 30s, examples: 60s, 90s, 10m, 1h (only applicable in loop mode)
 
 ###### Variations
@@ -681,5 +681,5 @@ as follows. Note, Barky will prioritise `.env.local` over entries in a `.env` fi
 
 ```bash
 # this expects that you have a subfolder called path and files called config.yml and digest.yml
-npm start -- loop ./path/config --eval=web --digest=./path/digest --debug
+pnpm start:loop ./path/config --eval=web --digest=./path/digest --debug
 ```

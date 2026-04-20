@@ -1,10 +1,10 @@
-import { getAlertState, IAlertState } from "../digest/alerter";
-import { uniqueKey } from "../lib/key";
-import { Snapshot } from "../models/snapshot";
-import { ChannelType } from "../models/channels/base";
-import { Muter } from "../muter";
-import { IMuteWindowDb, MuteWindow } from "../models/mute-window";
-import { sortBy } from "../lib/sort";
+import { getAlertState, IAlertState } from "../digest/alerter.js";
+import { uniqueKey } from "../lib/key.js";
+import { Snapshot } from "../models/snapshot.js";
+import { ChannelType } from "../models/channels/base.js";
+import { Muter } from "../muter.js";
+import { IMuteWindowDb, MuteWindow } from "../models/mute-window.js";
+import { sortBy } from "../lib/sort.js";
 
 export interface IWebStateSummary {
     startTime: Date;

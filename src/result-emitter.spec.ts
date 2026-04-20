@@ -1,7 +1,7 @@
-import { emitResults, prepareResults } from "./result-emitter";
+import { emitResults, prepareResults } from "./result-emitter.js";
 import mockConsole from "jest-mock-console";
-import { SkippedResult } from "./models/result";
-import { getTestResult } from "./models/result.spec";
+import { SkippedResult } from "./models/result.js";
+import { getTestResult } from "./models/result.spec.js";
 
 describe("result-emitter", () => {
     let _restoreConsole;

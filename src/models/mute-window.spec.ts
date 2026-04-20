@@ -1,5 +1,5 @@
-import { MuteWindow } from "./mute-window";
-import { initLocaleAndTimezone } from "../lib/utility";
+import { MuteWindow } from "./mute-window.js";
+import { initLocaleAndTimezone } from "../lib/utility.js";
 
 describe("mute-windows", () => {
     describe("with missing time", () => {

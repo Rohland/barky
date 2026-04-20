@@ -1,6 +1,6 @@
-import { AlertConfiguration, AlertRule, AlertRuleType, IAlertRule } from "./alert_configuration";
-import { initLocaleAndTimezone } from "../lib/utility";
-import { ChannelType } from "./channels/base";
+import { AlertConfiguration, AlertRule, AlertRuleType, IAlertRule } from "./alert_configuration.js";
+import { initLocaleAndTimezone } from "../lib/utility.js";
+import { ChannelType } from "./channels/base.js";
 
 describe("AlertRule", () => {
     describe("when constructed with consecutive count type", () => {

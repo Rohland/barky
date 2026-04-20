@@ -1,9 +1,9 @@
-import { ChannelConfig, ChannelType } from "./channels/base";
-import { getChannelConfigFor } from "./channel";
-import { AlertConfiguration } from "./alert_configuration";
-import { MonitorFailureResult, Result } from "./result";
-import { log } from "./logger";
-import { MuteWindow } from "./mute-window";
+import { ChannelConfig, ChannelType } from "./channels/base.js";
+import { getChannelConfigFor } from "./channel.js";
+import { AlertConfiguration } from "./alert_configuration.js";
+import { MonitorFailureResult, Result } from "./result.js";
+import { log } from "./logger.js";
+import { MuteWindow } from "./mute-window.js";
 
 export interface IDigestConfig {
     "alert-policies"?: any;

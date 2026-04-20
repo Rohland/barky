@@ -1,5 +1,5 @@
-import { Snapshot } from "./snapshot";
-import { getTestResult } from "./result.spec";
+import { Snapshot } from "./snapshot.js";
+import { getTestResult } from "./result.spec.js";
 
 describe("snapshot", () => {
     describe("when instantiated", () => {

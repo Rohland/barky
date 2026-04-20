@@ -1,7 +1,7 @@
-import { singleton } from "./lib/singleton";
-import { IDigestConfig } from "./models/digest";
-import { addMuteWindow, deleteMuteWindowsByIds, getMuteWindows } from "./models/db";
-import { IMuteWindowDb } from "./models/mute-window";
+import { singleton } from "./lib/singleton.js";
+import { IDigestConfig } from "./models/digest.js";
+import { addMuteWindow, deleteMuteWindowsByIds, getMuteWindows } from "./models/db.js";
+import { IMuteWindowDb } from "./models/mute-window.js";
 
 export class Muter {
 

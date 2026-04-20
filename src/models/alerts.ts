@@ -1,9 +1,9 @@
-import { Snapshot } from "./snapshot";
-import { explodeUniqueKey, IUniqueKey } from "../lib/key";
-import { toLocalTimeString } from "../lib/utility";
-import { MuteWindow } from "./mute-window";
-import { humanizeDuration } from "../lib/time";
-import { AlertConfiguration } from "./alert_configuration";
+import { Snapshot } from "./snapshot.js";
+import { explodeUniqueKey, IUniqueKey } from "../lib/key.js";
+import { toLocalTimeString } from "../lib/utility.js";
+import { MuteWindow } from "./mute-window.js";
+import { humanizeDuration } from "../lib/time.js";
+import { AlertConfiguration } from "./alert_configuration.js";
 
 export interface ILastFailureSnapshot {
     resolvedDate?: Date;

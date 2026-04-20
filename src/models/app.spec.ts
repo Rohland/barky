@@ -1,4 +1,4 @@
-import { AppVariant } from "./app";
+import { AppVariant } from "./app.js";
 
 describe("AppVariant", () => {
     describe("with variant", () => {
@@ -6,7 +6,8 @@ describe("AppVariant", () => {
             ["name"],
             ["url"],
             ["query"],
-            ["path"]
+            ["path"],
+            ["connection"],
         ])(`when app has %s`, (field) => {
             describe(`when app has ${ field }`, () => {
                 it(`should transform ${ field }`, async () => {
@@ -38,6 +39,52 @@ describe("AppVariant", () => {
                         // assert
                         expect(sut[field]).toEqual("Test$1");
                         expect(sut.variation).toEqual([null]);
+                    });
+                });
+            });
+        });
+        describe("with fields that are arrays", () => {
+            it("should not break configs with no vary by", () => {
+                const config = {
+                    alert: {
+                        channels: [
+                            "my-test-1"
+                        ]
+                    }
+                };
+                const sut = new AppVariant(config, []);
+                expect(sut.alert.channels).toEqual(["my-test-1"]);
+            });
+            describe("like alert.channels", () => {
+                describe("if missing", () => {
+                    it("should do nothing", async () => {
+                        const config = {};
+                        const sut = new AppVariant(config, "1");
+                        expect(sut.alert).toBe(undefined);
+                    });
+                });
+                describe("if empty", () => {
+                    it("should return empty array", async () => {
+                        const config = {
+                            alert: {
+                                channels: []
+                            }
+                        };
+                        const sut = new AppVariant(config, "1");
+                        expect(sut.alert.channels).toEqual([]);
+                    });
+                });
+                describe("with values", () => {
+                    it("should inject", async () => {
+                        const config = {
+                            alert: {
+                                channels: [
+                                    "my-test-$1"
+                                ]
+                            }
+                        };
+                        const sut = new AppVariant(config, "1");
+                        expect(sut.alert.channels).toEqual(["my-test-1"]);
                     });
                 });
             });

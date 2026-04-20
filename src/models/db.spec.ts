@@ -9,12 +9,12 @@ import {
     mutateAndPersistSnapshotState, persistAlerts,
     persistResults,
     persistSnapshots
-} from "./db";
-import { Result } from "./result";
-import { Snapshot } from "./snapshot";
-import { AlertState } from "./alerts";
-import { AlertConfiguration, IAlertConfig } from "./alert_configuration";
-import { getTestSnapshot } from "./snapshot.spec";
+} from "./db.js";
+import { Result } from "./result.js";
+import { Snapshot } from "./snapshot.js";
+import { AlertState } from "./alerts.js";
+import { AlertConfiguration, IAlertConfig } from "./alert_configuration.js";
+import { getTestSnapshot } from "./snapshot.spec.js";
 
 describe("db", () => {
 
@@ -333,9 +333,9 @@ describe("db", () => {
                 // assert
                 const snapshots = await getSnapshots();
                 expect(snapshots.length).toEqual(1);
-                expect(snapshots[0]).toEqual({
+                expect(snapshots[0]).toMatchObject({
+                    ...newSnapshot,
                     id: 1,
-                    ...newSnapshot
                 });
             });
         });

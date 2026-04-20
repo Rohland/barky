@@ -1,6 +1,6 @@
-import { IUniqueKey, uniqueKey } from "../lib/key";
-import { AlertConfiguration } from "./alert_configuration";
-import { MuteWindow } from "./mute-window";
+import { IUniqueKey, uniqueKey } from "../lib/key.js";
+import { AlertConfiguration } from "./alert_configuration.js";
+import { MuteWindow } from "./mute-window.js";
 
 export interface ISnapshot {
     id?: number;

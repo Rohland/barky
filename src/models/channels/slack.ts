@@ -1,11 +1,11 @@
-import { Snapshot } from "../snapshot";
-import { AlertState } from "../alerts";
-import { ChannelConfig, ChannelType } from "./base";
+import { Snapshot } from "../snapshot.js";
+import { AlertState } from "../alerts.js";
+import { ChannelConfig, ChannelType } from "./base.js";
 import axios from "axios";
-import { pluraliseWithS, toLocalTimeString, tryExecuteTimes } from "../../lib/utility";
-import { AlertConfiguration } from "../alert_configuration";
+import { pluraliseWithS, toLocalTimeString, tryExecuteTimes } from "../../lib/utility.js";
+import { AlertConfiguration } from "../alert_configuration.js";
 import * as os from "os";
-import { getEnvVar } from "../../lib/env";
+import { getEnvVar } from "../../lib/env.js";
 
 export class SlackChannelConfig extends ChannelConfig {
     public channel: string;

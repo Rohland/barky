@@ -1,8 +1,8 @@
 import axios, { AxiosResponse } from "axios";
-import { execWebRequest, getCustomHeaders, isFailureWebResult, IWebResponse, validateCertificateExpiry } from "./web";
+import { execWebRequest, getCustomHeaders, isFailureWebResult, IWebResponse, validateCertificateExpiry } from "./web.js";
 import * as https from "node:https";
-import { IApp } from "../models/app";
-import { WebResult } from "../models/result";
+import { IApp } from "../models/app.js";
+import { WebResult } from "../models/result.js";
 
 const second = 1000;
 jest.setTimeout(10 * second); // httpbin and badssl aren't the fastest

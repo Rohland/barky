@@ -1,4 +1,4 @@
-import { IUniqueKey, uniqueKey } from "../lib/key";
+import { IUniqueKey, uniqueKey } from "../lib/key.js";
 
 export class MonitorLog implements IUniqueKey {
     id: number;

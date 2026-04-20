@@ -1,4 +1,4 @@
-import { RateLimiter } from "./rate-limiter";
+import { RateLimiter } from "./rate-limiter.js";
 
 describe('rate-limiter', () => {
     describe('execute', () => {

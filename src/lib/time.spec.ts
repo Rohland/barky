@@ -1,5 +1,5 @@
-import { initLocaleAndTimezone } from "./utility";
-import { DayAndTimeEvaluator, humanizeDuration, Time, toLocalTime } from "./time";
+import { initLocaleAndTimezone } from "./utility.js";
+import { DayAndTimeEvaluator, humanizeDuration, Time, toLocalTime } from "./time.js";
 
 describe("Time", () => {
     describe("when instantiated with date", () => {

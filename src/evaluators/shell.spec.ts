@@ -1,9 +1,15 @@
-import { ShellEvaluator } from "./shell";
-import { execShellScript, isShellTimeout } from "../lib/shell-runner";
-import { MonitorFailureResult, ShellResult } from "../models/result";
-import { IApp } from "../models/app";
+import { MonitorFailureResult, ShellResult } from "../models/result.js";
+import { IApp } from "../models/app.js";
+import { importAndMock } from "../../tests/import-and-mock.js";
 
-jest.mock("../lib/shell-runner");
+const { execShellScript, isShellTimeout } = await importAndMock("../lib/shell-runner.ts", () => {
+   return {
+       execShellScript: jest.fn(),
+       isShellTimeout: jest.fn()
+   }
+});
+
+const { ShellEvaluator } = await import("./shell.js");
 
 describe("shell evaluator", () => {
 

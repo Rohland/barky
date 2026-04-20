@@ -1,11 +1,11 @@
-import { Result, SkippedResult } from "../models/result";
-import { getLogs, getSnapshots, mutateAndPersistSnapshotState } from "../models/db";
-import { MonitorLog } from "../models/log";
-import { Snapshot } from "../models/snapshot";
-import { executeAlerts } from "./alerter";
-import { ChannelConfig } from "../models/channels/base";
-import { AlertRule, AlertRuleType } from "../models/alert_configuration";
-import { DigestConfiguration } from "../models/digest";
+import { Result, SkippedResult } from "../models/result.js";
+import { getLogs, getSnapshots, mutateAndPersistSnapshotState } from "../models/db.js";
+import { MonitorLog } from "../models/log.js";
+import { Snapshot } from "../models/snapshot.js";
+import { executeAlerts } from "./alerter.js";
+import { ChannelConfig } from "../models/channels/base.js";
+import { AlertRule, AlertRuleType } from "../models/alert_configuration.js";
+import { DigestConfiguration } from "../models/digest.js";
 import {
     explodeUniqueKey,
     findMatchingKeyFor,
@@ -13,13 +13,15 @@ import {
     hasWildcard,
     IUniqueKey,
     uniqueKey
-} from "../lib/key";
-import { emitResults } from "../result-emitter";
+} from "../lib/key.js";
+import { emitResults } from "../result-emitter.js";
+import { log } from "../models/logger.js";
 
 export async function digest(
     config: DigestConfiguration,
     results: Result[]) {
     const context = await generateDigest(results);
+    log(`digest state: ${DigestState[context.state]}`);
     // context.alertableSnapshots(config); // generate global state to support ui
     if (context.state === DigestState.OK) {
         return;
@@ -107,7 +109,9 @@ export class DigestContext {
 
     public get state(): DigestState {
         const previousCount = Array.from(this._previousSnapshotLookup.values()).filter(x => x.isDigestable).length;
+        log('digest: previous count' + previousCount);
         const newCount = this.snapshots.filter(x => x.isDigestable).length;
+        log('digest: new count' + previousCount);
         const wasInOKState = previousCount === 0;
         const hasIssues = newCount > 0;
         if (wasInOKState) {

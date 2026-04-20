@@ -1,4 +1,4 @@
-import { Time } from "./time";
+import { Time } from "./time.js";
 
 const InvalidPeriodRangeError = "invalid period - expected format: -fromInteger{s|m|h|d} to -toInteger{s|m|h|d}";
 const InvalidPeriodError = "invalid period - expected format: Integer{s|m|h|d} (example: -10s or 5m)";

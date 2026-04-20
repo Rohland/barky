@@ -1,16 +1,17 @@
-import { EvaluatorResult } from "./types";
-import { AppVariant, IApp } from "../models/app";
-import { flatten } from "../lib/utility";
-import { log } from "../models/logger";
-import { parsePeriodToMillis, parsePeriodToSeconds } from "../lib/period-parser";
-import { LoopMs } from "../loop";
-import { findMatchingKeyFor, IUniqueKey } from "../lib/key";
-import { DefaultTrigger, IRule } from "../models/trigger";
-import { DayAndTimeEvaluator } from "../lib/time";
-import { MonitorFailureResult, Result } from "../models/result";
-import { startClock, stopClock } from "../lib/profiler";
-import { formatType } from "../lib/type";
-import { sleepMs } from "../lib/sleep";
+import { EvaluatorResult } from "./types.js";
+import { AppVariant, IApp } from "../models/app.js";
+import { flatten } from "../lib/utility.js";
+import { log } from "../models/logger.js";
+import { parsePeriodToMillis, parsePeriodToSeconds } from "../lib/period-parser.js";
+import { LoopMs } from "../loop.js";
+import { findMatchingKeyFor, IUniqueKey } from "../lib/key.js";
+import { DefaultTrigger, IRule } from "../models/trigger.js";
+import { DayAndTimeEvaluator } from "../lib/time.js";
+import { MonitorFailureResult, Result } from "../models/result.js";
+import { startClock, stopClock } from "../lib/profiler.js";
+import { formatType } from "../lib/type.js";
+import { sleepMs } from "../lib/sleep.js";
+import _ from "lodash";
 
 const executionCounter = new Map<string, number>();
 
@@ -67,7 +68,7 @@ export abstract class BaseEvaluator {
     public async timeout() {
         const maxEvaluatorTime = 30_000;
         await sleepMs(maxEvaluatorTime);
-        return `evaluator of type '${ this.type }' timed out after ${maxEvaluatorTime/1000}s`;
+        return `evaluator of type '${this.type}' timed out after ${maxEvaluatorTime / 1000}s`;
     }
 
     public async evaluateWithTimeout(app: IApp): Promise<Result | Result []> {
@@ -92,21 +93,17 @@ export abstract class BaseEvaluator {
                 return results;
             } catch (err) {
                 try {
-                    const errorInfo = new Error(err.message);
-                    errorInfo.stack = err.stack;
-                    // @ts-ignore
-                    errorInfo.response = {
-                        status: err?.response?.status,
-                        data: err?.response.data
-                    };
-                    log(`error executing ${app.type} evaluator for '${app.name}': ${err.message}`, errorInfo);
+                    const message = err["message"];
+                    const errorInfo = new Error(message, { cause: err });
+                    errorInfo.stack = err["stack"];
+                    log(`error executing ${app.type} evaluator for '${app.name}': ${message}`, errorInfo);
                 } catch {
                     // no-op
                 }
                 return new MonitorFailureResult(
                     app.type,
                     app.name,
-                    err.message,
+                    err["message"],
                     app);
             }
         }));
@@ -213,10 +210,7 @@ export abstract class BaseEvaluator {
             : [null];
         return variations.map(instance => {
             const variant = new AppVariant(app, instance);
-            return {
-                ...app,
-                ...variant,
-            };
+            return _.merge({}, app, variant);
         });
     }
 

@@ -1,5 +1,8 @@
-import { execShellScript, isShellTimeout, resetShellEnvironment } from "./shell-runner";
-import path from "path";
+import { execShellScript, isShellTimeout, resetShellEnvironment } from "./shell-runner.js";
+import { fileURLToPath } from "node:url";
+import path, { dirname } from "node:path";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 describe("execShellScript", () => {
     describe("with simple script", () => {

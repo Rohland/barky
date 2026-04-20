@@ -1,7 +1,7 @@
-import { parsePeriodToMinutes } from "../../lib/period-parser";
-import { Snapshot } from "../snapshot";
-import { AlertState } from "../alerts";
-import { renderTemplate } from "../../lib/renderer";
+import { parsePeriodToMinutes } from "../../lib/period-parser.js";
+import { Snapshot } from "../snapshot.js";
+import { AlertState } from "../alerts.js";
+import { renderTemplate } from "../../lib/renderer.js";
 
 export enum ChannelType {
     Console="console",

@@ -1,14 +1,14 @@
-import axios, { AxiosRequestConfig, AxiosResponse } from "axios";
-import { startClock, stopClock } from "../lib/profiler";
-import { MonitorFailureResult, Result, WebResult } from "../models/result";
-import { log } from "../models/logger";
-import { IApp } from "../models/app";
-import { BaseEvaluator, EvaluatorType } from "./base";
-import { IUniqueKey } from "../lib/key";
+import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from "axios";
+import { startClock, stopClock } from "../lib/profiler.js";
+import { MonitorFailureResult, Result, WebResult } from "../models/result.js";
+import { log } from "../models/logger.js";
+import { IApp } from "../models/app.js";
+import { BaseEvaluator, EvaluatorType } from "./base.js";
+import { IUniqueKey } from "../lib/key.js";
 import * as https from "node:https";
-import { parsePeriodToHours } from "../lib/period-parser";
-import { getEnvVar } from "../lib/env";
-import { renderTemplate } from "../lib/renderer";
+import { parsePeriodToHours } from "../lib/period-parser.js";
+import { getEnvVar } from "../lib/env.js";
+import { renderTemplate } from "../lib/renderer.js";
 
 export class WebEvaluator extends BaseEvaluator {
     constructor(config: any) {
@@ -60,7 +60,7 @@ async function tryEvaluate(app: IApp) {
         return new MonitorFailureResult(
             "web",
             app.name,
-            err.message,
+            err["message"],
             app);
     }
 }
@@ -140,10 +140,11 @@ async function evaluate(app: IApp) {
         webResult = await execWebRequest(app);
         statusResult = webResult.status?.toString();
     } catch (err) {
-        const isTimeout = err.code === "ECONNABORTED" && stopClock(timer) >= app.timeout;
+        const axiosError = err as AxiosError;
+        const isTimeout = axiosError.code === "ECONNABORTED" && stopClock(timer) >= app.timeout;
         statusResult = isTimeout
             ? `Timed out after ${ app.timeout }ms`
-            : err.response?.status || (err.code ?? err.name ?? err.toString());
+            : axiosError.response?.status?.toString() || (axiosError.code?.toString() ?? axiosError.name ?? err.toString());
     }
     const timeTaken = stopClock(timer);
     const results = [transformWebResult(

@@ -1,5 +1,5 @@
-import { Muter } from "./muter";
-import { deleteDbIfExists, destroy, initConnection } from "./models/db";
+import { Muter } from "./muter.js";
+import { deleteDbIfExists, destroy, initConnection } from "./models/db.js";
 
 describe("Muter", () => {
 

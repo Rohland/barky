@@ -1,10 +1,10 @@
-import { Snapshot } from "../snapshot";
-import { AlertState } from "../alerts";
+import { Snapshot } from "../snapshot.js";
+import { AlertState } from "../alerts.js";
 import axios from "axios";
-import { pluraliseWithS } from "../../lib/utility";
-import { ChannelConfig, ChannelType } from "./base";
+import { pluraliseWithS } from "../../lib/utility.js";
+import { ChannelConfig, ChannelType } from "./base.js";
 import FormData from "form-data";
-import { getEnvVar } from "../../lib/env";
+import { getEnvVar } from "../../lib/env.js";
 
 export interface SMSContact {
     name: string;
@@ -78,7 +78,7 @@ export class SMSChannelConfig extends ChannelConfig {
                 }
             }
         } catch(err) {
-            throw new Error(`Failed to send SMS: ${ err.message }`);
+            throw new Error(`Failed to send SMS: ${ err["message"] }`);
         }
     }
 }

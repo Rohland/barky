@@ -2,10 +2,10 @@ import {
     DigestContext, DigestState,
     evaluateNewResult, generateDigest,
     generateResultsToEvaluate
-} from "./digest";
-import { MySqlResult, Result, SkippedResult } from "../models/result";
-import { MonitorLog } from "../models/log";
-import { Snapshot } from "../models/snapshot";
+} from "./digest.js";
+import { MySqlResult, Result, SkippedResult } from "../models/result.js";
+import { MonitorLog } from "../models/log.js";
+import { Snapshot } from "../models/snapshot.js";
 import {
     deleteDbIfExists,
     destroy,
@@ -14,12 +14,12 @@ import {
     initConnection,
     persistResults,
     persistSnapshots
-} from "../models/db";
-import { AlertConfiguration, AlertRule } from "../models/alert_configuration";
+} from "../models/db.js";
+import { AlertConfiguration, AlertRule } from "../models/alert_configuration.js";
 import mockConsole from "jest-mock-console";
-import { getTestResult } from "../models/result.spec";
-import { getTestSnapshot } from "../models/snapshot.spec";
-import { MuteWindow } from "../models/mute-window";
+import { getTestResult } from "../models/result.spec.js";
+import { getTestSnapshot } from "../models/snapshot.spec.js";
+import { MuteWindow } from "../models/mute-window.js";
 
 describe("digest", () => {
 

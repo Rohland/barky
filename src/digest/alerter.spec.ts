@@ -1,13 +1,13 @@
 import mockConsole from "jest-mock-console";
-import { executeAlerts } from "./alerter";
-import { DigestContext } from "./digest";
-import { Result } from "../models/result";
-import { deleteDbIfExists, destroy, getAlerts, initConnection, persistAlerts } from "../models/db";
-import { AlertState } from "../models/alerts";
-import { DigestConfiguration } from "../models/digest";
-import { Snapshot } from "../models/snapshot";
-import { getTestResult } from "../models/result.spec";
-import { getTestSnapshot } from "../models/snapshot.spec";
+import { executeAlerts } from "./alerter.js";
+import { DigestContext } from "./digest.js";
+import { Result } from "../models/result.js";
+import { deleteDbIfExists, destroy, getAlerts, initConnection, persistAlerts } from "../models/db.js";
+import { AlertState } from "../models/alerts.js";
+import { DigestConfiguration } from "../models/digest.js";
+import { Snapshot } from "../models/snapshot.js";
+import { getTestResult } from "../models/result.spec.js";
+import { getTestSnapshot } from "../models/snapshot.spec.js";
 
 describe("alerter", () => {
 

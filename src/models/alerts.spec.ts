@@ -1,7 +1,7 @@
-import { AlertState } from "./alerts";
-import { toLocalTimeString } from "../lib/utility";
-import { Snapshot } from "./snapshot";
-import { getTestSnapshot } from "./snapshot.spec";
+import { AlertState } from "./alerts.js";
+import { toLocalTimeString } from "../lib/utility.js";
+import { Snapshot } from "./snapshot.js";
+import { getTestSnapshot } from "./snapshot.spec.js";
 
 describe("alert", () => {
     describe("constructor", () => {

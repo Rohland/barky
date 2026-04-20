@@ -1,15 +1,15 @@
-import axios, { AxiosRequestConfig } from "axios";
-import { parsePeriodRange } from "../lib/period-parser";
-import { sleepMs } from "../lib/sleep";
-import { MonitorFailureResult, Result, SumoResult } from "../models/result";
-import { startClock, stopClock } from "../lib/profiler";
-import { renderTemplate } from "../lib/renderer";
-import { log } from "../models/logger";
-import { IApp } from "../models/app";
-import { BaseEvaluator, EvaluatorType, findTriggerRulesFor, generateValueForVariable } from "./base";
-import { IUniqueKey } from "../lib/key";
-import { RateLimiter } from "../lib/rate-limiter";
-import { getEnvVar } from "../lib/env";
+import axios, { AxiosError, AxiosRequestConfig } from "axios";
+import { parsePeriodRange } from "../lib/period-parser.js";
+import { sleepMs } from "../lib/sleep.js";
+import { MonitorFailureResult, Result, SumoResult } from "../models/result.js";
+import { startClock, stopClock } from "../lib/profiler.js";
+import { renderTemplate } from "../lib/renderer.js";
+import { log } from "../models/logger.js";
+import { IApp } from "../models/app.js";
+import { BaseEvaluator, EvaluatorType, findTriggerRulesFor, generateValueForVariable } from "./base.js";
+import { IUniqueKey } from "../lib/key.js";
+import { RateLimiter } from "../lib/rate-limiter.js";
+import { getEnvVar } from "../lib/env.js";
 
 const SumoDomain = getEnvVar("sumo-domain") ?? "api.eu.sumologic.com";
 const SumoLogsUrl = `https://${SumoDomain}/api/v1/search/jobs`;
@@ -74,18 +74,19 @@ export class SumoEvaluator extends BaseEvaluator {
                     true,
                     app);
         } catch (err) {
-            const errorInfo = new Error(err.message);
-            errorInfo.stack = err.stack;
+            const axiosError = err as AxiosError;
+            const errorInfo = new Error(err["message"], { cause: err });
+            errorInfo.stack = err["stack"];
             // @ts-ignore
             errorInfo.response = {
-                status: err?.response?.status,
-                data: err?.response?.data
+                status: axiosError?.response?.status,
+                data: axiosError?.response?.data
             };
-            log(`error executing sumo evaluator for '${app.name}': ${err.message}`, errorInfo);
+            log(`error executing sumo evaluator for '${app.name}': ${axiosError.message}`, errorInfo);
             return new MonitorFailureResult(
                 "sumo",
                 app.name,
-                err.message,
+                axiosError.message,
                 app);
         }
     }
@@ -258,7 +259,8 @@ export class SumoEvaluator extends BaseEvaluator {
             log(`[sumo] successfully completed sumo job search for '${app.name}', result:`, result.data);
             return result.data;
         } catch (err) {
-            log(`[sumo] failed to complete sumo job search for '${app.name}', result:`, err.response?.data);
+            const axiosError = err as AxiosError;
+            log(`[sumo] failed to complete sumo job search for '${app.name}', result:`, axiosError.response?.data);
             throw err;
         }
     }

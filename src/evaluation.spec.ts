@@ -1,8 +1,8 @@
-import { evaluateType, getEvaluators } from "./evaluation";
-import { WebResult } from "./models/result";
-import { WebEvaluator } from "./evaluators/web";
-import { MySqlEvaluator } from "./evaluators/mysql";
-import { SumoEvaluator } from "./evaluators/sumo";
+import { evaluateType, getEvaluators } from "./evaluation.js";
+import { WebResult } from "./models/result.js";
+import { WebEvaluator } from "./evaluators/web.js";
+import { MySqlEvaluator } from "./evaluators/mysql.js";
+import { SumoEvaluator } from "./evaluators/sumo.js";
 
 describe("evaluation", () => {
     describe("getEvaluators", () => {

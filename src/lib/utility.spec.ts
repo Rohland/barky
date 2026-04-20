@@ -6,7 +6,7 @@ import {
     shortHash,
     toLocalTimeString,
     tryExecuteTimes
-} from "./utility";
+} from "./utility.js";
 
 describe("utility functions", () => {
     describe("flatten", () => {

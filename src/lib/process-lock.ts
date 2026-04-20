@@ -1,4 +1,4 @@
-import { shortHash } from "./utility";
+import { shortHash } from "./utility.js";
 import fs from "fs";
 
 function getPidForLock(lock: string) {

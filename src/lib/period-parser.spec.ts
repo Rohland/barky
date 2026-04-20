@@ -1,5 +1,5 @@
-import { parseDaysOfWeek, parsePeriod, parsePeriodRange, parsePeriodToMinutes, parseTimeRange } from "./period-parser";
-import { Time } from "./time";
+import { parseDaysOfWeek, parsePeriod, parsePeriodRange, parsePeriodToMinutes, parseTimeRange } from "./period-parser.js";
+import { Time } from "./time.js";
 
 describe("period parsing", () => {
 

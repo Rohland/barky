@@ -1,4 +1,4 @@
-import { MonitorLog } from "./log";
+import { MonitorLog } from "./log.js";
 
 describe("monitorlog", () => {
     describe("when creating", () => {

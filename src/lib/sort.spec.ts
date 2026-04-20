@@ -1,4 +1,4 @@
-import { sortBy } from "./sort";
+import { sortBy } from "./sort.js";
 
 describe("sortBy", () => {
     describe.each([
@@ -17,7 +17,7 @@ describe("sortBy", () => {
             [{ field: new Date("2025-01-01 10:00") }, { field: new Date("2024-01-01 10:00") }, { field: new Date("2025-01-01 11:00") }],
             [new Date("2024-01-01 10:00"), new Date("2025-01-01 10:00"), new Date("2025-01-01 11:00")]
         ]
-    ])("when sorting by %s", (type, input, expected) => {
+    ])("when sorting by %s", (_type, input, expected) => {
         it("should sort", () => {
             // @ts-ignore
             const sorted = sortBy(input, "field");

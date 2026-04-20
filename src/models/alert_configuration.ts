@@ -1,7 +1,7 @@
-import { parsePeriod } from "../lib/period-parser";
-import { MonitorLog } from "./log";
-import { DayAndTimeEvaluator } from "../lib/time";
-import { ChannelType } from "./channels/base";
+import { parsePeriod } from "../lib/period-parser.js";
+import { MonitorLog } from "./log.js";
+import { DayAndTimeEvaluator } from "../lib/time.js";
+import { ChannelType } from "./channels/base.js";
 
 export interface IAlertRule {
     isDefault?: boolean;
