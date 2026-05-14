@@ -126,7 +126,7 @@ export async function tryExecuteTimes<T>(
         await sleepMs(delayBetweenAttempts);
     }
     if (throwOnEventualFailure && lastError) {
-        throw lastError;
+        throw new Error(`Error executing ${ label} after ${ times } attempts`, { cause: lastError });
     }
     return null;
 }
