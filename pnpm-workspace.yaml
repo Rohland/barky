@@ -1,0 +1,6 @@
+allowBuilds:
+  '@nestjs/core': false
+  better-sqlite3: true
+  esbuild: false
+  unrs-resolver: false
+minimumReleaseAge: 10080

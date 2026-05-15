@@ -259,6 +259,35 @@ describe("utility functions", () => {
                 // assert
                 expect(func).toHaveBeenCalledTimes(3);
             });
+            it("should throw wrapped error with label and attempt count in message", async () => {
+                // arrange
+                const func = jest.fn().mockRejectedValue(new Error("inner-failure"));
+
+                // act
+                await expect(tryExecuteTimes("my-label", 2, func, true, 0))
+                    .rejects.toThrow("Error executing my-label after 2 attempts");
+
+                // assert
+                expect(func).toHaveBeenCalledTimes(2);
+            });
+            it("should preserve original error as cause", async () => {
+                // arrange
+                const originalError = new Error("inner-failure");
+                const func = jest.fn().mockRejectedValue(originalError);
+
+                // act
+                let caught: Error | null = null;
+                try {
+                    await tryExecuteTimes("my-label", 2, func, true, 0);
+                } catch (err) {
+                    caught = err as Error;
+                }
+
+                // assert
+                expect(caught).not.toBeNull();
+                expect(caught.message).toEqual("Error executing my-label after 2 attempts");
+                expect(caught.cause).toBe(originalError);
+            });
             describe("with throw set to false", () => {
                 it("should not throw", async () => {
                     // arrange
