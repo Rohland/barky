@@ -67,15 +67,18 @@ describe("alerter", () => {
                 context.addSnapshotForResult(result2);
 
                 // act
+                const before = new Date();
                 await executeAlerts(config, context);
+                const after = new Date();
 
                 // assert
                 expect(console.log).toHaveBeenCalledWith(expect.stringMatching(/Outage started at \d\d:\d\d:\d\d. 2 health checks affected./));
                 const alerts = await getAlerts();
                 expect(alerts.length).toBe(2);
                 alerts.forEach((alert) => {
-                    const diff = Math.abs(+new Date() - +alert.last_alert_date);
-                    expect(diff).toBeLessThanOrEqual(100);
+                    // stamped while alerting, so it must fall within the window we just bracketed
+                    expect(+alert.last_alert_date).toBeGreaterThanOrEqual(+before);
+                    expect(+alert.last_alert_date).toBeLessThanOrEqual(+after);
                     expect(Array.from(alert.affectedKeys)).toEqual([result1.uniqueId, result2.uniqueId]);
                     // check the start date is the min date of the snapshots
                     expect(alert.start_date).toEqual(oneDayAgo);
@@ -208,15 +211,18 @@ describe("alerter", () => {
                 context.addSnapshotForResult(result2);
 
                 // act
+                const before = new Date();
                 await executeAlerts(config, context);
+                const after = new Date();
 
                 // assert
                 expect(console.log).toHaveBeenCalledWith(expect.stringMatching(/Outage ongoing for \dm \(since \d\d:\d\d:\d\d\). 2 health checks affected./));
                 const alerts = await getAlerts();
                 expect(alerts.length).toEqual(2);
                 alerts.forEach((alert) => {
-                    const diff = Math.abs(+new Date() - +alert.last_alert_date);
-                    expect(diff).toBeLessThanOrEqual(100);
+                    // stamped while alerting, so it must fall within the window we just bracketed
+                    expect(+alert.last_alert_date).toBeGreaterThanOrEqual(+before);
+                    expect(+alert.last_alert_date).toBeLessThanOrEqual(+after);
                     expect(Array.from(alert.affectedKeys)).toEqual([result.uniqueId, result2.uniqueId]);
                 });
             });
