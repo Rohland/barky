@@ -55,13 +55,5 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Rohland/barky.git"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "@nestjs/core",
-      "esbuild",
-      "better-sqlite3",
-      "unrs-resolver"
-    ]
   }
 }
