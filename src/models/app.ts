@@ -8,7 +8,8 @@ export interface IApp {
     quiet?: boolean;
     timeout?: number;
     alert?: IAlertConfig;
-    every?: string;
+    every?: string | string[];
+    "except-at"?: string | string[];
     type?: string;
     triggers?: ITrigger[];
     __configPath?: string;

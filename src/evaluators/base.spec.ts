@@ -6,7 +6,7 @@ import { MySqlEvaluator } from "./mysql.js";
 import { SumoEvaluator } from "./sumo.js";
 import { IUniqueKey } from "../lib/key.js";
 import { DefaultTrigger } from "../models/trigger.js";
-import { initLocaleAndTimezone } from "../lib/utility.js";
+import { initLocaleAndTimezone, toLocalTimeString } from "../lib/utility.js";
 import { MySqlResult, Result } from "../models/result.js";
 import { ShellEvaluator } from "./shell.js";
 import { sleepMs } from "../lib/sleep.js";
@@ -240,6 +240,350 @@ describe("base evaluator", () => {
                     expect(evaluator.skippedApps.length).toEqual(2);
                     expect(evaluator.skippedApps.filter(x => x.type === "custom" && x.label === "app1" && x.identifier === "*").length).toEqual(1);
                     expect(evaluator.skippedApps.filter(x => x.type === "custom" && x.label === "monitor" && x.identifier === "app1").length).toEqual(1);
+                });
+            });
+            describe("if every is an explicit time", () => {
+                beforeEach(() => initLocaleAndTimezone({
+                    locale: "en-ZA",
+                    timezone: "Africa/Johannesburg"
+                }));
+
+                it("should only be evaluated at that time", async () => {
+                    // arrange
+                    const app = {
+                        every: "5:00"
+                    };
+                    const evaluator = new CustomEvaluator({
+                        "custom": {
+                            "app1": app
+                        }
+                    });
+
+                    // act
+                    const beforeTime = evaluator.getAppsToEvaluate(new Date("2020-01-01T04:59:00+02:00"));
+                    const atTime = evaluator.getAppsToEvaluate(new Date("2020-01-01T05:00:10+02:00"));
+                    const afterTime = evaluator.getAppsToEvaluate(new Date("2020-01-01T06:00:00+02:00"));
+
+                    // assert
+                    expect(beforeTime).toMatchObject([]);
+                    expect(atTime).toMatchObject([app]);
+                    expect(afterTime).toMatchObject([]);
+                    expect(evaluator.skippedApps).toMatchObject([
+                        {
+                            ...app,
+                            type: "custom",
+                            label: "app1",
+                            identifier: "*"
+                        },
+                        {
+                            ...app,
+                            type: "custom",
+                            label: "monitor",
+                            identifier: "app1"
+                        }
+                    ]);
+                });
+                it("should only be evaluated once within the same window", async () => {
+                    // arrange
+                    const app = {
+                        every: "5:00"
+                    };
+                    const evaluator = new CustomEvaluator({
+                        "custom": {
+                            "app1": app
+                        }
+                    });
+
+                    // act
+                    const first = evaluator.getAppsToEvaluate(new Date("2020-01-01T05:00:10+02:00"));
+                    const second = evaluator.getAppsToEvaluate(new Date("2020-01-01T05:00:40+02:00"));
+
+                    // assert
+                    expect(first).toMatchObject([app]);
+                    expect(second).toMatchObject([]);
+                });
+                it("should be evaluated again the next day", async () => {
+                    // arrange
+                    const app = {
+                        every: "5:00"
+                    };
+                    const evaluator = new CustomEvaluator({
+                        "custom": {
+                            "app1": app
+                        }
+                    });
+
+                    // act
+                    const today = evaluator.getAppsToEvaluate(new Date("2020-01-01T05:00:10+02:00"));
+                    const later = evaluator.getAppsToEvaluate(new Date("2020-01-01T12:00:00+02:00"));
+                    const tomorrow = evaluator.getAppsToEvaluate(new Date("2020-01-02T05:00:10+02:00"));
+
+                    // assert
+                    expect(today).toMatchObject([app]);
+                    expect(later).toMatchObject([]);
+                    expect(tomorrow).toMatchObject([app]);
+                });
+                describe("with multiple times", () => {
+                    it("should be evaluated at each of them", async () => {
+                        // arrange
+                        const app = {
+                            every: ["5:00", "19:00"]
+                        };
+                        const evaluator = new CustomEvaluator({
+                            "custom": {
+                                "app1": app
+                            }
+                        });
+
+                        // act
+                        const morning = evaluator.getAppsToEvaluate(new Date("2020-01-01T05:00:10+02:00"));
+                        const midday = evaluator.getAppsToEvaluate(new Date("2020-01-01T12:00:00+02:00"));
+                        const evening = evaluator.getAppsToEvaluate(new Date("2020-01-01T19:00:10+02:00"));
+
+                        // assert
+                        expect(morning).toMatchObject([app]);
+                        expect(midday).toMatchObject([]);
+                        expect(evening).toMatchObject([app]);
+                    });
+                });
+                describe("with variations", () => {
+                    it("should evaluate all variations at that time", async () => {
+                        // arrange
+                        const app = {
+                            every: "5:00",
+                            "vary-by": ["a", "b"]
+                        };
+                        const evaluator = new CustomEvaluator({
+                            "custom": {
+                                "app1": app
+                            }
+                        });
+
+                        // act
+                        const beforeTime = evaluator.getAppsToEvaluate(new Date("2020-01-01T04:59:00+02:00"));
+                        const atTime = evaluator.getAppsToEvaluate(new Date("2020-01-01T05:00:10+02:00"));
+
+                        // assert
+                        const first = structuredClone(app);
+                        // @ts-ignore
+                        first.variation = ["a"];
+                        const second = structuredClone(app);
+                        // @ts-ignore
+                        second.variation = ["b"];
+                        expect(beforeTime).toMatchObject([]);
+                        expect(atTime).toMatchObject([first, second]);
+                    });
+                });
+                describe("when mixed with a duration", () => {
+                    it("should throw", async () => {
+                        // arrange
+                        const evaluator = new CustomEvaluator({
+                            "custom": {
+                                "app1": {
+                                    every: ["5:00", "1h"]
+                                }
+                            }
+                        });
+
+                        // act & assert
+                        expect(() => evaluator.getAppsToEvaluate(new Date("2020-01-01T05:00:10+02:00")))
+                            .toThrow("cannot mix durations and explicit times");
+                    });
+                });
+            });
+        });
+        describe("with except-at configured", () => {
+            beforeEach(() => initLocaleAndTimezone({
+                locale: "en-ZA",
+                timezone: "Africa/Johannesburg"
+            }));
+
+            it("should not be evaluated during the window", async () => {
+                // arrange
+                const app = {
+                    "except-at": "09:00-11:00"
+                };
+                const evaluator = new CustomEvaluator({
+                    "custom": {
+                        "app1": app
+                    }
+                });
+
+                // act
+                const before = evaluator.getAppsToEvaluate(new Date("2020-01-01T08:59:00+02:00"));
+                const during = evaluator.getAppsToEvaluate(new Date("2020-01-01T10:00:00+02:00"));
+                const after = evaluator.getAppsToEvaluate(new Date("2020-01-01T11:30:00+02:00"));
+
+                // assert
+                expect(before).toMatchObject([app]);
+                expect(during).toMatchObject([]);
+                expect(after).toMatchObject([app]);
+                expect(evaluator.skippedApps).toMatchObject([
+                    {
+                        ...app,
+                        type: "custom",
+                        label: "app1",
+                        identifier: "*"
+                    },
+                    {
+                        ...app,
+                        type: "custom",
+                        label: "monitor",
+                        identifier: "app1"
+                    }
+                ]);
+            });
+            describe("with multiple windows", () => {
+                it("should not be evaluated during any of them", async () => {
+                    // arrange
+                    const app = {
+                        "except-at": ["09:00-11:00", "17:00-23:00"]
+                    };
+                    const evaluator = new CustomEvaluator({
+                        "custom": {
+                            "app1": app
+                        }
+                    });
+
+                    // act
+                    const morning = evaluator.getAppsToEvaluate(new Date("2020-01-01T10:00:00+02:00"));
+                    const midday = evaluator.getAppsToEvaluate(new Date("2020-01-01T13:00:00+02:00"));
+                    const evening = evaluator.getAppsToEvaluate(new Date("2020-01-01T18:00:00+02:00"));
+                    const night = evaluator.getAppsToEvaluate(new Date("2020-01-01T23:30:00+02:00"));
+
+                    // assert
+                    expect(morning).toMatchObject([]);
+                    expect(midday).toMatchObject([app]);
+                    expect(evening).toMatchObject([]);
+                    expect(night).toMatchObject([app]);
+                });
+            });
+            describe("with every also configured", () => {
+                it("should suppress the check regardless of the every schedule", async () => {
+                    // arrange
+                    const app = {
+                        every: "30s",
+                        "except-at": "09:00-11:00"
+                    };
+                    const evaluator = new CustomEvaluator({
+                        "custom": {
+                            "app1": app
+                        }
+                    });
+
+                    // act
+                    const during1 = evaluator.getAppsToEvaluate(new Date("2020-01-01T09:30:00+02:00"));
+                    const during2 = evaluator.getAppsToEvaluate(new Date("2020-01-01T10:30:00+02:00"));
+                    const after = evaluator.getAppsToEvaluate(new Date("2020-01-01T12:00:00+02:00"));
+
+                    // assert
+                    expect(during1).toMatchObject([]);
+                    expect(during2).toMatchObject([]);
+                    expect(after).toMatchObject([app]);
+                });
+                it("should suppress a scheduled time falling inside the window", async () => {
+                    // arrange
+                    const app = {
+                        every: "10:00",
+                        "except-at": "09:00-11:00"
+                    };
+                    const evaluator = new CustomEvaluator({
+                        "custom": {
+                            "app1": app
+                        }
+                    });
+
+                    // act
+                    const atScheduledTime = evaluator.getAppsToEvaluate(new Date("2020-01-01T10:00:10+02:00"));
+
+                    // assert
+                    expect(atScheduledTime).toMatchObject([]);
+                });
+                it("should suppress only the scheduled times that fall inside the window", async () => {
+                    // arrange - runs at 5AM and 10PM, blacked out between 9PM and 11PM
+                    const app = {
+                        every: ["5:00", "22:00"],
+                        "except-at": "21:00-23:00"
+                    };
+                    const evaluator = new CustomEvaluator({
+                        "custom": {
+                            "app1": app
+                        }
+                    });
+
+                    // act - tick through the whole day at 30s intervals, as the loop would
+                    const evaluatedAt = [];
+                    const start = +new Date("2020-01-01T00:00:00+02:00");
+                    for (let offset = 0; offset < 24 * 60 * 60 * 1000; offset += 30_000) {
+                        const now = new Date(start + offset);
+                        if (evaluator.getAppsToEvaluate(now).length > 0) {
+                            evaluatedAt.push(toLocalTimeString(now));
+                        }
+                    }
+
+                    // assert - the 10PM run is swallowed by the blackout window and never happens
+                    expect(evaluatedAt).toEqual(["05:00:00"]);
+                });
+            });
+            describe("with variations", () => {
+                it("should suppress all variations", async () => {
+                    // arrange
+                    const app = {
+                        "except-at": "09:00-11:00",
+                        "vary-by": ["a", "b"]
+                    };
+                    const evaluator = new CustomEvaluator({
+                        "custom": {
+                            "app1": app
+                        }
+                    });
+
+                    // act
+                    const during = evaluator.getAppsToEvaluate(new Date("2020-01-01T10:00:00+02:00"));
+                    const after = evaluator.getAppsToEvaluate(new Date("2020-01-01T12:00:00+02:00"));
+
+                    // assert
+                    expect(during).toMatchObject([]);
+                    expect(after.length).toEqual(2);
+                });
+            });
+            describe("when the window wraps past midnight", () => {
+                it("should not be evaluated on either side of midnight", async () => {
+                    // arrange
+                    const app = {
+                        "except-at": "23:00-02:00"
+                    };
+                    const evaluator = new CustomEvaluator({
+                        "custom": {
+                            "app1": app
+                        }
+                    });
+
+                    // act
+                    const beforeMidnight = evaluator.getAppsToEvaluate(new Date("2020-01-01T23:30:00+02:00"));
+                    const afterMidnight = evaluator.getAppsToEvaluate(new Date("2020-01-02T01:30:00+02:00"));
+                    const midday = evaluator.getAppsToEvaluate(new Date("2020-01-02T12:00:00+02:00"));
+
+                    // assert
+                    expect(beforeMidnight).toMatchObject([]);
+                    expect(afterMidnight).toMatchObject([]);
+                    expect(midday).toMatchObject([app]);
+                });
+            });
+            describe("when invalid", () => {
+                it("should throw", async () => {
+                    // arrange
+                    const evaluator = new CustomEvaluator({
+                        "custom": {
+                            "app1": {
+                                "except-at": "09:00"
+                            }
+                        }
+                    });
+
+                    // act & assert
+                    expect(() => evaluator.getAppsToEvaluate(new Date("2020-01-01T10:00:00+02:00")))
+                        .toThrow("expected a time range in HH:mm-HH:mm format");
                 });
             });
         });
