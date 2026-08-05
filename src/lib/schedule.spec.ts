@@ -1,6 +1,7 @@
 import { initLocaleAndTimezone } from "./utility.js";
 import {
     getDueTimeSlot,
+    hasScheduleValue,
     isExplicitTimeSchedule,
     isWithinAnyTimeRange,
     parseExceptAtRanges,
@@ -13,6 +14,45 @@ describe("schedule", () => {
         locale: "en-ZA",
         timezone: "Africa/Johannesburg"
     }));
+
+    describe("hasScheduleValue", () => {
+        describe.each([
+            ["30s"],
+            ["5:00"],
+            ["09:00-11:00"],
+            [["5:00", "19:00"]],
+            [["", "5:00"]]
+        ])(`when given %s`, (input) => {
+            it("should return true", async () => {
+                // arrange
+                // act
+                const result = hasScheduleValue(input);
+
+                // assert
+                expect(result).toEqual(true);
+            });
+        });
+        describe.each([
+            [null],
+            [undefined],
+            [""],
+            ["  "],
+            [[]],
+            [[""]],
+            [["  "]],
+            [[null]],
+            [[undefined]]
+        ])(`when given %s`, (input) => {
+            it("should return false", async () => {
+                // arrange
+                // act
+                const result = hasScheduleValue(input as any);
+
+                // assert
+                expect(result).toEqual(false);
+            });
+        });
+    });
 
     describe("isExplicitTimeSchedule", () => {
         describe.each([

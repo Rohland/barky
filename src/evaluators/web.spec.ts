@@ -298,10 +298,17 @@ describe("web evaluator", () => {
     });
 
     describe("executeWebRequest", () => {
+        // These tests make real network calls. CI runners have slower and less reliable egress than a dev
+        // machine, and web.ts defaults an app with no timeout to 5s - the same as jest's default per-test
+        // timeout - so the two race each other with no headroom. Give both room explicitly.
+        const NetworkTimeoutMs = 20_000;
+        const NetworkTestTimeoutMs = 30_000;
+
         it("should tack on __barky param and set timeout", async () => {
             // arrange
             const app = {
-                url: "https://httpbingo.org/get"
+                url: "https://httpbingo.org/get",
+                timeout: NetworkTimeoutMs
             };
 
             // act
@@ -310,13 +317,14 @@ describe("web evaluator", () => {
             // assert
             const timestamp = new Date(parseInt(response.data.args.__barky));
             const timeDiff = +new Date() - +timestamp;
-            expect(timeDiff).toBeLessThan(10000);
-        });
+            expect(timeDiff).toBeLessThan(NetworkTimeoutMs);
+        }, NetworkTestTimeoutMs);
         describe("without http method", () => {
             it("should default to get", async () => {
                 // arrange
                 const app = {
-                    url: "https://httpbingo.org/get"
+                    url: "https://httpbingo.org/get",
+                    timeout: NetworkTimeoutMs
                 };
 
                 // act
@@ -324,7 +332,7 @@ describe("web evaluator", () => {
 
                 // assert
                 expect(response.status).toEqual(200);
-            });
+            }, NetworkTestTimeoutMs);
         });
         describe("with ssl url", () => {
             describe("and default tls configuration", () => {
@@ -332,7 +340,8 @@ describe("web evaluator", () => {
                     it("should include cert details in response", async () => {
                         // arrange
                         const app = {
-                            url: "https://httpbin.org/get"
+                            url: "https://httpbingo.org/get",
+                            timeout: NetworkTimeoutMs
                         };
 
                         // act
@@ -342,35 +351,38 @@ describe("web evaluator", () => {
                         expect(response.certInfo).toBeDefined();
                         expect(response.certInfo.validFrom).toBeDefined();
                         expect(response.certInfo.validTo).toBeDefined();
-                    }, 10_000);
+                    }, NetworkTestTimeoutMs);
                 });
                 describe("with bad certificate", () => {
                     it("should throw", async () => {
                         // arrange
                         const app = {
-                            url: "https://wrong.host.badssl.com/"
+                            url: "https://wrong.host.badssl.com/",
+                            timeout: NetworkTimeoutMs
                         };
 
                         // act && assert
                         await expect(() => execWebRequest(app)).rejects.toThrow(/does not match certificate's altnames/);
-                    });
+                    }, NetworkTestTimeoutMs);
                 });
                 describe("with expired certificate", () => {
                     it("should throw", async () => {
                         // arrange
                         const app = {
-                            url: "https://expired.badssl.com/"
+                            url: "https://expired.badssl.com/",
+                            timeout: NetworkTimeoutMs
                         };
 
                         // act && assert
                         await expect(() => execWebRequest(app)).rejects.toThrow(/certificate has expired/);
-                    });
+                    }, NetworkTestTimeoutMs);
                 });
                 describe("but with verify set to false", () => {
                     it("should not throw", async () => {
                         // arrange
                         const app = {
                             url: "https://self-signed.badssl.com/",
+                            timeout: NetworkTimeoutMs,
                             tls: {
                                 verify: false
                             }
@@ -381,7 +393,7 @@ describe("web evaluator", () => {
 
                         // assert
                         expect(result.status).toEqual(200);
-                    });
+                    }, NetworkTestTimeoutMs);
                 });
             });
         });

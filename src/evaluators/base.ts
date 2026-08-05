@@ -9,6 +9,7 @@ import { DefaultTrigger, IRule } from "../models/trigger.js";
 import { DayAndTimeEvaluator } from "../lib/time.js";
 import {
     getDueTimeSlot,
+    hasScheduleValue,
     isExplicitTimeSchedule,
     isWithinAnyTimeRange,
     parseExceptAtRanges,
@@ -166,10 +167,10 @@ export abstract class BaseEvaluator {
     private shouldEvaluateApp(app: IApp, now: Date): boolean {
         // a blackout window suppresses the check entirely, regardless of how often it is otherwise scheduled
         const exceptAt = app["except-at"];
-        if (exceptAt && isWithinAnyTimeRange(parseExceptAtRanges(exceptAt), now)) {
+        if (hasScheduleValue(exceptAt) && isWithinAnyTimeRange(parseExceptAtRanges(exceptAt), now)) {
             return this.skipApp(app, `except-at set to: ${exceptAt}`);
         }
-        if (!app.every) {
+        if (!hasScheduleValue(app.every)) {
             return true;
         }
         if (isExplicitTimeSchedule(app.every)) {

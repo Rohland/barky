@@ -13,6 +13,12 @@ const InvalidExceptAtError = "invalid except-at - expected a time range in HH:mm
 // stricter than the Time regex, which allows values like 24:30
 const ValidExplicitTimeRegex = /^([01]?\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/;
 
+// true when a schedule value has anything usable in it - an empty or whitespace-only value, including a
+// list of them, counts as unset in the same way a missing key does
+export function hasScheduleValue(value: string | string[]): boolean {
+    return toEntries(value).length > 0;
+}
+
 // true when every is intended as a schedule of explicit times rather than a duration - a list is always
 // treated as one, as are values containing a colon, so that malformed times report a useful error
 export function isExplicitTimeSchedule(every: string | string[]): boolean {

@@ -106,6 +106,58 @@ describe("base evaluator", () => {
                 expect(evaluator.skippedApps).toEqual([]);
             });
         });
+        // an empty value is the same statement as a missing key, and must not reach the duration parser
+        describe.each([
+            ["an empty array", []],
+            ["an array of empty strings", [""]],
+            ["an array of whitespace", ["  "]],
+            ["an array of nulls", [null]],
+            ["a whitespace string", "  "],
+            ["an empty string", ""]
+        ])(`with every set to %s`, (_label, every) => {
+            it("should treat it as unset and evaluate on each invocation", async () => {
+                // arrange
+                const app = { every };
+                const evaluator = new CustomEvaluator({
+                    "custom": {
+                        "app1": app
+                    }
+                });
+
+                // act
+                const apps1 = evaluator.getAppsToEvaluate();
+                const apps2 = evaluator.getAppsToEvaluate();
+
+                // assert
+                expect(apps1).toMatchObject([app]);
+                expect(apps2).toMatchObject([app]);
+                expect(evaluator.skippedApps).toEqual([]);
+            });
+        });
+        describe.each([
+            ["an empty array", []],
+            ["an array of empty strings", [""]],
+            ["an array of nulls", [null]],
+            ["a whitespace string", "  "],
+            ["an empty string", ""]
+        ])(`with except-at set to %s`, (_label, exceptAt) => {
+            it("should treat it as unset and apply no blackout", async () => {
+                // arrange
+                const app = { "except-at": exceptAt };
+                const evaluator = new CustomEvaluator({
+                    "custom": {
+                        "app1": app
+                    }
+                });
+
+                // act
+                const apps = evaluator.getAppsToEvaluate(new Date("2020-01-01T10:00:00+02:00"));
+
+                // assert
+                expect(apps).toMatchObject([app]);
+                expect(evaluator.skippedApps).toEqual([]);
+            });
+        });
         describe("with every configured", () => {
             describe("if every 30s", () => {
                 it("should be evaluated every time", async () => {
