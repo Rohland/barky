@@ -7,6 +7,14 @@ import { LoopMs } from "../loop.js";
 import { findMatchingKeyFor, IUniqueKey } from "../lib/key.js";
 import { DefaultTrigger, IRule } from "../models/trigger.js";
 import { DayAndTimeEvaluator } from "../lib/time.js";
+import {
+    getDueTimeSlot,
+    hasScheduleValue,
+    isExplicitTimeSchedule,
+    isWithinAnyTimeRange,
+    parseExceptAtRanges,
+    parseExplicitTimes
+} from "../lib/schedule.js";
 import { MonitorFailureResult, Result } from "../models/result.js";
 import { startClock, stopClock } from "../lib/profiler.js";
 import { formatType } from "../lib/type.js";
@@ -14,9 +22,11 @@ import { sleepMs } from "../lib/sleep.js";
 import _ from "lodash";
 
 const executionCounter = new Map<string, number>();
+const lastScheduledExecution = new Map<string, string>();
 
 export function resetExecutionCounter() {
     executionCounter.clear();
+    lastScheduledExecution.clear();
 }
 
 export enum EvaluatorType {
@@ -133,7 +143,7 @@ export abstract class BaseEvaluator {
         return this._skippedApps;
     }
 
-    public getAppsToEvaluate(): IApp[] {
+    public getAppsToEvaluate(now: Date = new Date()): IApp[] {
         const appNames = Object.keys(this.config);
         const apps = [];
         for (let name of appNames) {
@@ -144,7 +154,7 @@ export abstract class BaseEvaluator {
                 this.configureApp(x);
                 x.timeout = parsePeriodToMillis(x.timeout ?? 10000);
                 x.type = this.type;
-                if (this.shouldEvaluateApp(x)) {
+                if (this.shouldEvaluateApp(x, now)) {
                     apps.push(x);
                 }
             });
@@ -154,22 +164,49 @@ export abstract class BaseEvaluator {
         return expanded;
     }
 
-    private shouldEvaluateApp(app: IApp): boolean {
-        if (!app.every) {
+    private shouldEvaluateApp(app: IApp, now: Date): boolean {
+        // a blackout window suppresses the check entirely, regardless of how often it is otherwise scheduled
+        const exceptAt = app["except-at"];
+        if (hasScheduleValue(exceptAt) && isWithinAnyTimeRange(parseExceptAtRanges(exceptAt), now)) {
+            return this.skipApp(app, `except-at set to: ${exceptAt}`);
+        }
+        if (!hasScheduleValue(app.every)) {
             return true;
+        }
+        if (isExplicitTimeSchedule(app.every)) {
+            return this.shouldEvaluateAppAtScheduledTime(app, now);
         }
         const durationMs = parsePeriodToSeconds(app.every) * 1000;
         const everyCount = Math.round(durationMs / LoopMs);
-        const key = `${this.type}-${app.name}${app.variation ? `-${app.variation}` : ""}`;
+        const key = this.getExecutionKey(app);
         const count = executionCounter.get(key) ?? 0;
         const shouldEvaluate = count % everyCount === 0;
         executionCounter.set(key, count + 1);
         if (!shouldEvaluate) {
-            log(`skipping ${this.type} check for '${app.name}' - every set to: ${app.every}`);
-            this.tryAddSkippedApp(app);
-            this.tryAddSkippedMonitor(app); // since we don't run, indicate monitor failure also skipped
+            return this.skipApp(app, `every set to: ${app.every}`);
         }
         return shouldEvaluate;
+    }
+
+    private shouldEvaluateAppAtScheduledTime(app: IApp, now: Date): boolean {
+        const key = this.getExecutionKey(app);
+        const slot = getDueTimeSlot(parseExplicitTimes(app.every), now);
+        if (!slot || lastScheduledExecution.get(key) === slot) {
+            return this.skipApp(app, `every set to: ${app.every}`);
+        }
+        lastScheduledExecution.set(key, slot);
+        return true;
+    }
+
+    private getExecutionKey(app: IApp): string {
+        return `${this.type}-${app.name}${app.variation ? `-${app.variation}` : ""}`;
+    }
+
+    private skipApp(app: IApp, reason: string): boolean {
+        log(`skipping ${this.type} check for '${app.name}' - ${reason}`);
+        this.tryAddSkippedApp(app);
+        this.tryAddSkippedMonitor(app); // since we don't run, indicate monitor failure also skipped
+        return false;
     }
 
     private tryAddSkippedMonitor(app: IApp) {

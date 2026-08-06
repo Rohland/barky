@@ -105,7 +105,10 @@ In addition, each evaluator app supports the following properties:
 - `quiet` - Any - if set to a truthy value, will suppress success output
 - `timeout` - Numeric - a value in milliseconds (example: 10000 for 10s)
 - `vary-by` - Array<string|string[]> - enables variations of fields like name, url, path, query, connection or alert.channels items 
-- `every` - String value representing how often to evaluate the rule, defaults to "30s" - value must be multiples of 30s, examples: 60s, 90s, 10m, 1h (only applicable in loop mode)
+- `every` - String or Array&lt;String&gt; - how often to evaluate the rule. Two forms are supported:
+    - a duration, defaults to "30s" - value must be multiples of 30s, examples: 60s, 90s, 10m, 1h (only applicable in loop mode)
+    - an explicit time of day in 24 hour format, examples: 5:00, 05:00, 5:00:30, or a list of times like [5:00, 19:00] - the rule is then only evaluated at those times (see below)
+- `except-at` - String or Array&lt;String&gt; - a time range, or list of time ranges, during which the rule is not evaluated at all, examples: 09:00-11:00, or [9:00-11:00, 17:00-23:00] (see below)
 
 ###### Variations
 
@@ -143,6 +146,78 @@ names: [www.codeo.co.za, www.codeo.com]
 urls: [https://www.codeo.co.za/currency=zar, https://www.codeo.com/currency=usd]
 ```
 
+###### Scheduling at explicit times
+
+Instead of a duration, `every` accepts an explicit time of day, or a list of times. The rule is then only
+evaluated at those times, which is useful for checks that only make sense once or twice a day - a nightly
+batch job having completed, for example.
+
+```yaml
+web:
+  # evaluated once a day, at 5AM
+  overnight-batch:
+    url: https://www.codeo.co.za/batch-status
+    every: 5:00
+  # evaluated twice a day, at 5AM and 7PM
+  twice-daily:
+    url: https://www.codeo.co.za/status
+    every: [5:00, 19:00]
+```
+
+Notes:
+
+- Times are in 24 hour `HH:mm` or `HH:mm:ss` format. A leading zero is optional, so `5:00` and `05:00` are
+  equivalent. Quoting the value is not necessary.
+- Times are resolved in the timezone configured under `config.timezone`, consistent with the `days` and
+  `time` fields on trigger rules.
+- The rule is evaluated once per configured time, per day.
+- Because the loop ticks every 30 seconds and is not aligned to wall clock boundaries, a rule is considered
+  due for the minute that starts at the configured time. `every: 5:00` therefore evaluates on the first tick
+  between 05:00:00 and 05:00:59. Note that this state is held in memory, so restarting barky within that
+  minute can evaluate the rule a second time.
+- Unlike durations, explicit times are also honoured in `run` mode, so a `barky run` outside of the window
+  reports the check as skipped. This makes it possible to drive barky from cron rather than in loop mode.
+- Durations and explicit times cannot be mixed in the same list - `every: [5:00, 1h]` is an error.
+
+###### Excluding periods of the day
+
+`except-at` defines a blackout window - a time range, or list of time ranges, during which the rule is not
+evaluated at all. This is useful for checks that are expected to fail during a known maintenance or batch
+window, where alerting is noise rather than signal.
+
+```yaml
+web:
+  # not evaluated between 9AM and 11AM
+  maintenance-window:
+    url: https://www.codeo.co.za/status
+    every: 5m
+    except-at: 09:00-11:00
+  # not evaluated between 9AM and 11AM, nor between 5PM and 11PM
+  two-windows:
+    url: https://www.codeo.co.za/status
+    except-at: [9:00-11:00, 17:00-23:00]
+  # not evaluated overnight - ranges may wrap past midnight
+  overnight:
+    url: https://www.codeo.co.za/status
+    except-at: 23:00-02:00
+```
+
+Notes:
+
+- Ranges are `HH:mm-HH:mm` in 24 hour format. A leading zero is optional and spaces around the dash are
+  allowed, so `9:00-11:00` and `09:00 - 11:00` are both valid. Quoting the value is not necessary.
+- Ranges are resolved in the timezone configured under `config.timezone`, consistent with `every` and with
+  the `days` and `time` fields on trigger rules.
+- Both ends of the range are inclusive, so `09:00-11:00` suppresses the check from 09:00:00 up to and
+  including 11:00:00.
+- A range whose end is before its start wraps past midnight - `23:00-02:00` covers 11PM through 2AM.
+- `except-at` takes precedence over `every`, and it applies in `run` mode as well as `loop` mode.
+- A blackout **cancels** any run that falls inside it - it does not defer it. If a rule is scheduled at an
+  explicit time that the window covers, that run is lost for the day rather than happening once the window
+  lifts. For example `every: [5:00, 22:00]` combined with `except-at: 21:00-23:00` evaluates only at 5AM;
+  the 10PM run never happens. Interval-based rules simply resume on their normal cadence after the window.
+- Blacked out checks are reported as skipped, which suppresses their alerts in the digest, rather than being
+  recorded as failures.
 
 ##### Web Configuration
 

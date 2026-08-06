@@ -1,9 +1,11 @@
 import {
+    dayOfWeek,
     flatten,
     hash,
     initLocaleAndTimezone,
     isToday,
     shortHash,
+    toLocalDateString,
     toLocalTimeString,
     tryExecuteTimes
 } from "./utility.js";
@@ -116,6 +118,90 @@ describe("utility functions", () => {
                 const time = date.toLocaleTimeString("en-ZA", { hour12: false, timeZone: "America/New_York"});
                 expect(result).toEqual(time);
             });
+        });
+    });
+    // date formatting reuses a cached Intl formatter, so a config change must rebuild it
+    describe("when the locale or timezone changes", () => {
+        const date = new Date("2020-01-01T23:30:00.000Z");
+
+        it("should reflect the new timezone in toLocalTimeString", async () => {
+            // arrange
+            initLocaleAndTimezone({ locale: "en-ZA", timezone: "Africa/Johannesburg" });
+            const inJohannesburg = toLocalTimeString(date);
+
+            // act
+            initLocaleAndTimezone({ locale: "en-ZA", timezone: "America/New_York" });
+            const inNewYork = toLocalTimeString(date);
+
+            // assert
+            expect(inJohannesburg).toEqual("01:30:00");
+            expect(inNewYork).toEqual("18:30:00");
+        });
+        it("should reflect the new timezone in toLocalDateString", async () => {
+            // arrange
+            initLocaleAndTimezone({ locale: "en-ZA", timezone: "Africa/Johannesburg" });
+            const inJohannesburg = toLocalDateString(date);
+
+            // act
+            initLocaleAndTimezone({ locale: "en-ZA", timezone: "America/New_York" });
+            const inNewYork = toLocalDateString(date);
+
+            // assert - the date has already rolled over in Johannesburg, but not in New York
+            expect(inJohannesburg).not.toEqual(inNewYork);
+            expect(inJohannesburg).toEqual(date.toLocaleDateString("en-ZA", { timeZone: "Africa/Johannesburg" }));
+            expect(inNewYork).toEqual(date.toLocaleDateString("en-ZA", { timeZone: "America/New_York" }));
+        });
+        it("should reflect the new timezone in dayOfWeek", async () => {
+            // arrange
+            initLocaleAndTimezone({ locale: "en-ZA", timezone: "Africa/Johannesburg" });
+            const inJohannesburg = dayOfWeek(date);
+
+            // act
+            initLocaleAndTimezone({ locale: "en-ZA", timezone: "America/New_York" });
+            const inNewYork = dayOfWeek(date);
+
+            // assert - Thursday 2 Jan in Johannesburg, still Wednesday 1 Jan in New York
+            expect(inJohannesburg).toEqual(4);
+            expect(inNewYork).toEqual(3);
+        });
+        it("should reflect the new timezone in isToday", async () => {
+            // arrange
+            initLocaleAndTimezone({ locale: "en-ZA", timezone: "Africa/Johannesburg" });
+            const inJohannesburg = isToday("2020-01-02", date);
+
+            // act
+            initLocaleAndTimezone({ locale: "en-ZA", timezone: "America/New_York" });
+            const inNewYork = isToday("2020-01-02", date);
+
+            // assert
+            expect(inJohannesburg).toEqual(true);
+            expect(inNewYork).toEqual(false);
+        });
+        it("should reflect the new locale", async () => {
+            // arrange
+            initLocaleAndTimezone({ locale: "en-US", timezone: "UTC" });
+            const inUs = toLocalDateString(date);
+
+            // act
+            initLocaleAndTimezone({ locale: "de-DE", timezone: "UTC" });
+            const inGermany = toLocalDateString(date);
+
+            // assert
+            expect(inUs).toEqual(date.toLocaleDateString("en-US", { timeZone: "UTC" }));
+            expect(inGermany).toEqual(date.toLocaleDateString("de-DE", { timeZone: "UTC" }));
+            expect(inUs).not.toEqual(inGermany);
+        });
+        it("should not poison the cache when a bad config throws", async () => {
+            // arrange
+            initLocaleAndTimezone({ locale: "xxx", timezone: "abc" });
+            expect(() => toLocalTimeString(date)).toThrow("Invalid locale or timezone");
+
+            // act
+            initLocaleAndTimezone({ locale: "en-ZA", timezone: "Africa/Johannesburg" });
+            const result = toLocalTimeString(date);
+
+            // assert
+            expect(result).toEqual("01:30:00");
         });
     });
     describe("hash", () => {

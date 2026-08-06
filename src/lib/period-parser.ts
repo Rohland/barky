@@ -10,6 +10,10 @@ export interface IPeriod {
     to: Date
 }
 
+export function isPeriod(input: string): boolean {
+    return !!input && ValidPeriodRegex.test(input.trim());
+}
+
 export function parsePeriod(input: string): Date {
     if (!input || !ValidPeriodRegex.test(input.trim())) {
         throw new Error(InvalidPeriodError);
