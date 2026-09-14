@@ -22,6 +22,7 @@
     "@nestjs/common": "^11.1.28",
     "@nestjs/core": "^11.1.28",
     "@nestjs/platform-express": "^11.1.28",
+    "@slack/socket-mode": "^3.0.1",
     "axios": "^1.18.1",
     "better-sqlite3": "^12.11.1",
     "dotenv": "^17.4.2",

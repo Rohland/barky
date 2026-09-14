@@ -3,6 +3,7 @@ import { Response } from 'express';
 import path, { join } from 'path';
 import { WebState } from "./web.state.js";
 import { Muter } from "../muter.js";
+import { getChatOpsAudit } from "../models/db.js";
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
 const __filename = fileURLToPath(import.meta.url);
@@ -33,6 +34,11 @@ export class AppController {
         const muter = Muter.getInstance();
         await muter.unmute(matches);
         return { success: true, message: 'Unmuted successfully', payload };
+    }
+
+    @Get('api/chat-ops/audit')
+    async getChatOpsAuditTrail() {
+        return await getChatOpsAudit();
     }
 
     @Get('api/status')

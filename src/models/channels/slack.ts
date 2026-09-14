@@ -1,16 +1,19 @@
 import { Snapshot } from "../snapshot.js";
 import { AlertState } from "../alerts.js";
 import { ChannelConfig, ChannelType } from "./base.js";
-import axios from "axios";
-import { pluraliseWithS, toLocalTimeString, tryExecuteTimes } from "../../lib/utility.js";
+import { pluraliseWithS, toLocalTimeString } from "../../lib/utility.js";
 import { AlertConfiguration } from "../alert_configuration.js";
 import * as os from "os";
 import { getEnvVar } from "../../lib/env.js";
+import { SlackApi } from "./slack-api.js";
+import { recordChatThread } from "../db.js";
 
 export class SlackChannelConfig extends ChannelConfig {
     public channel: string;
     public token: string;
     public workspace: string;
+    public chatOpsEnabled: boolean;
+    private _api: SlackApi;
 
     constructor(name: string, config: any) {
         super(name, config);
@@ -18,6 +21,11 @@ export class SlackChannelConfig extends ChannelConfig {
         this.channel = config.channel;
         this.token = getEnvVar(config.token);
         this.workspace = config.workspace;
+        this.chatOpsEnabled = !!config["chat-ops"]?.enabled;
+    }
+
+    public get api(): SlackApi {
+        return this._api ??= new SlackApi(this.token);
     }
 
     public generateMessage(
@@ -132,6 +140,23 @@ export class SlackChannelConfig extends ChannelConfig {
         alert.state = await this.postToSlack(
             this.generateMessage(snapshots, alert),
             alert.state);
+        await this.trackThreadFor(alert.state, snapshots);
+    }
+
+    /*
+     Notes which alerts this message is reporting, so chat ops can resolve a reply in its thread
+     back to them ("mute this"). Refreshed on every update, so the thread always reflects what the
+     message currently says.
+     */
+    private async trackThreadFor(state: any, snapshots: Snapshot[]) {
+        if (!state?.ts) {
+            return;
+        }
+        await recordChatThread({
+            channel: state.channel ?? this.channel,
+            threadTs: state.ts.toString(),
+            alertIds: snapshots.map(x => x.uniqueId)
+        });
     }
 
     public async sendOngoingAlert(
@@ -143,7 +168,12 @@ export class SlackChannelConfig extends ChannelConfig {
             ? `<https://${ this.workspace }.slack.com/archives/${ channel }/p${ timestamp }|See above ☝️>`
             : "See above ☝️";
         const problems = pluraliseWithS("problem", snapshots.length);
-        const msg = `🔥 <!channel> Alert ongoing: \`${ snapshots.length } ${ problems }\` for \`${ alert.durationHuman }\`. ${ link } \n_please do not reply to this msg_`;
+        // this message is replaced on every interval, so replies to it would be lost - with chat
+        // ops running there is somewhere useful to point people instead
+        const replyHint = this.chatOpsEnabled
+            ? "_reply in the thread above to mute_"
+            : "_please do not reply to this msg_";
+        const msg = `🔥 <!channel> Alert ongoing: \`${ snapshots.length } ${ problems }\` for \`${ alert.durationHuman }\`. ${ link } \n${ replyHint }`;
         await Promise.all([
             this.pingAboutOngoingAlert(snapshots, alert),
             this.replaceLastMessageAboutOngoingAlert(
@@ -166,23 +196,7 @@ export class SlackChannelConfig extends ChannelConfig {
     }
 
     public async deleteMessage(channel: string, ts: number) {
-        try {
-            await axios.post(
-                'https://slack.com/api/chat.delete',
-                {
-                    channel: channel,
-                    ts: ts
-                },
-                {
-                    headers: {
-                        Authorization: `Bearer ${ this.token }`,
-                        'Content-Type': 'application/json'
-                    }
-                }
-            );
-        } catch {
-            // no-op
-        }
+        await this.api.deleteMessage(channel, ts);
     }
 
     public async pingAboutOngoingAlert(
@@ -191,6 +205,7 @@ export class SlackChannelConfig extends ChannelConfig {
         await this.postToSlack(
             this.generateMessage(snapshots, alert),
             alert.state);
+        await this.trackThreadFor(alert.state, snapshots);
     }
 
     public async sendResolvedAlert(alert: AlertState): Promise<void> {
@@ -237,74 +252,24 @@ export class SlackChannelConfig extends ChannelConfig {
         message: string,
         state?: { channel: string, ts: number },
         reply: boolean = false): Promise<any> {
-        return await tryExecuteTimes(
-            `posting to slack`,
-            3,
-            async () => {
-                const body = {
-                    channel: state?.channel ?? this.channel,
-                    text: message,
-                    unfurl_links: false
-                };
-                const postMessageUrl = "https://slack.com/api/chat.postMessage";
-                const updateMessageUrl = "https://slack.com/api/chat.update";
-                let url = postMessageUrl;
-                if (reply && state?.ts) {
-                    body["thread_ts"] = state.ts;
-                } else {
-                    body["ts"] = state?.ts;
-                    if (state) {
-                        url = updateMessageUrl;
-                    }
-                }
-                const config = {
-                    method: 'post',
-                    url,
-                    timeout: 5000,
-                    headers: {
-                        'Authorization': `Bearer ${ this.token }`,
-                        'Content-type': 'application/json;charset=utf-8',
-                        'Accept': '*/*',
-                    },
-                    data: JSON.stringify(body)
-                };
-                const result = await axios.request(config);
-                if (result.data?.error) {
-                    throw new Error(result.data.error);
-                }
-                return {
-                    channel: result.data.channel,
-                    ts: result.data.ts
-                };
-            });
+        const channel = state?.channel ?? this.channel;
+        const isReply = reply && !!state?.ts;
+        if (isReply) {
+            return await this.api.postMessage(channel, message, state.ts);
+        }
+        if (state) {
+            return await this.api.updateMessage(channel, state.ts, message);
+        }
+        return await this.api.postMessage(channel, message);
     }
 
     private async reactToSlackMessage(state: any, reaction: string) {
         if (!state) {
             return;
         }
-        return await tryExecuteTimes(
-            `reacting to slack message with ${ reaction }`,
-            3,
-            async () => {
-                const body = {
-                    name: reaction,
-                    channel: state?.channel ?? this.channel,
-                    timestamp: state.ts
-                };
-                const config = {
-                    method: 'post',
-                    url: "https://slack.com/api/reactions.add",
-                    headers: {
-                        'Authorization': `Bearer ${ this.token }`,
-                        'Content-type': 'application/json;charset=utf-8',
-                        'Accept': '*/*',
-                    },
-                    data: JSON.stringify(body)
-                };
-                await axios.request(config);
-            },
-            false);
-
+        await this.api.addReaction(
+            state?.channel ?? this.channel,
+            state.ts,
+            reaction);
     }
 }

@@ -2,13 +2,18 @@ import {
     addMuteWindow,
     deleteDbIfExists, deleteMuteWindowsByIds,
     destroy, getAlerts,
+    getChatOpsAudit,
+    getChatThread,
     getConnection,
     getLogs, getMuteWindows,
     getSnapshots,
     initConnection,
     mutateAndPersistSnapshotState, persistAlerts,
     persistResults,
-    persistSnapshots
+    persistSnapshots,
+    recordChatOpsAudit,
+    recordChatThread,
+    tryRecordChatEvent
 } from "./db.js";
 import { Result } from "./result.js";
 import { Snapshot } from "./snapshot.js";
@@ -475,6 +480,99 @@ describe("db", () => {
                     expect(remaining.length).toEqual(1);
                     expect(remaining[0]).toMatchObject(newWindow);
                 });
+            });
+        });
+    });
+    describe("chat events", () => {
+        it("should only accept an event once", async () => {
+            expect(await tryRecordChatEvent("C1:123.456")).toEqual(true);
+            expect(await tryRecordChatEvent("C1:123.456")).toEqual(false);
+            expect(await tryRecordChatEvent("C1:123.457")).toEqual(true);
+        });
+        describe("when recording fails for a reason other than it being a duplicate", () => {
+            it("should let the message through rather than silently dropping it", async () => {
+                // arrange - slack has already been acked, so a drop here is a drop for good
+                await destroy();
+
+                // act
+                const result = await tryRecordChatEvent("C1:123.456");
+
+                // assert
+                expect(result).toEqual(true);
+
+                // cleanup - the outer afterEach expects a connection it can close
+                await initConnection(testDb);
+            });
+        });
+    });
+
+    describe("chat threads", () => {
+        it("should record and return the alerts a message reported", async () => {
+            // arrange
+            await recordChatThread({
+                channel: "C1",
+                threadTs: "1700000000.000100",
+                alertIds: ["web::health::a.com", "mysql::lag::db-01"]
+            });
+
+            // act
+            const result = await getChatThread("C1", "1700000000.000100");
+
+            // assert
+            expect(result.alertIds).toEqual(["web::health::a.com", "mysql::lag::db-01"]);
+        });
+        describe("when the same message is recorded again", () => {
+            it("should replace what it reports, not duplicate it", async () => {
+                // arrange - the alert message is edited in place as the outage changes
+                await recordChatThread({ channel: "C1", threadTs: "1.1", alertIds: ["a"] });
+
+                // act
+                await recordChatThread({ channel: "C1", threadTs: "1.1", alertIds: ["a", "b"] });
+
+                // assert
+                const result = await getChatThread("C1", "1.1");
+                expect(result.alertIds).toEqual(["a", "b"]);
+            });
+        });
+        describe("for a thread that was never recorded", () => {
+            it("should return nothing", async () => {
+                expect(await getChatThread("C1", "9.9")).toBeNull();
+            });
+        });
+    });
+
+    describe("chat ops audit", () => {
+        it("should record entries newest first", async () => {
+            // arrange
+            await recordChatOpsAudit({
+                channel: "C1",
+                userId: "U1",
+                action: "mute",
+                detail: { alerts: ["web::health::a.com"] }
+            });
+            await recordChatOpsAudit({
+                channel: "C1",
+                userId: "U2",
+                action: "unmute",
+                detail: { mutes: ["^web::health::a\\.com$"] }
+            });
+
+            // act
+            const result = await getChatOpsAudit();
+
+            // assert
+            expect(result).toHaveLength(2);
+            expect(result[0].action).toEqual("unmute");
+            expect(result[0].userId).toEqual("U2");
+            expect(result[1].detail.alerts).toEqual(["web::health::a.com"]);
+            expect(result[1].date).toBeInstanceOf(Date);
+        });
+        describe("when a limit is given", () => {
+            it("should honour it", async () => {
+                for (let i = 0; i < 5; i++) {
+                    await recordChatOpsAudit({ channel: "C1", userId: "U1", action: "mute", detail: { i } });
+                }
+                expect(await getChatOpsAudit(2)).toHaveLength(2);
             });
         });
     });

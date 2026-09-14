@@ -20,6 +20,7 @@ import { AppModule, DebugLogger } from "./web/app.module.js";
 import { NestExpressApplication } from "@nestjs/platform-express";
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
+import { startChatOps } from "./chatops/bootstrap.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -57,6 +58,7 @@ async function run(args: any) {
     try {
         const config = await initialiseGlobalConfig(args);
         await bootstrapWebApp(config.env?.config?.port);
+        await startChatOps(args, config.digest);
         log(`starting ${ args.eval } evaluators`);
         await execute(
             config,

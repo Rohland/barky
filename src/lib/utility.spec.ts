@@ -1,10 +1,13 @@
 import {
     dayOfWeek,
+    DefaultLocale,
     flatten,
+    fromLocalDateAndTime,
     hash,
     initLocaleAndTimezone,
     isToday,
     shortHash,
+    toLocalDateAndTime,
     toLocalDateString,
     toLocalTimeString,
     tryExecuteTimes
@@ -386,6 +389,81 @@ describe("utility functions", () => {
                     expect(func).toHaveBeenCalledTimes(3);
                 });
             });
+        });
+    });
+    describe("toLocalDateAndTime", () => {
+        describe.each([
+            ["Africa/Johannesburg", "2026-09-15T10:30:00Z", "2026-09-15", "12:30"],
+            ["UTC", "2026-09-15T10:30:00Z", "2026-09-15", "10:30"],
+            // rolls over into the next day in the configured timezone
+            ["Africa/Johannesburg", "2026-09-15T23:30:00Z", "2026-09-16", "01:30"],
+            // and back into the previous one
+            ["America/New_York", "2026-09-15T02:30:00Z", "2026-09-14", "22:30"],
+            // midnight must be 00, never 24
+            ["Africa/Johannesburg", "2026-09-15T22:00:00Z", "2026-09-16", "00:00"]
+        ])("in %s", (timezone, instant, expectedDate, expectedTime) => {
+            it(`should return the date and time as observed there`, async () => {
+                // arrange
+                initLocaleAndTimezone({ locale: "en-ZA", timezone });
+
+                // act
+                const result = toLocalDateAndTime(new Date(instant));
+
+                // assert
+                expect(result.date).toEqual(expectedDate);
+                expect(result.time).toEqual(expectedTime);
+            });
+        });
+    });
+    describe("fromLocalDateAndTime", () => {
+        describe.each([
+            ["Africa/Johannesburg", "2026-09-15", "12:30", "2026-09-15T10:30:00.000Z"],
+            ["UTC", "2026-09-15", "10:30", "2026-09-15T10:30:00.000Z"],
+            // standard time, -5
+            ["America/New_York", "2026-03-07", "08:00", "2026-03-07T13:00:00.000Z"],
+            // daylight saving, -4 - the offset differs either side of the transition
+            ["America/New_York", "2026-03-09", "08:00", "2026-03-09T12:00:00.000Z"]
+        ])("in %s", (timezone, date, time, expected) => {
+            it("should resolve the instant that wall clock time refers to", async () => {
+                // arrange
+                initLocaleAndTimezone({ locale: "en-ZA", timezone });
+
+                // act
+                const result = fromLocalDateAndTime(date, time);
+
+                // assert
+                expect(result.toISOString()).toEqual(expected);
+            });
+        });
+        describe("when given an invalid date", () => {
+            it("should throw", async () => {
+                // arrange
+                initLocaleAndTimezone({ locale: "en-ZA", timezone: "UTC" });
+
+                // act & assert
+                expect(() => fromLocalDateAndTime("not-a-date", "08:00")).toThrow(/invalid date or time/);
+            });
+        });
+        describe("round tripped with toLocalDateAndTime", () => {
+            it("should return the original instant", async () => {
+                // arrange
+                initLocaleAndTimezone({ locale: "en-ZA", timezone: "America/New_York" });
+                const original = new Date("2026-07-04T16:45:00.000Z");
+
+                // act
+                const local = toLocalDateAndTime(original);
+                const result = fromLocalDateAndTime(local.date, local.time);
+
+                // assert
+                expect(result.toISOString()).toEqual(original.toISOString());
+            });
+        });
+    });
+    describe("DefaultLocale", () => {
+        it("should be a tag Intl accepts, whatever form LANG takes on the host", async () => {
+            // POSIX names such as en_ZA.UTF-8 are not valid BCP 47 and are discarded rather than
+            // passed through to Intl, which rejects them
+            expect(() => new Intl.DateTimeFormat(DefaultLocale ?? undefined)).not.toThrow();
         });
     });
 });

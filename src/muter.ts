@@ -2,6 +2,7 @@ import { singleton } from "./lib/singleton.js";
 import { IDigestConfig } from "./models/digest.js";
 import { addMuteWindow, deleteMuteWindowsByIds, getMuteWindows } from "./models/db.js";
 import { IMuteWindowDb } from "./models/mute-window.js";
+import { toLocalDateAndTime } from "./lib/utility.js";
 
 export class Muter {
 
@@ -74,42 +75,22 @@ export class Muter {
     }
 
     private splitDateRangeIntoArray(from: Date, to: Date): { date: string, startTime: string, endTime: string }[] {
-        const formatDate = (dateObj: Date) => {
-            const year = dateObj.getFullYear();
-            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-            const day = String(dateObj.getDate()).padStart(2, '0');
-            return `${ year }-${ month }-${ day }`;
-        };
-
-        const formatTime = (dateObj: Date) => {
-            const hours = String(dateObj.getHours()).padStart(2, '0');
-            const minutes = String(dateObj.getMinutes()).padStart(2, '0');
-            return `${ hours }:${ minutes }`;
-        };
-
-        const startDateStr = formatDate(from);
-        const endDateStr = formatDate(to);
-
-        let currentDate = new Date(from.getFullYear(), from.getMonth(), from.getDate());
-        const lastDate = new Date(to.getFullYear(), to.getMonth(), to.getDate());
+        // dates and times are evaluated in the configured timezone when the window is applied,
+        // so they must be captured in that timezone too - not the timezone of the host process
+        const start = toLocalDateAndTime(from);
+        const end = toLocalDateAndTime(to);
         const result = [];
-        while (currentDate <= lastDate) {
-            const currentDateStr = formatDate(currentDate);
-            let startTime = "00:00";
-            let endTime = "24:00";
-
-            // For the first day, use the actual start time
-            const isFirstDateInRange = currentDateStr === startDateStr;
-            if (isFirstDateInRange) {
-                startTime = formatTime(from);
-            }
-            const isLastDateInRange = currentDateStr === endDateStr;
-            if (isLastDateInRange) {
-                endTime = formatTime(to);
-            }
-
-            result.push({ date: currentDateStr, startTime, endTime });
-            currentDate.setDate(currentDate.getDate() + 1);
+        // anchored at midday UTC purely to step calendar days without tripping over DST boundaries
+        const cursor = new Date(`${ start.date }T12:00:00Z`);
+        const last = new Date(`${ end.date }T12:00:00Z`);
+        while (cursor <= last) {
+            const currentDateStr = cursor.toISOString().substring(0, 10);
+            result.push({
+                date: currentDateStr,
+                startTime: currentDateStr === start.date ? start.time : "00:00",
+                endTime: currentDateStr === end.date ? end.time : "24:00"
+            });
+            cursor.setUTCDate(cursor.getUTCDate() + 1);
         }
         return result;
     }

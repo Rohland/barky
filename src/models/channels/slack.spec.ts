@@ -2,6 +2,7 @@ import { SlackChannelConfig } from "./slack.js";
 import { Snapshot } from "../snapshot.js";
 import { AlertState } from "../alerts.js";
 import * as os from "os";
+import { deleteDbIfExists, destroy, getChatThread, initConnection } from "../db.js";
 
 describe("slack", () => {
     describe("generateMessage", () => {
@@ -261,4 +262,81 @@ describe("slack", () => {
         });
         return snapshot;
     }
+    describe("sendNewAlert", () => {
+
+        const testDb = "dbslackthreads";
+
+        beforeEach(async () => {
+            deleteDbIfExists(testDb);
+            await initConnection(testDb);
+        });
+
+        afterEach(async () => {
+            await destroy();
+            deleteDbIfExists(testDb);
+        });
+
+        it("should note which alerts the message reported, so a thread reply can resolve them", async () => {
+            // arrange
+            const sut = new SlackChannelConfig("slack", { channel: "#ops" });
+            sut.postToSlack = jest.fn().mockResolvedValue({ channel: "C1", ts: "1700000000.000100" }) as any;
+            const snapshots = [
+                new Snapshot({
+                    date: new Date(),
+                    type: "web",
+                    label: "health",
+                    identifier: "www.codeo.co.za",
+                    success: false,
+                    last_result: "Expected 200, got 500",
+                    alert_config: null
+                })
+            ];
+            const alert = new AlertState({ channel: "slack", start_date: new Date() });
+
+            // act
+            await sut.sendNewAlert(snapshots, alert);
+
+            // assert
+            const thread = await getChatThread("C1", "1700000000.000100");
+            expect(thread.alertIds).toEqual(["web::health::www.codeo.co.za"]);
+        });
+    });
+
+    describe("the ongoing alert ping", () => {
+        describe("with chat ops enabled", () => {
+            it("should point people at the thread rather than telling them not to reply", async () => {
+                // arrange
+                const sut = new SlackChannelConfig("slack", {
+                    channel: "#ops",
+                    "chat-ops": { enabled: true }
+                });
+                const posted = [];
+                sut.postToSlack = jest.fn().mockImplementation((msg: string) => {
+                    posted.push(msg);
+                    return Promise.resolve({ channel: "C1", ts: "1" });
+                }) as any;
+                const alert = new AlertState({ channel: "slack", start_date: new Date() });
+
+                // act
+                await sut.sendOngoingAlert([], alert);
+
+                // assert
+                expect(posted.some(x => x.includes("reply in the thread above"))).toEqual(true);
+                expect(posted.some(x => x.includes("do not reply"))).toEqual(false);
+            });
+        });
+        describe("without chat ops", () => {
+            it("should keep the original wording", async () => {
+                const sut = new SlackChannelConfig("slack", { channel: "#ops" });
+                const posted = [];
+                sut.postToSlack = jest.fn().mockImplementation((msg: string) => {
+                    posted.push(msg);
+                    return Promise.resolve({ channel: "C1", ts: "1" });
+                }) as any;
+                const alert = new AlertState({ channel: "slack", start_date: new Date() });
+                await sut.sendOngoingAlert([], alert);
+                expect(posted.some(x => x.includes("do not reply"))).toEqual(true);
+            });
+        });
+    });
 });

@@ -6,6 +6,7 @@ import fs from "fs";
 import { AlertState } from "./alerts.js";
 import path from "path";
 import { IMuteWindowDb } from "./mute-window.js";
+import { log } from "./logger.js";
 
 let _connection;
 let _context;
@@ -116,6 +117,131 @@ export async function getLogs(): Promise<MonitorLog[]> {
     return results.map(x => new MonitorLog(x));
 }
 
+const ChatEventRetentionMs = 24 * 60 * 60 * 1000;
+
+/*
+ Slack redelivers events when an ack is missed, including across a restart, so every event is
+ recorded before it is acted on. Returns false when the event has already been handled.
+ */
+export async function tryRecordChatEvent(id: string): Promise<boolean> {
+    try {
+        await _connection("chat_events").insert({
+            id,
+            date: new Date().toISOString()
+        });
+    } catch (err) {
+        if (isDuplicateKeyError(err)) {
+            return false;
+        }
+        // slack has already been acked by this point and will not redeliver, so a message dropped
+        // here is dropped for good - better to risk handling it twice than not at all
+        log(`error recording chat event '${ id }', handling it anyway: ${ err }`, err);
+        return true;
+    }
+    try {
+        await _connection("chat_events")
+            .where("date", "<", new Date(Date.now() - ChatEventRetentionMs).toISOString())
+            .del();
+    } catch {
+        // housekeeping only, and the event is already recorded
+    }
+    return true;
+}
+
+function isDuplicateKeyError(err: any): boolean {
+    return /SQLITE_CONSTRAINT/i.test(err?.code ?? "")
+        || /UNIQUE constraint failed|PRIMARY KEY/i.test(err?.message ?? "");
+}
+
+const ChatThreadRetentionMs = 7 * 24 * 60 * 60 * 1000;
+const ChatOpsAuditRetentionMs = 30 * 24 * 60 * 60 * 1000;
+
+export interface IChatThread {
+    channel: string;
+    threadTs: string;
+    alertIds: string[];
+}
+
+export interface IChatOpsAuditEntry {
+    id?: number;
+    date?: Date;
+    channel: string;
+    userId: string;
+    action: string;
+    detail: any;
+}
+
+/*
+ Records which alerts a slack message was reporting, so that a reply in its thread can be resolved
+ back to them. Best effort - alerting must not fail because chat ops could not take a note.
+ */
+export async function recordChatThread(thread: IChatThread): Promise<void> {
+    try {
+        await _connection("chat_threads")
+            .insert({
+                channel: thread.channel,
+                thread_ts: thread.threadTs,
+                alert_ids: JSON.stringify(thread.alertIds ?? []),
+                date: new Date().toISOString()
+            })
+            .onConflict(["channel", "thread_ts"])
+            .merge(["alert_ids", "date"]);
+        await _connection("chat_threads")
+            .where("date", "<", new Date(Date.now() - ChatThreadRetentionMs).toISOString())
+            .del();
+    } catch {
+        // no-op
+    }
+}
+
+export async function getChatThread(
+    channel: string,
+    threadTs: string): Promise<IChatThread> {
+    const result = await _connection("chat_threads")
+        .where({ channel, thread_ts: threadTs })
+        .first();
+    if (!result) {
+        return null;
+    }
+    return {
+        channel: result.channel,
+        threadTs: result.thread_ts,
+        alertIds: JSON.parse(result.alert_ids ?? "[]")
+    };
+}
+
+export async function recordChatOpsAudit(entry: IChatOpsAuditEntry): Promise<void> {
+    try {
+        await _connection("chat_ops_audit").insert({
+            date: new Date().toISOString(),
+            channel: entry.channel,
+            user_id: entry.userId,
+            action: entry.action,
+            detail: JSON.stringify(entry.detail ?? {})
+        });
+        await _connection("chat_ops_audit")
+            .where("date", "<", new Date(Date.now() - ChatOpsAuditRetentionMs).toISOString())
+            .del();
+    } catch {
+        // no-op
+    }
+}
+
+export async function getChatOpsAudit(limit: number = 100): Promise<IChatOpsAuditEntry[]> {
+    const results = await _connection("chat_ops_audit")
+        .select()
+        .orderBy("id", "desc")
+        .limit(limit);
+    return results.map(x => ({
+        id: x.id,
+        date: new Date(x.date),
+        channel: x.channel,
+        userId: x.user_id,
+        action: x.action,
+        detail: JSON.parse(x.detail ?? "{}")
+    }));
+}
+
 export async function addMuteWindow(window: IMuteWindowDb) {
     await _connection("mute_windows").insert({
         match: window.match,
@@ -158,6 +284,55 @@ async function intialiseSchema(connection: Knex) {
     await createSnapshotsTable(connection);
     await createAlertsTable(connection);
     await createMuteWindowTable(connection);
+    await createChatEventsTable(connection);
+    await createChatThreadsTable(connection);
+    await createChatOpsAuditTable(connection);
+}
+
+async function createChatThreadsTable(connection: Knex) {
+    if (await connection.schema.hasTable("chat_threads")) {
+        return;
+    }
+    await connection.schema.createTable(
+        "chat_threads",
+        table => {
+            table.string("channel");
+            table.string("thread_ts");
+            table.json("alert_ids");
+            table.dateTime("date");
+            table.primary(["channel", "thread_ts"]);
+        }
+    );
+}
+
+async function createChatOpsAuditTable(connection: Knex) {
+    if (await connection.schema.hasTable("chat_ops_audit")) {
+        return;
+    }
+    await connection.schema.createTable(
+        "chat_ops_audit",
+        table => {
+            table.increments("id").primary();
+            table.dateTime("date");
+            table.string("channel");
+            table.string("user_id");
+            table.string("action");
+            table.json("detail");
+        }
+    );
+}
+
+async function createChatEventsTable(connection: Knex) {
+    if (await connection.schema.hasTable("chat_events")) {
+        return;
+    }
+    await connection.schema.createTable(
+        "chat_events",
+        table => {
+            table.string("id").primary();
+            table.dateTime("date");
+        }
+    );
 }
 
 async function createMuteWindowTable(connection: Knex) {

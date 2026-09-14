@@ -1,4 +1,4 @@
-import { dayOfWeek, flatten, toLocalTimeString } from "./utility.js";
+import { dayOfWeek, flatten, fromLocalDateAndTime, toLocalDateAndTime, toLocalTimeString } from "./utility.js";
 import { parseDaysOfWeek, parseTimeRange } from "./period-parser.js";
 
 export class Time {
@@ -56,6 +56,52 @@ export class Time {
 
 export function toLocalTime(date: Date): Time {
     return new Time(date);
+}
+
+export interface IBusinessHours {
+    days?: string[];
+    start?: string;
+}
+
+export const DefaultBusinessDays = ["mon", "tue", "wed", "thu", "fri"];
+export const DefaultBusinessStart = "08:00";
+
+/*
+ Returns the next instant at which business hours begin, in the configured timezone.
+
+ Note this is deliberately *not* "the start of the next calendar business day" - someone muting an
+ alert at 02:00 on a Tuesday wants quiet until the team picks it up at 08:00 that same morning, not
+ until Wednesday. So it resolves to the next occurrence of the business start time that is still
+ ahead of us, skipping non-business days:
+
+   Tue 02:00 -> Tue 08:00      Fri 14:00 -> Mon 08:00
+   Tue 10:00 -> Wed 08:00      Sat 09:00 -> Mon 08:00
+ */
+export function nextBusinessHoursStart(
+    options?: IBusinessHours,
+    now?: Date): Date {
+    const days = parseDaysOfWeek(options?.days?.length > 0 ? options.days : DefaultBusinessDays);
+    if (days.length === 0) {
+        throw new Error("expected at least one business day to be configured");
+    }
+    const startTime = new Time(options?.start ?? DefaultBusinessStart);
+    const wallTime = `${ pad(startTime.hours) }:${ pad(startTime.minutes) }`;
+    const from = now ?? new Date();
+    // anchored at midday UTC purely to step calendar days without tripping over DST boundaries
+    const cursor = new Date(`${ toLocalDateAndTime(from).date }T12:00:00Z`);
+    const maxDaysToScan = 14;
+    for (let i = 0; i <= maxDaysToScan; i++) {
+        const candidate = fromLocalDateAndTime(cursor.toISOString().substring(0, 10), wallTime);
+        if (candidate > from && days.includes(dayOfWeek(candidate))) {
+            return candidate;
+        }
+        cursor.setUTCDate(cursor.getUTCDate() + 1);
+    }
+    throw new Error(`could not resolve the next business day within ${ maxDaysToScan } days`);
+}
+
+function pad(value: number): string {
+    return value.toString().padStart(2, "0");
 }
 
 export function humanizeDuration(time: number, type: string = "m"): string {

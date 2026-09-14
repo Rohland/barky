@@ -1,5 +1,5 @@
 import { initLocaleAndTimezone } from "./utility.js";
-import { DayAndTimeEvaluator, humanizeDuration, Time, toLocalTime } from "./time.js";
+import { DayAndTimeEvaluator, humanizeDuration, nextBusinessHoursStart, Time, toLocalTime } from "./time.js";
 
 describe("Time", () => {
     describe("when instantiated with date", () => {
@@ -281,6 +281,65 @@ describe("DayAndTimeEvaluator", () => {
                     });
                 });
             });
+        });
+    });
+});
+
+describe("nextBusinessHoursStart", () => {
+    // 2026-09-14 is a Monday
+    describe.each([
+        ["mid week, before business hours", "2026-09-15T00:00:00Z", "2026-09-15T06:00:00Z"], // Tue 02:00 -> Tue 08:00
+        ["mid week, during business hours", "2026-09-15T08:00:00Z", "2026-09-16T06:00:00Z"], // Tue 10:00 -> Wed 08:00
+        ["mid week, after business hours", "2026-09-15T18:00:00Z", "2026-09-16T06:00:00Z"],  // Tue 20:00 -> Wed 08:00
+        ["friday afternoon", "2026-09-18T12:00:00Z", "2026-09-21T06:00:00Z"],                // Fri 14:00 -> Mon 08:00
+        ["saturday", "2026-09-19T07:00:00Z", "2026-09-21T06:00:00Z"],                        // Sat 09:00 -> Mon 08:00
+        ["sunday evening", "2026-09-20T18:00:00Z", "2026-09-21T06:00:00Z"],                  // Sun 20:00 -> Mon 08:00
+        ["exactly at the start of business hours", "2026-09-15T06:00:00Z", "2026-09-16T06:00:00Z"] // must be strictly ahead
+    ])("when called %s", (_label, now, expected) => {
+        it("should resolve to the next business hours start", async () => {
+            // arrange
+            initLocaleAndTimezone({ locale: "en-ZA", timezone: "Africa/Johannesburg" });
+
+            // act
+            const result = nextBusinessHoursStart(null, new Date(now));
+
+            // assert
+            expect(result.toISOString()).toEqual(new Date(expected).toISOString());
+        });
+    });
+    describe("with configured business days and start time", () => {
+        it("should honour them", async () => {
+            // arrange
+            initLocaleAndTimezone({ locale: "en-ZA", timezone: "Africa/Johannesburg" });
+
+            // act - Tuesday, with only Mon and Thu as business days, starting at 09:30
+            const result = nextBusinessHoursStart(
+                { days: ["mon", "thu"], start: "09:30" },
+                new Date("2026-09-15T08:00:00Z"));
+
+            // assert - Thursday 09:30 SAST
+            expect(result.toISOString()).toEqual(new Date("2026-09-17T07:30:00Z").toISOString());
+        });
+    });
+    describe("in a timezone observing daylight saving", () => {
+        it("should resolve against the offset in force on the day", async () => {
+            // arrange
+            initLocaleAndTimezone({ locale: "en-ZA", timezone: "America/New_York" });
+
+            // act - Friday 2026-03-06, clocks go forward on the Sunday
+            const result = nextBusinessHoursStart(null, new Date("2026-03-06T20:00:00Z"));
+
+            // assert - Monday 08:00 EDT is 12:00Z, not the 13:00Z it would be under EST
+            expect(result.toISOString()).toEqual(new Date("2026-03-09T12:00:00Z").toISOString());
+        });
+    });
+    describe("with no business days configured", () => {
+        it("should throw", async () => {
+            // arrange
+            initLocaleAndTimezone({ locale: "en-ZA", timezone: "Africa/Johannesburg" });
+
+            // act & assert
+            expect(() => nextBusinessHoursStart({ days: ["nonsense"] })).toThrow(/at least one business day/);
         });
     });
 });
