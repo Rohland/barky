@@ -192,10 +192,31 @@ describe("AiIntentResolver", () => {
             const client = {
                 complete: async () => reply
             } as any;
-            return new AiIntentResolver(
-                new AiConfig({ "api-key": "test-key", "max-calls-per-hour": maxCallsPerHour }),
-                client);
+            const config = new AiConfig({ "api-key": "test-key", "max-calls-per-hour": maxCallsPerHour });
+            const models = { resolve: async () => "gpt-test" } as any;
+            return new AiIntentResolver(config, client, models);
         }
+
+        it("should pass the discovered model to the service", async () => {
+            // arrange
+            const used = { model: null };
+            const client = {
+                complete: async (model: string) => {
+                    used.model = model;
+                    return rawIntent();
+                }
+            } as any;
+            const sut = new AiIntentResolver(
+                new AiConfig({ "api-key": "test-key" }),
+                client,
+                { resolve: async () => "discovered-model" } as any);
+
+            // act
+            await sut.resolve(contextWith(2));
+
+            // assert
+            expect(used.model).toEqual("discovered-model");
+        });
 
         it("should validate whatever the service returns", async () => {
             // arrange - the service names a number that is not on the list

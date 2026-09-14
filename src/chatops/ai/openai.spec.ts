@@ -41,27 +41,35 @@ describe("OpenAiClient", () => {
             const sut = getSut();
 
             // act
-            const result = await sut.complete("do the thing", "the message", { type: "object" });
+            const result = await sut.complete("m1", "do the thing", "the message", { type: "object" });
 
             // assert
             const request = spy.mock.calls[0][0];
             const body = JSON.parse(request.data as string);
             expect(request.url).toEqual("https://api.openai.com/v1/chat/completions");
             expect(request.headers.Authorization).toEqual("Bearer sk-test");
-            expect(body.model).toEqual("gpt-4o-mini");
-            expect(body.temperature).toEqual(0);
+            expect(body.model).toEqual("m1");
+            // temperature is rejected outright by current models, so it must not be sent
+            expect(body.temperature).toBeUndefined();
             expect(body.response_format.type).toEqual("json_schema");
             expect(body.response_format.json_schema.strict).toEqual(true);
             expect(body.messages[0]).toEqual({ role: "system", content: "do the thing" });
             expect(body.messages[1]).toEqual({ role: "user", content: "the message" });
             expect(result).toEqual({ action: "mute", numbers: [1] });
         });
-        describe("with a configured base url", () => {
+        describe("with a configured url", () => {
             it("should call that instead, so a gateway or azure can be used", async () => {
                 const spy = mockContent("{}");
-                const sut = getSut({ "base-url": "https://gateway.acme.com/v1/" });
-                await sut.complete("a", "b", {});
+                const sut = getSut({ url: "https://gateway.acme.com/v1/" });
+                await sut.complete("m1", "a", "b", {});
                 expect(spy.mock.calls[0][0].url).toEqual("https://gateway.acme.com/v1/chat/completions");
+            });
+        });
+        describe("with a different model", () => {
+            it("should use the one it is given", async () => {
+                const spy = mockContent("{}");
+                await getSut().complete("some-other-model", "a", "b", {});
+                expect(JSON.parse(spy.mock.calls[0][0].data as string).model).toEqual("some-other-model");
             });
         });
         describe("when the model refuses", () => {
@@ -73,14 +81,14 @@ describe("OpenAiClient", () => {
                 const sut = getSut();
 
                 // act & assert
-                await expect(sut.complete("a", "b", {})).rejects.toBeInstanceOf(AiUnavailableError);
+                await expect(sut.complete("m1", "a", "b", {})).rejects.toBeInstanceOf(AiUnavailableError);
                 expect(axios.request).toHaveBeenCalledTimes(1);
             });
         });
         describe("when the reply is not valid json", () => {
             it("should report the service as unavailable", async () => {
                 mockContent("not json at all");
-                await expect(getSut().complete("a", "b", {})).rejects.toBeInstanceOf(AiUnavailableError);
+                await expect(getSut().complete("m1", "a", "b", {})).rejects.toBeInstanceOf(AiUnavailableError);
             });
         });
         describe("when the call times out", () => {
@@ -90,21 +98,21 @@ describe("OpenAiClient", () => {
                 const sut = getSut();
 
                 // act & assert
-                await expect(sut.complete("a", "b", {})).rejects.toBeInstanceOf(AiUnavailableError);
+                await expect(sut.complete("m1", "a", "b", {})).rejects.toBeInstanceOf(AiUnavailableError);
                 expect(axios.request).toHaveBeenCalledTimes(2);
             });
         });
         describe.each([[429], [500], [503]])("when the service returns %s", (status) => {
             it("should retry once", async () => {
                 jest.spyOn(axios, "request").mockRejectedValue(errorWithStatus(status));
-                await expect(getSut().complete("a", "b", {})).rejects.toBeInstanceOf(AiUnavailableError);
+                await expect(getSut().complete("m1", "a", "b", {})).rejects.toBeInstanceOf(AiUnavailableError);
                 expect(axios.request).toHaveBeenCalledTimes(2);
             });
         });
         describe.each([[400], [401], [403]])("when the service returns %s", (status) => {
             it("should not retry, as it will not succeed", async () => {
                 jest.spyOn(axios, "request").mockRejectedValue(errorWithStatus(status));
-                await expect(getSut().complete("a", "b", {})).rejects.toBeInstanceOf(AiUnavailableError);
+                await expect(getSut().complete("m1", "a", "b", {})).rejects.toBeInstanceOf(AiUnavailableError);
                 expect(axios.request).toHaveBeenCalledTimes(1);
             });
         });
@@ -116,10 +124,33 @@ describe("OpenAiClient", () => {
                     .mockResolvedValueOnce({ data: { choices: [{ message: { content: '{"ok":true}' } }] } } as any);
 
                 // act
-                const result = await getSut().complete("a", "b", {});
+                const result = await getSut().complete("m1", "a", "b", {});
 
                 // assert
                 expect(result).toEqual({ ok: true });
+            });
+        });
+    });
+    describe("listModels", () => {
+        it("should return the models the key has access to", async () => {
+            // arrange
+            const spy = jest.spyOn(axios, "request").mockResolvedValue({
+                data: { object: "list", data: [{ id: "a" }, { id: "b" }] }
+            } as any);
+            const sut = getSut();
+
+            // act
+            const result = await sut.listModels();
+
+            // assert
+            expect(spy.mock.calls[0][0].url).toEqual("https://api.openai.com/v1/models");
+            expect(spy.mock.calls[0][0].method).toEqual("get");
+            expect(result.map(x => x.id)).toEqual(["a", "b"]);
+        });
+        describe("when the call fails", () => {
+            it("should report the service as unavailable", async () => {
+                jest.spyOn(axios, "request").mockRejectedValue(new Error("boom"));
+                await expect(getSut().listModels()).rejects.toBeInstanceOf(AiUnavailableError);
             });
         });
     });

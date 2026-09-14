@@ -98,6 +98,21 @@ export class ChatOpsService {
         return this.selections.size;
     }
 
+    /*
+     Resolves the ai model up front so the choice is made and logged at startup rather than on the
+     first person to ask barky something. Failure is not fatal - it is retried on demand.
+     */
+    public async warmUp(): Promise<void> {
+        if (!this.resolver?.warmUp) {
+            return;
+        }
+        try {
+            await this.resolver.warmUp();
+        } catch (err) {
+            log(`chatops: could not resolve the ai model at startup, will retry on demand: ${ err }`, err);
+        }
+    }
+
     private async resolve(message: IChatMessage, threadTs: string): Promise<string> {
         const found = this.selections.peek(message.channel, threadTs, message.userId);
         if (found) {
@@ -282,20 +297,17 @@ export class ChatOpsService {
         if (actDirectly) {
             return await this.mute(candidates, { durationMs: command.durationMs }, message);
         }
-        if (candidates.length > this.config.maxAlertsListed) {
-            // numbering a list this long is unusable in Slack - "mute all" needs no list, so it
-            // remains available
-            return messages.renderListTooLong(
-                candidates.length,
-                this.config.maxAlertsListed,
-                "mute",
-                this.config.dashboardHint);
-        }
-        this.selections.pin("mute", message.channel, threadTs, message.userId, candidates, !!scoped);
-        return messages.renderSelectionList(
+        const list = messages.renderSelectionListOrTooLong(
             "mute",
             candidates,
-            messages.describeInstant(this.defaultMuteUntil()));
+            messages.describeInstant(this.defaultMuteUntil()),
+            this.config.dashboardHint);
+        if (!list.fits) {
+            // a list too big to post is unusable - "mute all" needs no list, so it stays available
+            return list.text;
+        }
+        this.selections.pin("mute", message.channel, threadTs, message.userId, candidates, !!scoped);
+        return list.text;
     }
 
     private async requestUnmute(
@@ -309,15 +321,16 @@ export class ChatOpsService {
         if (command.all) {
             return await this.unmute(mutes, message);
         }
-        if (mutes.length > this.config.maxAlertsListed) {
-            return messages.renderListTooLong(
-                mutes.length,
-                this.config.maxAlertsListed,
-                "unmute",
-                this.config.dashboardHint);
+        const list = messages.renderSelectionListOrTooLong(
+            "unmute",
+            mutes,
+            null,
+            this.config.dashboardHint);
+        if (!list.fits) {
+            return list.text;
         }
         this.selections.pin("unmute", message.channel, threadTs, message.userId, mutes);
-        return messages.renderSelectionList("unmute", mutes, null);
+        return list.text;
     }
 
     private async mute(
@@ -399,7 +412,7 @@ export class ChatOpsService {
     }
 
     private defaultMuteUntil(): Date {
-        return nextBusinessHoursStart(this.config.businessHours);
+        return nextBusinessHoursStart();
     }
 
     private async getActiveAlerts(): Promise<ISelectionCandidate[]> {

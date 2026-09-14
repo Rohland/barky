@@ -1,5 +1,6 @@
 import { pluraliseWithS, toLocalDateAndTime } from "../lib/utility.js";
 import { ISelectionCandidate, SelectionKind } from "./selection.js";
+import { SlackMaxMessageLength } from "../models/channels/slack-api.js";
 
 const WeekdayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -52,14 +53,35 @@ export function renderSelectionList(
 
 export function renderListTooLong(
     count: number,
-    max: number,
     kind: SelectionKind,
     dashboardHint: string): string {
-    const noun = kind === "mute" ? "active alert" : "mute in force";
+    const noun = kind === "mute"
+        ? pluraliseWithS("active alert", count)
+        : `${ pluraliseWithS("mute", count) } in force`;
     return [
-        `There are *${ count }* ${ pluraliseWithS(noun, count) }, which is more than I can sensibly number here (I cap the list at ${ max }).`,
+        `There are *${ count }* ${ noun }, which is more than will fit in a single Slack message.`,
         `Please use ${ dashboardHint } to pick them out, or reply \`${ kind } all\` if you really do want every one of them.`
     ].join("\n");
+}
+
+/*
+ Renders the numbered list, or the fallback where it would not fit. The cut off is the size of the
+ message slack will actually accept rather than a fixed number of rows, so a handful of alerts with
+ very long identifiers is caught while many short ones are not.
+ */
+export function renderSelectionListOrTooLong(
+    kind: SelectionKind,
+    candidates: ISelectionCandidate[],
+    defaultUntil: string,
+    dashboardHint: string): { text: string, fits: boolean } {
+    const text = renderSelectionList(kind, candidates, defaultUntil);
+    if (text.length <= SlackMaxMessageLength) {
+        return { text, fits: true };
+    }
+    return {
+        text: renderListTooLong(candidates.length, kind, dashboardHint),
+        fits: false
+    };
 }
 
 export function renderThreadCleared(): string {

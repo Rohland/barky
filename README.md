@@ -751,77 +751,114 @@ Security of this interface is left in the hands of the user.
 
 ### Chat Ops (Slack)
 
-Barky can take instructions in Slack, so an alert can be muted from the channel it was reported in
-rather than by switching to the dashboard.
+Barky can take instructions in Slack, so an alert can be muted by replying to the message that
+reported it rather than by switching to the dashboard.
 
 ```yaml
 channels:
   slack:
     type: slack
-    token: slack-token
+    token: slack-token             # bot token (xoxb-...), used to post
     channel: "#ops"
     chat-ops:
       enabled: true
-      app-token: slack-app-token   # env var holding an app level token (xapp-...)
+      app-token: slack-app-token   # app level token (xapp-...), used to listen - see below
       dashboard-url: https://barky.acme.com  # linked whenever barky suggests the dashboard
-      max-alerts-listed: 20        # above this, barky points at the dashboard instead
-      selection-ttl: 10m           # how long a numbered list stays valid
-      max-mute: 7d                 # longest mute anyone can ask for
-      business-hours:              # when mutes expire by default
-        days: [mon, tue, wed, thu, fri]
-        start: "08:00"
+      selection-ttl: 10m           # optional - how long a numbered list stays valid
+      max-mute: 7d                 # optional - longest mute anyone can ask for
       ai:                          # optional - understands plain english when configured
         api-key: openai-api-key    # env var holding an OpenAI key
-        model: gpt-4o-mini
-        base-url: https://api.openai.com/v1  # point at azure, a gateway or a local model
-        timeout: 10s
-        max-calls-per-hour: 60
+        model: gpt-5.6-luna        # optional - discovered automatically when omitted
+        url: https://api.openai.com/v1   # optional - point at azure, a gateway or a local model
+        timeout: 15s               # optional
+        max-calls-per-hour: 60     # optional
 ```
 
-Chat ops connects to Slack over [Socket Mode](https://docs.slack.dev/apis/events-api/using-socket-mode),
+Every value except `enabled`, `app-token` and the AI `api-key` is optional.
+
+**The two tokens**
+
+These are two different Slack credentials and both are needed - they are not a duplication:
+
+- `token` is the **bot token** (`xoxb-...`), which barky already uses to post alerts. It is what
+  barky talks to Slack *with*.
+- `app-token` is an **app level token** (`xapp-...`), which authorises the Socket Mode websocket.
+  It is what barky *listens* on. It is scoped to the app rather than to a workspace installation,
+  and cannot post anything by itself.
+
+Chat ops connects over [Socket Mode](https://docs.slack.dev/apis/events-api/using-socket-mode),
 so barky needs no inbound network access and no public URL. It only runs under the `loop` command,
 since the connection has to outlive a single evaluation. If Slack cannot be reached, barky logs it
 and carries on monitoring, retrying every five minutes.
 
-**Slack app setup**
+**Setting up a new Slack app**
 
-1. Create an app at api.slack.com/apps and enable Socket Mode.
-2. Generate an app level token with the `connections:write` scope - this is `app-token` above.
-3. Add the bot scopes `chat:write`, `app_mentions:read`, `channels:history` and `reactions:write`.
-4. Subscribe to the `app_mention` and `message.channels` events.
-5. Invite the bot to the channel.
+1. Create an app at api.slack.com/apps.
+2. Under *Socket Mode*, turn it on. This generates an app level token with the `connections:write`
+   scope - that is `app-token` above.
+3. Under *OAuth & Permissions*, add the bot scopes `chat:write`, `app_mentions:read`,
+   `channels:history` and `reactions:write`.
+4. Under *Event Subscriptions*, turn events on and subscribe to `app_mention` and
+   `message.channels`.
+5. Install the app to the workspace and copy the bot token (`xoxb-...`) into `token`.
+6. Invite the bot to the channel barky posts to.
+
+**Adding chat ops to the app you already use for alerts**
+
+If barky is already posting alerts, that app only needs a token to post with - it has no way to
+listen. To add chat ops to it:
+
+1. Open the existing app at api.slack.com/apps and turn on *Socket Mode*, generating an app level
+   token (`connections:write`). Put it in `app-token`.
+2. Under *OAuth & Permissions*, add `app_mentions:read`, `channels:history` and `reactions:write`
+   to the bot scopes it already has. **Adding scopes requires reinstalling the app** - Slack will
+   prompt you, and the existing `xoxb-` token keeps working afterwards, so `token` does not change.
+3. Under *Event Subscriptions*, turn events on and subscribe to `app_mention` and
+   `message.channels`. Socket Mode means there is no request URL to verify.
+4. Make sure the bot is a member of the channel - it may already be, if it posts there.
+
+No change to your alert configuration is needed; chat ops sits alongside it.
 
 Anyone who can see the channel can mute - channel membership is the authorisation boundary, so
 there is no separate user list to maintain.
 
 **Talking to barky**
 
-Mention barky to start, and it replies in a thread:
+Barky only takes part in the threads of its own alert messages, and only when it is spoken to
+there. It does not watch the rest of the channel, it does not answer direct messages, and it stays
+out of conversations between people - including conversations in an alert's own thread. Mention it
+in an alert thread to start, and it replies in that same thread:
 
-> **@rohland**: @barky mute
->
-> **barky**: *2 active alerts* — reply with numbers (`1,3`), `all`, or `cancel`.
-> Add a period to override the default of *08:00 tomorrow* — for example `1,3 for 4h`.
->
-> `1.` web::health::www.acme.com — _expected 200, received 500_
-> `2.` mysql::lag::db-01 — _340 seconds behind_
->
-> **@rohland**: 1 for 4h
->
-> **barky**: 🔕 Muted until *12:30 today*: web::health::www.acme.com
+> **barky**: 🔥 Ongoing Outage!
+> `web::health::www.acme.com` — expected 200, received 500
+> `mysql::lag::db-01` — 340 seconds behind
+> > **@rohland**: @barky mute
+> >
+> > **barky**: *2 active alerts* — reply with numbers (`1,3`), `all`, or `cancel`.
+> > Add a period to override the default of *08:00 tomorrow* — for example `1,3 for 4h`.
+> >
+> > `1.` web::health::www.acme.com — _expected 200, received 500_
+> > `2.` mysql::lag::db-01 — _340 seconds behind_
+> >
+> > **@rohland**: 1 for 4h
+> >
+> > **barky**: 🔕 Muted until *12:30 today*: web::health::www.acme.com
 
-Replies inside that thread need no mention. The list is pinned at the moment it is posted, so `all`
-always means the alerts you were shown - anything that starts alerting in between is reported back
-to you rather than quietly swept into the mute. An alert that recovers while you are typing is
-still muted, so it stays quiet if it flaps back.
+Once barky has asked you something, your replies in that thread need no mention - it is waiting on
+you. Anyone else talking in the thread is ignored.
+
+The list is pinned at the moment it is posted, so `all` always means the alerts you were shown -
+anything that starts alerting in between is reported back to you rather than quietly swept into the
+mute. An alert that recovers while you are typing is still muted, so it stays quiet if it flaps
+back.
 
 **Replying to an alert directly**
 
-Barky remembers which alerts each of its messages was reporting, so you can reply in an alert's own
-thread and it knows what you mean:
+Barky remembers which alerts each of its messages was reporting, so the thread already says what
+you mean:
 
 > **barky**: 🔥 Ongoing Outage! ... web::health::www.acme.com ...
-> > **@rohland**: mute
+> > **@rohland**: @barky mute
 > >
 > > **barky**: 🔕 Muted until *08:00 tomorrow*: web::health::www.acme.com
 
@@ -829,7 +866,7 @@ Where the message covered several alerts, `mute` offers just those to choose fro
 takes all of them - in both cases unrelated alerts elsewhere are left alone. If everything that
 message reported has since cleared, barky says so rather than muting nothing.
 
-Note that `mute this` only means "everything here" inside a thread. Said in the channel it has no
+Note that `mute this` only means "everything here" inside a thread. Said anywhere else it has no
 referent, so barky shows the list instead.
 
 Commands:
@@ -843,17 +880,23 @@ Commands:
 Replies to a list accept `1`, `1,3`, `2 and 4`, `1-3` or `all`, optionally with a period
 (`for 1h`, `for 90 mins`, `for 2 days`).
 
+Where a list would be too long to fit in a single Slack message, barky points at the dashboard
+instead of posting an unusable wall of numbers. `mute all` needs no list, so it still works.
+
 **Audit trail**
 
 Every mute and unmute made through Slack is recorded - who asked, what they said, which alerts were
-affected and until when - and kept for 30 days. It is available at `/api/chat-ops/audit` on the web
-interface, and survives Slack message retention and deletion.
+affected and until when - and kept for 30 days. It survives Slack message retention and deletion.
+
+The dashboard has a **Chat ops log** link in the top right that shows it, and it is also available
+as JSON at `/api/chat-ops/audit`.
 
 **Mute duration**
 
-With no period given, a mute runs until business hours next begin. That is the next occurrence of
-the configured start time on a business day, so muting at 02:00 on a Tuesday lasts until 08:00 that
-morning rather than until Wednesday, and muting on Friday afternoon lasts until Monday.
+With no period given, a mute runs until the next business day - the next occurrence of 08:00 on a
+weekday. This is deliberately not configurable. Note it resolves to the next such moment still
+ahead of you, so muting at 02:00 on a Tuesday lasts until 08:00 that morning rather than until
+Wednesday, and muting on Friday afternoon lasts until Monday.
 
 Anything longer than `max-mute` is capped. Barky's own default is exempt, since on a Friday it
 legitimately reaches into Monday.
@@ -864,12 +907,23 @@ The commands above work on their own. Configure `ai` as well and barky will inte
 does not recognise, so "silence the database one for an hour" works as well as `mute` followed by
 a number.
 
-The model is only ever asked to pick numbers from a list barky supplies. It never names an alert,
+It is only ever asked to pick numbers from a list barky supplies. It never names an alert,
 builds a mute expression or works out an expiry time - barky does all of that, and discards any
 number that was not on the list it gave. Output captured from monitored systems is passed to the
 model inside a delimited block and marked as data, so a failing check cannot smuggle in an
 instruction by putting one in its response body. Where the model is unsure, it is told to show the
 numbered list rather than guess.
+
+**Choosing a model**
+
+Leave `model` unset and barky lists the models your key has access to when it starts, then picks the
+newest cost optimised one - the job is choosing a number from a short list, so the cheapest capable
+model is the right one. Models announced for shutdown are skipped, as are pinned snapshots in favour
+of their moving alias, so the choice keeps up with the lineup on its own rather than being pinned to
+a name that ages out. The model it settled on is written to the log at startup.
+
+Set `model` explicitly to override that. If the lookup fails, barky reports the AI service as
+unavailable and retries on the next request rather than guessing a name.
 
 Any request barky cannot interpret locally costs one API call, capped at `max-calls-per-hour`.
 Replies that are plainly numbers (`1,3`, `all`) never reach the model at all.

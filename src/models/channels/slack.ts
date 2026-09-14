@@ -5,7 +5,7 @@ import { pluraliseWithS, toLocalTimeString } from "../../lib/utility.js";
 import { AlertConfiguration } from "../alert_configuration.js";
 import * as os from "os";
 import { getEnvVar } from "../../lib/env.js";
-import { SlackApi } from "./slack-api.js";
+import { SlackApi, SlackMaxMessageLength } from "./slack-api.js";
 import { recordChatThread } from "../db.js";
 
 export class SlackChannelConfig extends ChannelConfig {
@@ -32,7 +32,7 @@ export class SlackChannelConfig extends ChannelConfig {
         snapshots: Snapshot[],
         alert: AlertState): string {
         const msg = this._generateFull(snapshots, alert);
-        if (msg.length <= 3000) {
+        if (msg.length <= SlackMaxMessageLength) {
             return msg;
         }
         return this._generateSummary(snapshots, alert);

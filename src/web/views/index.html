@@ -139,8 +139,13 @@
                     No active alerts
                 </div>
             </h2>
-            <div style="float:right" class="text-xs text-gray-500 dark:text-gray-400 font-normal">
-                Refreshing in {{ timeToRefresh }}s
+            <div style="float:right" class="text-xs text-gray-500 dark:text-gray-400 font-normal text-right">
+                <button @click="showAuditModal"
+                        title="Mutes and unmutes made from Slack"
+                        class="underline hover:text-gray-700 dark:hover:text-gray-200">
+                    🗒️ Chat ops log
+                </button>
+                <div>Refreshing in {{ timeToRefresh }}s</div>
             </div>
         </div>
 
@@ -414,6 +419,66 @@
         </div>
     </div>
 
+    <div v-if="auditModal.show" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-75 z-40">
+        <div class="bg-white dark:bg-gray-900 p-6 rounded-lg shadow-lg w-full max-w-4xl max-h-[80vh] flex flex-col">
+            <h3 class="text-lg font-bold mb-1 text-gray-800 dark:text-gray-100">Chat ops log</h3>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">
+                Mutes and unmutes made from Slack, most recent first. Kept for 30 days.
+            </p>
+            <div class="overflow-auto flex-1">
+                <div v-if="auditModal.isLoading" class="text-sm text-gray-500 dark:text-gray-400">Loading...</div>
+                <div v-else-if="auditModal.error" class="text-sm text-red-600 dark:text-red-400">
+                    {{ auditModal.error }}
+                </div>
+                <div v-else-if="auditModal.entries.length === 0" class="text-sm text-gray-500 dark:text-gray-400">
+                    Nothing has been muted or unmuted from Slack yet.
+                </div>
+                <table v-else class="min-w-full table-auto text-left text-sm">
+                    <thead>
+                    <tr class="bg-gray-100 dark:bg-gray-700">
+                        <th class="p-2">When</th>
+                        <th class="p-2">Action</th>
+                        <th class="p-2">Who</th>
+                        <th class="p-2">Affected</th>
+                        <th class="p-2">Until</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr v-for="entry in auditModal.entries"
+                        class="border-b border-gray-200 dark:border-gray-700 align-top">
+                        <td class="p-2 whitespace-nowrap">{{ new Date(entry.date).toLocaleString() }}</td>
+                        <td class="p-2">
+                            <span :class="entry.action === 'mute'
+                                    ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
+                                    : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'"
+                                  class="text-xs font-medium px-1 py-0.5 rounded-sm">
+                                {{ entry.action === 'mute' ? '🔕 muted' : '🔔 unmuted' }}
+                            </span>
+                        </td>
+                        <td class="p-2 whitespace-nowrap">{{ entry.userId }}</td>
+                        <td class="p-2">
+                            <div v-for="id in auditTargets(entry)">{{ id }}</div>
+                            <div v-if="entry.detail && entry.detail.requested"
+                                 class="text-xs text-gray-500 dark:text-gray-400 italic">
+                                "{{ entry.detail.requested }}"
+                            </div>
+                        </td>
+                        <td class="p-2 whitespace-nowrap">
+                            {{ entry.detail && entry.detail.until ? new Date(entry.detail.until).toLocaleString() : "-" }}
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="flex justify-end mt-4">
+                <button @click="auditModal.show = false"
+                        class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition duration-200">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div v-if="unMuteModal.show" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-75 z-40">
         <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl dark:shadow-lg max-w-4xl w-full m-4">
             <h2 class="text-2xl font-semibold text-gray-800 dark:text-gray-100 mb-4">📣 Unmute Alert</h2>
@@ -656,6 +721,37 @@
                 show: false,
                 isSaving: false
             });
+            const auditModal = ref({
+                show: false,
+                isLoading: false,
+                error: null,
+                entries: []
+            });
+
+            const auditTargets = (entry) => {
+                const detail = entry.detail || {};
+                return detail.alerts || detail.mutes || [];
+            };
+
+            const showAuditModal = async () => {
+                auditModal.value.entries = [];
+                auditModal.value.error = null;
+                auditModal.value.isLoading = true;
+                auditModal.value.show = true;
+                try {
+                    const response = await fetch('/api/chat-ops/audit');
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    auditModal.value.entries = await response.json();
+                } catch (error) {
+                    console.error('Failed to load chat ops log:', error);
+                    auditModal.value.error = "Could not load the chat ops log.";
+                } finally {
+                    auditModal.value.isLoading = false;
+                }
+            };
+
             const unMuteModal = ref({
                 snapshot: null,
                 show: false,
@@ -850,6 +946,9 @@
                 data,
                 muteModal,
                 unMuteModal,
+                auditModal,
+                auditTargets,
+                showAuditModal,
                 timeToRefresh,
                 linkifyUrls,
                 mute,

@@ -1,7 +1,7 @@
 import { Logger, LogLevel, SocketModeClient } from "@slack/socket-mode";
 import { ChatOpsConfig } from "./config.js";
 import { ChatOpsService } from "./chatops.service.js";
-import { tryRecordChatEvent } from "../models/db.js";
+import { getChatThread, tryRecordChatEvent } from "../models/db.js";
 import { log } from "../models/logger.js";
 
 interface ISlackEvent {
@@ -94,7 +94,7 @@ export class SlackChatOpsListener {
         }
         try {
             const event = envelope.event;
-            if (!this.shouldHandle(event, isMention)) {
+            if (!await this.shouldHandle(event, isMention)) {
                 return;
             }
             // a mention and a channel message can arrive for the same user message as separate
@@ -115,7 +115,12 @@ export class SlackChatOpsListener {
         }
     }
 
-    private shouldHandle(event: ISlackEvent, isMention: boolean): boolean {
+    /*
+     Barky only takes part in the threads of its own alert messages, and only when it is spoken to
+     there. It is not a general purpose bot listening to the channel - ordinary conversation, in the
+     channel or in an alert's thread, is none of its business.
+     */
+    private async shouldHandle(event: ISlackEvent, isMention: boolean): Promise<boolean> {
         if (!event?.ts || !event.user || !event.text) {
             return false;
         }
@@ -123,11 +128,15 @@ export class SlackChatOpsListener {
         if (event.bot_id || event.subtype) {
             return false;
         }
-        if (isMention || event.channel_type === "im") {
-            return true;
+        if (!event.thread_ts) {
+            return false;
         }
-        // an unaddressed channel message is only ours if it replies to a list we posted
-        return !!event.thread_ts
-            && this.service.hasPendingSelection(event.channel, event.thread_ts, event.user);
+        const thread = await getChatThread(event.channel, event.thread_ts);
+        if (!thread) {
+            return false;
+        }
+        // addressed to barky, or answering a question barky asked this person
+        return isMention
+            || this.service.hasPendingSelection(event.channel, event.thread_ts, event.user);
     }
 }

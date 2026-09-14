@@ -3,6 +3,7 @@ import { ChatOpsService, IAlertSource, IChatMessage } from "./chatops.service.js
 import { AiUnavailableError, IIntent, IIntentContext, IIntentResolver, IntentAction } from "./ai/types.js";
 import { ChatOpsConfig } from "./config.js";
 import { ISelectionCandidate, SelectionStore } from "./selection.js";
+import { SlackMaxMessageLength } from "../models/channels/slack-api.js";
 import { SlackApi } from "../models/channels/slack-api.js";
 import { Muter } from "../muter.js";
 import { deleteDbIfExists, destroy, getChatOpsAudit, initConnection, recordChatThread } from "../models/db.js";
@@ -102,6 +103,12 @@ describe("ChatOpsService", () => {
 
     const twoAlerts = ["web::health::a.com", "mysql::lag::db-01"];
 
+    function manyLongIds(count: number) {
+        return Array.from(
+            { length: count },
+            (_, i) => `web::health-check-with-a-very-long-label::host-${ i }.some-long-domain.example.com`);
+    }
+
     describe("mute", () => {
         it("should reply with a numbered list of the active alerts", async () => {
             // arrange
@@ -124,33 +131,51 @@ describe("ChatOpsService", () => {
                 expect(lastReply()).toContain("Nothing to mute");
             });
         });
-        describe("when the list is longer than the configured cap", () => {
+        describe("when the list would not fit in a slack message", () => {
             it("should point at the dashboard instead of numbering it", async () => {
                 // arrange
-                const ids = Array.from({ length: 5 }, (_, i) => `web::health::host-${ i }`);
-                const sut = getSut(ids, { "max-alerts-listed": 3, "dashboard-url": "https://barky.acme.com" });
+                const sut = getSut(manyLongIds(60), { "dashboard-url": "https://barky.acme.com" });
 
                 // act
                 await sut.handleMessage(messageFrom("mute"));
 
                 // assert
-                expect(lastReply()).toContain("more than I can sensibly number");
+                expect(lastReply().length).toBeLessThanOrEqual(SlackMaxMessageLength);
+                expect(lastReply()).toContain("will fit in a single Slack message");
                 expect(lastReply()).toContain("https://barky.acme.com");
                 expect(lastReply()).toContain("`mute all`");
             });
+            it("should not pin a list it never showed", async () => {
+                const sut = getSut(manyLongIds(60));
+                await sut.handleMessage(messageFrom("mute"));
+                expect(sut.hasPendingSelection("C1", "100.000100", "U1")).toEqual(false);
+            });
             describe("and the user asks to mute all", () => {
-                it("should mute them regardless of the cap", async () => {
+                it("should mute them regardless, since that needs no list", async () => {
                     // arrange
-                    const ids = Array.from({ length: 5 }, (_, i) => `web::health::host-${ i }`);
-                    const sut = getSut(ids, { "max-alerts-listed": 3 });
+                    const ids = manyLongIds(60);
+                    const sut = getSut(ids);
 
                     // act
                     await sut.handleMessage(messageFrom("mute all"));
 
                     // assert
                     expect(lastReply()).toContain("Muted until");
-                    expect(await Muter.getInstance().getDynamicMutes()).toHaveLength(5);
+                    expect(await Muter.getInstance().getDynamicMutes()).toHaveLength(ids.length);
                 });
+            });
+        });
+        describe("when a long list still fits", () => {
+            it("should number it rather than deferring to the dashboard", async () => {
+                // arrange - many short identifiers, which a fixed row cap would have rejected
+                const sut = getSut(Array.from({ length: 30 }, (_, i) => `web::h::s${ i }`));
+
+                // act
+                await sut.handleMessage(messageFrom("mute"));
+
+                // assert
+                expect(lastReply()).toContain("`30.`");
+                expect(lastReply().length).toBeLessThanOrEqual(SlackMaxMessageLength);
             });
         });
     });
@@ -772,20 +797,58 @@ describe("ChatOpsService", () => {
         });
     });
 
-    describe("when more mutes are in force than can be listed", () => {
+    describe("when more mutes are in force than will fit in a message", () => {
         it("should describe them as mutes, not as active alerts", async () => {
             // arrange
-            const ids = Array.from({ length: 4 }, (_, i) => `web::health::host-${ i }`);
-            const sut = getSut(ids, { "max-alerts-listed": 2 });
+            const sut = getSut(manyLongIds(60));
             await sut.handleMessage(messageFrom("mute all"));
 
             // act
             await sut.handleMessage(messageFrom("unmute"));
 
             // assert
-            expect(lastReply()).toContain("4");
             expect(lastReply()).not.toContain("active alerts");
+            expect(lastReply()).toContain("mutes in force");
             expect(lastReply()).toContain("`unmute all`");
+        });
+    });
+    describe("warmUp", () => {
+        it("should resolve the ai model up front", async () => {
+            // arrange
+            const warmed = { count: 0 };
+            const resolver: IIntentResolver = {
+                resolve: async () => null,
+                warmUp: async () => {
+                    warmed.count++;
+                }
+            };
+            const sut = getSut(twoAlerts, {}, resolver);
+
+            // act
+            await sut.warmUp();
+
+            // assert
+            expect(warmed.count).toEqual(1);
+        });
+        describe("when the model cannot be resolved", () => {
+            it("should not throw, so chat ops still starts", async () => {
+                // arrange
+                const resolver: IIntentResolver = {
+                    resolve: async () => null,
+                    warmUp: async () => {
+                        throw new AiUnavailableError("down");
+                    }
+                };
+                const sut = getSut(twoAlerts, {}, resolver);
+
+                // act & assert
+                await expect(sut.warmUp()).resolves.toBeUndefined();
+            });
+        });
+        describe("with no ai configured", () => {
+            it("should do nothing", async () => {
+                await expect(getSut(twoAlerts).warmUp()).resolves.toBeUndefined();
+            });
         });
     });
 });

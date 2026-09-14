@@ -35,6 +35,7 @@ export interface IIntentContext {
 
 export interface IIntentResolver {
     resolve(context: IIntentContext): Promise<IIntent>;
+    warmUp?(): Promise<void>;
 }
 
 export class AiUnavailableError extends Error {

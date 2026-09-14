@@ -48,10 +48,10 @@ export async function startChatOps(
             log("chat ops is configured but only runs under the 'loop' command - skipping");
             return null;
         }
-        const listener = new SlackChatOpsListener(
-            config,
-            new ChatOpsService(config, new SlackApi(getEnvVar(channel.token))));
+        const service = new ChatOpsService(config, new SlackApi(getEnvVar(channel.token)));
+        const listener = new SlackChatOpsListener(config, service);
         await listener.start();
+        await service.warmUp();
         _listener = listener;
         _nextAttemptAfter = 0;
         return _listener;

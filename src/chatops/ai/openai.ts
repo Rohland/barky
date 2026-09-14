@@ -16,13 +16,32 @@ export class OpenAiClient {
     constructor(private readonly config: AiConfig) {
     }
 
+    public async listModels(): Promise<any[]> {
+        try {
+            const result = await axios.request({
+                method: "get",
+                url: `${ this.config.url }/models`,
+                timeout: this.config.timeoutMs,
+                headers: {
+                    "Authorization": `Bearer ${ this.config.apiKey }`
+                }
+            });
+            return result.data?.data ?? [];
+        } catch (err) {
+            log(`chatops: could not list ai models: ${ err }`, err);
+            throw new AiUnavailableError("could not list the available ai models", { cause: err });
+        }
+    }
+
     public async complete(
+        model: string,
         instructions: string,
         input: string,
         schema: any): Promise<any> {
         const body = {
-            model: this.config.model,
-            temperature: 0,
+            model,
+            // temperature is deliberately not sent - current models only accept their default and
+            // reject anything else outright. The strict schema is what constrains the reply.
             max_completion_tokens: MaxOutputTokens,
             messages: [
                 { role: "system", content: instructions },
@@ -52,7 +71,7 @@ export class OpenAiClient {
             try {
                 const result = await axios.request({
                     method: "post",
-                    url: `${ this.config.baseUrl }/chat/completions`,
+                    url: `${ this.config.url }/chat/completions`,
                     timeout: this.config.timeoutMs,
                     headers: {
                         "Authorization": `Bearer ${ this.config.apiKey }`,

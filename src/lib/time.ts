@@ -58,13 +58,8 @@ export function toLocalTime(date: Date): Time {
     return new Time(date);
 }
 
-export interface IBusinessHours {
-    days?: string[];
-    start?: string;
-}
-
-export const DefaultBusinessDays = ["mon", "tue", "wed", "thu", "fri"];
-export const DefaultBusinessStart = "08:00";
+export const BusinessDays = ["mon", "tue", "wed", "thu", "fri"];
+export const BusinessStart = "08:00";
 
 /*
  Returns the next instant at which business hours begin, in the configured timezone.
@@ -77,14 +72,9 @@ export const DefaultBusinessStart = "08:00";
    Tue 02:00 -> Tue 08:00      Fri 14:00 -> Mon 08:00
    Tue 10:00 -> Wed 08:00      Sat 09:00 -> Mon 08:00
  */
-export function nextBusinessHoursStart(
-    options?: IBusinessHours,
-    now?: Date): Date {
-    const days = parseDaysOfWeek(options?.days?.length > 0 ? options.days : DefaultBusinessDays);
-    if (days.length === 0) {
-        throw new Error("expected at least one business day to be configured");
-    }
-    const startTime = new Time(options?.start ?? DefaultBusinessStart);
+export function nextBusinessHoursStart(now?: Date): Date {
+    const days = parseDaysOfWeek(BusinessDays);
+    const startTime = new Time(BusinessStart);
     const wallTime = `${ pad(startTime.hours) }:${ pad(startTime.minutes) }`;
     const from = now ?? new Date();
     // anchored at midday UTC purely to step calendar days without tripping over DST boundaries

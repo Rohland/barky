@@ -11,6 +11,9 @@ export interface ISlackMessageRef {
 const SlackApiBaseUrl = "https://slack.com/api";
 const RequestTimeoutMs = 5000;
 
+// slack refuses message updates beyond this, so anything barky composes has to fit
+export const SlackMaxMessageLength = 3000;
+
 /*
  A thin wrapper over the Slack web API, holding the auth, retry and error handling shared by the
  alerting channel and chat ops.

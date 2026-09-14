@@ -1,6 +1,7 @@
 import { AiConfig } from "../config.js";
 import { AiUnavailableError, IIntent, IIntentContext, IIntentResolver, IntentAction } from "./types.js";
 import { OpenAiClient } from "./openai.js";
+import { ModelSelector } from "./model-selector.js";
 import { CallBudget } from "./budget.js";
 import { ISelectionCandidate } from "../selection.js";
 import { toLocalDateAndTime } from "../../lib/utility.js";
@@ -109,8 +110,13 @@ export class AiIntentResolver implements IIntentResolver {
 
     constructor(
         private readonly config: AiConfig,
-        private readonly client = new OpenAiClient(config)) {
+        private readonly client = new OpenAiClient(config),
+        private readonly models = new ModelSelector(config, client)) {
         this.budget = new CallBudget(config.maxCallsPerHour);
+    }
+
+    public async warmUp(): Promise<void> {
+        await this.models.resolve();
     }
 
     public async resolve(context: IIntentContext): Promise<IIntent> {
@@ -118,7 +124,9 @@ export class AiIntentResolver implements IIntentResolver {
             log(`chatops: ai call budget of ${ this.config.maxCallsPerHour }/hour exhausted`);
             throw new AiUnavailableError("ai call budget exhausted");
         }
+        const model = await this.models.resolve();
         const raw = await this.client.complete(
+            model,
             buildInstructions(context),
             buildInput(context),
             IntentSchema);
