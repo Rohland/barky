@@ -3,6 +3,7 @@ import mockConsole from "jest-mock-console";
 import { OpenAiClient } from "./openai.js";
 import { AiConfig } from "../config.js";
 import { AiUnavailableError } from "./types.js";
+import { initLogger } from "../../models/logger.js";
 
 describe("OpenAiClient", () => {
 
@@ -131,6 +132,76 @@ describe("OpenAiClient", () => {
             });
         });
     });
+    describe("errors it reports", () => {
+        beforeEach(() => {
+            // the logger is a no-op unless debug is on, and debug is exactly when a leaked key
+            // would be written out - so these assertions have to run with it enabled
+            initLogger({ debug: true });
+        });
+
+        afterEach(() => {
+            initLogger({ debug: false });
+        });
+
+        function axiosLikeError(status: number) {
+            const err: any = new Error("Request failed");
+            err.config = {
+                url: "https://api.openai.com/v1/chat/completions",
+                headers: { Authorization: "Bearer sk-SUPERSECRET-KEY" }
+            };
+            err.response = { status, data: { error: { message: "nope", type: "invalid_request_error" } } };
+            return err;
+        }
+
+        function everythingLogged() {
+            return (console.log as any).mock.calls.map(args => args.map(a => String(a)).join(" ")).join("\n");
+        }
+
+        it("should never put the api key in the log", async () => {
+            // arrange - an axios error carries the request config, including the auth header, and
+            // barky's logger inspects whatever it is handed
+            jest.spyOn(axios, "request").mockRejectedValue(axiosLikeError(400));
+
+            // act
+            await expect(getSut().complete("m", "a", "b", {})).rejects.toBeInstanceOf(AiUnavailableError);
+
+            // assert
+            expect(everythingLogged()).not.toContain("sk-SUPERSECRET");
+            expect(everythingLogged()).not.toContain("Authorization");
+        });
+        it("should not keep the raw error as a cause a caller might log", async () => {
+            // arrange
+            jest.spyOn(axios, "request").mockRejectedValue(axiosLikeError(400));
+
+            // act
+            let caught: any = null;
+            try {
+                await getSut().complete("m", "a", "b", {});
+            } catch (err) {
+                caught = err;
+            }
+
+            // assert
+            const inspected = (await import("util")).inspect(caught, { depth: 10 });
+            expect(inspected).not.toContain("sk-SUPERSECRET");
+            expect(inspected).not.toContain("Authorization");
+        });
+        it("should still say enough to diagnose the failure", async () => {
+            jest.spyOn(axios, "request").mockRejectedValue(axiosLikeError(400));
+            await expect(getSut().complete("m", "a", "b", {})).rejects.toBeInstanceOf(AiUnavailableError);
+            const logged = everythingLogged();
+            expect(logged).toContain("status 400");
+            expect(logged).toContain("invalid_request_error");
+        });
+        describe("when listing models fails", () => {
+            it("should also keep the key out of the log", async () => {
+                jest.spyOn(axios, "request").mockRejectedValue(axiosLikeError(401));
+                await expect(getSut().listModels()).rejects.toBeInstanceOf(AiUnavailableError);
+                expect(everythingLogged()).not.toContain("sk-SUPERSECRET");
+            });
+        });
+    });
+
     describe("listModels", () => {
         it("should return the models the key has access to", async () => {
             // arrange

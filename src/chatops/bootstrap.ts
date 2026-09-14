@@ -22,16 +22,28 @@ export function findChatOpsChannelConfig(digest: any) {
  must not stop barky from monitoring. A failed connection is retried on a later pass rather than
  once every loop, so a permanently bad token cannot flood the log.
  */
+export type ListenerFactory = (config: ChatOpsConfig, channel: any) => SlackChatOpsListener;
+
+function buildListener(config: ChatOpsConfig, channel: any): SlackChatOpsListener {
+    const service = new ChatOpsService(config, new SlackApi(getEnvVar(channel.token)));
+    return new SlackChatOpsListener(config, service);
+}
+
 export async function startChatOps(
     args: any,
     digest: any,
-    now: number = Date.now()): Promise<SlackChatOpsListener> {
-    if (_listener) {
-        return _listener;
-    }
+    now: number = Date.now(),
+    createListener: ListenerFactory = buildListener): Promise<SlackChatOpsListener> {
+    // the configuration is reloaded on every pass, so a channel that has had chat ops removed or
+    // switched off must take the listener down with it rather than leaving the socket live until
+    // the process restarts
     const channel = findChatOpsChannelConfig(digest);
     if (!channel) {
+        await stopChatOps();
         return null;
+    }
+    if (_listener) {
+        return _listener;
     }
     if (now < _nextAttemptAfter) {
         return null;
@@ -41,6 +53,7 @@ export async function startChatOps(
         // throws, and a typo in an optional key must not be able to stop the watchdog
         const config = new ChatOpsConfig(channel["chat-ops"]);
         if (!config.configured) {
+            await stopChatOps();
             return null;
         }
         if (!args?.loop) {
@@ -48,10 +61,9 @@ export async function startChatOps(
             log("chat ops is configured but only runs under the 'loop' command - skipping");
             return null;
         }
-        const service = new ChatOpsService(config, new SlackApi(getEnvVar(channel.token)));
-        const listener = new SlackChatOpsListener(config, service);
+        const listener = createListener(config, channel);
         await listener.start();
-        await service.warmUp();
+        await listener.warmUp();
         _listener = listener;
         _nextAttemptAfter = 0;
         return _listener;

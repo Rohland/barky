@@ -141,6 +141,24 @@ describe("chatops parser", () => {
                 expect(parseSelectionReply(input, kind as any)).toBeNull();
             });
         });
+        describe("given an absurdly large range", () => {
+            it.each([
+                ["1-999999999"],
+                ["1-1001"],
+                ["999999999"]
+            ])("should reject '%s' rather than expanding it", async (input) => {
+                // expansion happens before the numbers are checked against the list, so an
+                // unbounded range would block the event loop or exhaust memory
+                const started = Date.now();
+                expect(parseSelectionReply(input)).toBeNull();
+                expect(Date.now() - started).toBeLessThan(1000);
+            });
+        });
+        describe("given a range within sensible bounds", () => {
+            it("should still expand it", async () => {
+                expect(parseSelectionReply("1-3").indices).toEqual([1, 2, 3]);
+            });
+        });
         describe("when the reply names no verb", () => {
             it("should be accepted against either list", async () => {
                 expect(parseSelectionReply("1,3", "mute" as any)).not.toBeNull();

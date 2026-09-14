@@ -80,6 +80,10 @@ export class SlackChatOpsListener {
         log("chatops: listening for slack events");
     }
 
+    public async warmUp(): Promise<void> {
+        await this.service.warmUp();
+    }
+
     public async stop(): Promise<void> {
         await this._client?.disconnect();
         this._client = null;

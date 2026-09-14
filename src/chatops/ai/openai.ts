@@ -6,6 +6,23 @@ import { log } from "../../models/logger.js";
 const MaxOutputTokens = 400;
 
 /*
+ An axios error carries the full request config, including the Authorization header holding the api
+ key, and barky's logger inspects whatever it is handed. Only ever describe the safe parts, and
+ never keep the original as a cause - a caller logging the error would print the key.
+ */
+function describeHttpError(err: any): Error {
+    const status = err?.response?.status;
+    const apiError = err?.response?.data?.error;
+    const parts = [
+        status ? `status ${ status }` : null,
+        apiError?.type,
+        apiError?.code,
+        apiError?.message ?? err?.code ?? err?.message
+    ].filter(x => !!x);
+    return new Error(parts.join(": ") || "unknown error");
+}
+
+/*
  Calls OpenAI's chat completions endpoint with a strict JSON schema, so the reply is a single
  structured object rather than free text. Chat completions is used in preference to the newer
  responses API because the base url is configurable, which lets this point at Azure, a gateway or
@@ -28,8 +45,9 @@ export class OpenAiClient {
             });
             return result.data?.data ?? [];
         } catch (err) {
-            log(`chatops: could not list ai models: ${ err }`, err);
-            throw new AiUnavailableError("could not list the available ai models", { cause: err });
+            const safe = describeHttpError(err);
+            log(`chatops: could not list ai models: ${ safe.message }`);
+            throw new AiUnavailableError("could not list the available ai models", { cause: safe });
         }
     }
 
@@ -97,8 +115,9 @@ export class OpenAiClient {
                 }
             }
         }
-        log(`chatops: ai service call failed: ${ lastError }`, lastError);
-        throw new AiUnavailableError("ai service is unavailable", { cause: lastError });
+        const safe = describeHttpError(lastError);
+        log(`chatops: ai service call failed: ${ safe.message }`);
+        throw new AiUnavailableError("ai service is unavailable", { cause: safe });
     }
 
     private static isWorthRetrying(err: any): boolean {

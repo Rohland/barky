@@ -228,8 +228,11 @@ export async function recordChatOpsAudit(entry: IChatOpsAuditEntry): Promise<voi
 }
 
 export async function getChatOpsAudit(limit: number = 100): Promise<IChatOpsAuditEntry[]> {
+    // filtered here as well as on write - without chat ops activity nothing would ever prune, and
+    // the dashboard would show entries older than the retention it promises
     const results = await _connection("chat_ops_audit")
         .select()
+        .where("date", ">=", new Date(Date.now() - ChatOpsAuditRetentionMs).toISOString())
         .orderBy("id", "desc")
         .limit(limit);
     return results.map(x => ({
@@ -243,11 +246,22 @@ export async function getChatOpsAudit(limit: number = 100): Promise<IChatOpsAudi
 }
 
 export async function addMuteWindow(window: IMuteWindowDb) {
-    await _connection("mute_windows").insert({
+    await addMuteWindows([window]);
+}
+
+/*
+ Written in one statement so a set of mutes either all take effect or none do - a partial failure
+ would leave alerts silenced while the user is told nothing changed.
+ */
+export async function addMuteWindows(windows: IMuteWindowDb[]) {
+    if ((windows ?? []).length === 0) {
+        return;
+    }
+    await _connection("mute_windows").insert(windows.map(window => ({
         match: window.match,
         from: window.from?.toISOString(),
         to: window.to?.toISOString()
-    });
+    })));
 }
 
 export async function deleteMuteWindowsByIds(ids: number[]) {

@@ -149,7 +149,7 @@ export class SlackChannelConfig extends ChannelConfig {
      message currently says.
      */
     private async trackThreadFor(state: any, snapshots: Snapshot[]) {
-        if (!state?.ts) {
+        if (!state?.ts || !this.chatOpsEnabled) {
             return;
         }
         await recordChatThread({

@@ -79,7 +79,10 @@ export class ChatOpsService {
         if (!reply) {
             return;
         }
-        await this.api.postMessage(message.channel, reply, threadTs);
+        await this.api.postMessage(
+            message.channel,
+            messages.clampToSlackLimit(reply, this.config.dashboardHint),
+            threadTs);
     }
 
     /*
@@ -341,7 +344,7 @@ export class ChatOpsService {
         if (chosen.length === 0) {
             return messages.renderNothingToDo("mute");
         }
-        const until = this.resolveMuteUntil(window);
+        const { until, ignored } = this.resolveMuteUntil(window);
         const active = await this.getActiveAlerts();
         const activeIds = new Set(active.map(x => x.id));
         // an alert that recovered while the user was typing is still muted - flapping is the most
@@ -350,10 +353,10 @@ export class ChatOpsService {
         const firedSince = pinned
             ? active.filter(x => !pinned.some(candidate => candidate.id === x.id))
             : [];
-        const from = new Date();
-        for (const candidate of chosen) {
-            await Muter.getInstance().registerMute(mutePatternFor(candidate.id), from, until);
-        }
+        await Muter.getInstance().registerMutes(
+            chosen.map(x => mutePatternFor(x.id)),
+            new Date(),
+            until);
         log(`chatops: muted ${ chosen.length } alert(s) until ${ until.toISOString() }`);
         await recordChatOpsAudit({
             channel: actor?.channel,
@@ -365,7 +368,7 @@ export class ChatOpsService {
                 requested: actor?.text
             }
         });
-        return messages.renderMuteOutcome(chosen, until, firedSince, resolvedSince);
+        return messages.renderMuteOutcome(chosen, until, firedSince, resolvedSince, ignored);
     }
 
     private async unmute(
@@ -398,17 +401,22 @@ export class ChatOpsService {
      A requested window is capped at the configured maximum. Barky's own default is deliberately
      exempt - on a Friday it reaches into Monday, which would otherwise trip a shorter cap.
      */
-    private resolveMuteUntil(window: IMuteWindowRequest): Date {
+    private resolveMuteUntil(window: IMuteWindowRequest): { until: Date, ignored?: string } {
         const cap = new Date(Date.now() + this.config.maxMuteMs);
         if (window?.durationMs > 0) {
             const requested = new Date(Date.now() + window.durationMs);
-            return requested > cap ? cap : requested;
+            return { until: requested > cap ? cap : requested };
         }
-        const named = window?.until ? parseLocalDateTime(window.until) : null;
-        if (named && named.getTime() > Date.now()) {
-            return named > cap ? cap : named;
+        if (window?.until) {
+            const named = parseLocalDateTime(window.until);
+            if (named && named.getTime() > Date.now()) {
+                return { until: named > cap ? cap : named };
+            }
+            // an expiry was asked for and cannot be honoured - muting for the default instead is
+            // safe, but saying nothing would hide a substantially different outcome
+            return { until: this.defaultMuteUntil(), ignored: window.until };
         }
-        return this.defaultMuteUntil();
+        return { until: this.defaultMuteUntil() };
     }
 
     private defaultMuteUntil(): Date {

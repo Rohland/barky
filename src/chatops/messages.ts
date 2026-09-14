@@ -69,6 +69,21 @@ export function renderListTooLong(
  message slack will actually accept rather than a fixed number of rows, so a handful of alerts with
  very long identifiers is caught while many short ones are not.
  */
+/*
+ A last line of defence for every outgoing message. Lists are sized before they are built, but a
+ status reply or the outcome of muting a large set can also run long, and slack rejecting the post
+ after the mutes have been applied would leave the user with no confirmation at all.
+ */
+export function clampToSlackLimit(text: string, dashboardHint: string): string {
+    if ((text ?? "").length <= SlackMaxMessageLength) {
+        return text;
+    }
+    const suffix = `\n\n_…truncated — see ${ dashboardHint } for the rest._`;
+    const cut = text.substring(0, SlackMaxMessageLength - suffix.length);
+    const lastLineBreak = cut.lastIndexOf("\n");
+    return (lastLineBreak > 0 ? cut.substring(0, lastLineBreak) : cut) + suffix;
+}
+
 export function renderSelectionListOrTooLong(
     kind: SelectionKind,
     candidates: ISelectionCandidate[],
@@ -98,11 +113,16 @@ export function renderMuteOutcome(
     muted: ISelectionCandidate[],
     until: Date,
     firedSinceList: ISelectionCandidate[],
-    resolvedSinceList: ISelectionCandidate[]): string {
+    resolvedSinceList: ISelectionCandidate[],
+    ignoredUntil?: string): string {
     const parts = [
         `🔕 Muted until *${ describeInstant(until) }*:`,
         ...muted.map(x => `    • ${ x.title }`)
     ];
+    if (ignoredUntil) {
+        parts.push("");
+        parts.push(`⚠️ I couldn't make sense of *${ ignoredUntil }* as an expiry, so I used the default instead. Say \`unmute\` and try again with something like \`for 4h\` if that is not what you wanted.`);
+    }
     if (resolvedSinceList.length > 0) {
         // muting a flapping alert is the common case, so these are muted rather than skipped
         parts.push("");

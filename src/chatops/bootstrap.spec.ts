@@ -91,6 +91,76 @@ describe("chatops bootstrap", () => {
             });
         });
 
+        describe("once a listener is running", () => {
+            function fakeListener(record: { started: number, stopped: number, warmed: number }) {
+                return () => ({
+                    start: async () => {
+                        record.started++;
+                    },
+                    warmUp: async () => {
+                        record.warmed++;
+                    },
+                    stop: async () => {
+                        record.stopped++;
+                    }
+                }) as any;
+            }
+
+            it("should reuse it rather than starting another", async () => {
+                // arrange
+                const record = { started: 0, stopped: 0, warmed: 0 };
+                const digest = digestWith({ enabled: true, "app-token": "test-app-token" });
+
+                // act
+                await startChatOps({ loop: true }, digest, Date.now(), fakeListener(record));
+                await startChatOps({ loop: true }, digest, Date.now(), fakeListener(record));
+
+                // assert
+                expect(record.started).toEqual(1);
+                expect(record.warmed).toEqual(1);
+            });
+
+            describe("and chat ops is then removed from the configuration", () => {
+                it("should shut it down rather than leaving the socket live", async () => {
+                    // arrange - the config is reloaded on every pass, so disabling chat ops has to
+                    // take effect without waiting for a restart
+                    const record = { started: 0, stopped: 0, warmed: 0 };
+                    const factory = fakeListener(record);
+                    await startChatOps(
+                        { loop: true },
+                        digestWith({ enabled: true, "app-token": "test-app-token" }),
+                        Date.now(),
+                        factory);
+                    expect(record.started).toEqual(1);
+
+                    // act - the next pass sees a channel with chat ops switched off
+                    const result = await startChatOps(
+                        { loop: true },
+                        digestWith({ enabled: false, "app-token": "test-app-token" }),
+                        Date.now(),
+                        factory);
+
+                    // assert
+                    expect(result).toBeNull();
+                    expect(record.stopped).toEqual(1);
+                });
+                it("should start again if it is switched back on", async () => {
+                    // arrange
+                    const record = { started: 0, stopped: 0, warmed: 0 };
+                    const factory = fakeListener(record);
+                    const enabled = digestWith({ enabled: true, "app-token": "test-app-token" });
+                    await startChatOps({ loop: true }, enabled, Date.now(), factory);
+                    await startChatOps({ loop: true }, digestWith(null), Date.now(), factory);
+
+                    // act
+                    await startChatOps({ loop: true }, enabled, Date.now(), factory);
+
+                    // assert
+                    expect(record.started).toEqual(2);
+                });
+            });
+        });
+
         describe("when slack cannot be reached", () => {
             it("should not throw, so monitoring carries on", async () => {
                 // arrange - the token is not a real one, so the connection attempt fails

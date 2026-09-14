@@ -157,10 +157,13 @@ export class AiIntentResolver implements IIntentResolver {
             // the model was told not to set both - the explicit period is the safer of the two
             intent.until = null;
         }
-        // the numbered list is always one of alerts, so an unmute can only be resolved against a
-        // list already awaiting a reply
+        // a list is either of alerts or of mutes, and the two are not interchangeable - acting on
+        // the wrong one would mute a mute pattern, or lift a mute that was never named
         if (intent.action === IntentAction.Unmute && context.pinned !== "unmute") {
             return { ...intent, action: IntentAction.RequestUnmuteList };
+        }
+        if (intent.action === IntentAction.Mute && context.pinned === "unmute") {
+            return { ...intent, action: IntentAction.RequestMuteList };
         }
         const needsTargets = [IntentAction.Mute, IntentAction.Unmute, IntentAction.Select];
         if (needsTargets.includes(intent.action) && !intent.all && intent.numbers.length === 0) {

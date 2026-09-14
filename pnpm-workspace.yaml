@@ -1,8 +1,18 @@
+# Gates which dependencies may run their install/postinstall scripts. A package that declares one
+# and is not listed here fails the install outright, so every native build is an explicit decision
+# rather than something that silently executes during CI. Only better-sqlite3 genuinely needs its
+# build; the rest ship prebuilt binaries per platform that pnpm installs directly, which leaves
+# their script a fallback for platforms without a prebuild.
 allowBuilds:
+  # no longer declares an install script, so this entry is now redundant - harmless to keep
   '@nestjs/core': false
-  '@parcel/watcher': set this to true or false
+  # native file watcher pulled in by jest-haste-map, used only by 'jest --watch', which we don't run
+  '@parcel/watcher': false
+  # the native sqlite binding barky stores its state in - this one has to be built
   better-sqlite3: true
+  # tsx's bundler, ships a prebuild per platform
   esbuild: false
+  # native module resolver used by tooling, ships a prebuild per platform
   unrs-resolver: false
 minimumReleaseAge: 10080
 overrides:

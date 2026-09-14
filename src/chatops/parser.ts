@@ -24,6 +24,10 @@ export interface ISelectionReply {
     durationMs?: number;
 }
 
+// no list barky posts comes close to this - anything larger is a typo or an attempt to make the
+// expansion below do the damage, and is rejected before a single index is materialised
+const MaxSelectableIndex = 1000;
+
 const DurationUnits = {
     s: "s", sec: "s", secs: "s", second: "s", seconds: "s",
     m: "m", min: "m", mins: "m", minute: "m", minutes: "m",
@@ -160,7 +164,7 @@ export function parseSelectionReply(input: string, kind?: SelectionKind): ISelec
         if (range) {
             const from = parseInt(range[1]);
             const to = parseInt(range[2]);
-            if (from > to) {
+            if (from > to || to > MaxSelectableIndex) {
                 return null;
             }
             for (let i = from; i <= to; i++) {
@@ -171,7 +175,11 @@ export function parseSelectionReply(input: string, kind?: SelectionKind): ISelec
         if (!/^\d+$/.test(token)) {
             return null;
         }
-        indices.push(parseInt(token));
+        const index = parseInt(token);
+        if (index > MaxSelectableIndex) {
+            return null;
+        }
+        indices.push(index);
     }
     if (indices.length === 0) {
         return null;

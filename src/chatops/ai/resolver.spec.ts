@@ -95,6 +95,15 @@ describe("AiIntentResolver", () => {
                 });
             });
         });
+        describe("when asked to mute while an unmute list is pinned", () => {
+            it("should ask for an alert list instead of muting a mute pattern", async () => {
+                // the pinned candidates are mute expressions, so muting them would create
+                // nonsense rules rather than silencing anything
+                const raw = rawIntent({ action: IntentAction.Mute, numbers: [1] });
+                const result = AiIntentResolver.validate(raw, contextWith(3, "unmute"));
+                expect(result.action).toEqual(IntentAction.RequestMuteList);
+            });
+        });
         describe("when a selection resolves to nothing", () => {
             it("should ask the user rather than guess", async () => {
                 const raw = rawIntent({ action: IntentAction.Select, numbers: [77] });

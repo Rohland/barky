@@ -851,4 +851,76 @@ describe("ChatOpsService", () => {
             });
         });
     });
+    describe("when an expiry cannot be honoured", () => {
+        it.each([
+            ["not-a-date"],
+            ["2020-01-01 08:00"]
+        ])("should mute for the default and say so, given '%s'", async (until) => {
+            // arrange - silently applying a substantially different expiry would hide the problem
+            const sut = getSut(
+                twoAlerts,
+                {},
+                resolverReturning({ action: IntentAction.Mute, numbers: [1], until }));
+
+            // act
+            await sut.handleMessage(messageFrom("mute the web one until whenever"));
+
+            // assert
+            const mutes = await Muter.getInstance().getDynamicMutes();
+            expect(mutes).toHaveLength(1);
+            expect(lastReply()).toContain("couldn't make sense of");
+            expect(lastReply()).toContain(until);
+        });
+        describe("when no expiry was asked for at all", () => {
+            it("should say nothing about it", async () => {
+                const sut = getSut(twoAlerts);
+                await sut.handleMessage(messageFrom("mute"));
+                await sut.handleMessage(messageFrom("1"));
+                expect(lastReply()).not.toContain("couldn't make sense of");
+            });
+        });
+    });
+
+    describe("every reply barky posts", () => {
+        it("should fit inside a slack message, not just the numbered lists", async () => {
+            // arrange - muting a large set produces an outcome listing every one of them
+            const ids = manyLongIds(80);
+            const sut = getSut(ids);
+
+            // act
+            await sut.handleMessage(messageFrom("mute all"));
+
+            // assert
+            expect(await Muter.getInstance().getDynamicMutes()).toHaveLength(80);
+            expect(posted[posted.length - 1].text.length).toBeLessThanOrEqual(SlackMaxMessageLength);
+        });
+        it("should fit when reporting status too", async () => {
+            const sut = getSut(manyLongIds(80));
+            await sut.handleMessage(messageFrom("status"));
+            expect(posted[posted.length - 1].text.length).toBeLessThanOrEqual(SlackMaxMessageLength);
+        });
+    });
+
+    describe("muting a set", () => {
+        it("should persist them in one operation", async () => {
+            // arrange - a partial failure would silence some alerts while reporting that nothing
+            // changed, so the whole set is written at once
+            const inserts = { count: 0 };
+            const muter = Muter.getInstance();
+            const original = muter.registerMutes.bind(muter);
+            (muter as any).registerMutes = async (...args: any[]) => {
+                inserts.count++;
+                return await (original as any)(...args);
+            };
+            const sut = getSut(twoAlerts);
+
+            // act
+            await sut.handleMessage(messageFrom("mute all"));
+
+            // assert
+            expect(inserts.count).toEqual(1);
+            expect(await muter.getDynamicMutes()).toHaveLength(2);
+            (muter as any).registerMutes = original;
+        });
+    });
 });

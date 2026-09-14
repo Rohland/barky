@@ -278,7 +278,10 @@ describe("slack", () => {
 
         it("should note which alerts the message reported, so a thread reply can resolve them", async () => {
             // arrange
-            const sut = new SlackChannelConfig("slack", { channel: "#ops" });
+            const sut = new SlackChannelConfig("slack", {
+                channel: "#ops",
+                "chat-ops": { enabled: true }
+            });
             sut.postToSlack = jest.fn().mockResolvedValue({ channel: "C1", ts: "1700000000.000100" }) as any;
             const snapshots = [
                 new Snapshot({
@@ -299,6 +302,21 @@ describe("slack", () => {
             // assert
             const thread = await getChatThread("C1", "1700000000.000100");
             expect(thread.alertIds).toEqual(["web::health::www.codeo.co.za"]);
+        });
+        describe("for a channel without chat ops", () => {
+            it("should not record a thread, since the record is what authorises a reply", async () => {
+                // arrange - another slack channel having chat ops on must not make this one's
+                // threads actionable
+                const sut = new SlackChannelConfig("slack", { channel: "#quiet" });
+                sut.postToSlack = jest.fn().mockResolvedValue({ channel: "C2", ts: "1700000000.000200" }) as any;
+                const alert = new AlertState({ channel: "slack", start_date: new Date() });
+
+                // act
+                await sut.sendNewAlert([], alert);
+
+                // assert
+                expect(await getChatThread("C2", "1700000000.000200")).toBeNull();
+            });
         });
     });
 

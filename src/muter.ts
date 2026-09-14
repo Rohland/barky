@@ -1,6 +1,6 @@
 import { singleton } from "./lib/singleton.js";
 import { IDigestConfig } from "./models/digest.js";
-import { addMuteWindow, deleteMuteWindowsByIds, getMuteWindows } from "./models/db.js";
+import { addMuteWindow, addMuteWindows, deleteMuteWindowsByIds, getMuteWindows } from "./models/db.js";
 import { IMuteWindowDb } from "./models/mute-window.js";
 import { toLocalDateAndTime } from "./lib/utility.js";
 
@@ -56,6 +56,17 @@ export class Muter {
             from,
             to
         });
+    }
+
+    /*
+     Registers a set of mutes as one operation, so a failure part way through cannot leave some
+     alerts silenced while the caller reports that nothing was changed.
+     */
+    public async registerMutes(
+        matches: string[],
+        from: Date,
+        to: Date) {
+        await addMuteWindows(matches.map(match => ({ match, from, to })));
     }
 
     public async unmute(matches: string[]) {

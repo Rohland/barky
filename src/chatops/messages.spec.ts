@@ -1,4 +1,5 @@
-import { describeInstant, describeMutePattern } from "./messages.js";
+import { clampToSlackLimit, describeInstant, describeMutePattern } from "./messages.js";
+import { SlackMaxMessageLength } from "../models/channels/slack-api.js";
 import { initLocaleAndTimezone } from "../lib/utility.js";
 
 describe("chatops messages", () => {
@@ -32,6 +33,35 @@ describe("chatops messages", () => {
         ])("given '%s'", (pattern, expected) => {
             it("should read it back as the alert it targets", async () => {
                 expect(describeMutePattern(pattern)).toEqual(expected);
+            });
+        });
+    });
+    describe("clampToSlackLimit", () => {
+        describe("a message that fits", () => {
+            it("should be left alone", async () => {
+                expect(clampToSlackLimit("short", "the dashboard")).toEqual("short");
+            });
+        });
+        describe("a message that does not fit", () => {
+            it("should be cut down to something slack will accept", async () => {
+                // arrange - slack rejects the post outright, which after a mute has been applied
+                // would leave the user with no confirmation at all
+                const long = Array.from({ length: 500 }, (_, i) => `    • alert number ${ i }`).join("\n");
+
+                // act
+                const result = clampToSlackLimit(long, "the dashboard");
+
+                // assert
+                expect(result.length).toBeLessThanOrEqual(SlackMaxMessageLength);
+                expect(result).toContain("truncated");
+                expect(result).toContain("the dashboard");
+                expect(result).toContain("alert number 0");
+            });
+            it("should cut on a line boundary rather than mid word", async () => {
+                const long = Array.from({ length: 500 }, (_, i) => `line ${ i }`).join("\n");
+                const result = clampToSlackLimit(long, "the dashboard");
+                const body = result.substring(0, result.indexOf("\n\n_…truncated"));
+                expect(body.split("\n").every(line => /^line \d+$/.test(line))).toEqual(true);
             });
         });
     });

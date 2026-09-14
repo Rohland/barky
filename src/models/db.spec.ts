@@ -567,6 +567,21 @@ describe("db", () => {
             expect(result[1].detail.alerts).toEqual(["web::health::a.com"]);
             expect(result[1].date).toBeInstanceOf(Date);
         });
+        describe("entries older than the retention period", () => {
+            it("should not be returned, even when nothing new has been written", async () => {
+                // arrange - pruning only happens on write, so a quiet month would otherwise leave
+                // the dashboard showing entries older than the retention it promises
+                await recordChatOpsAudit({ channel: "C1", userId: "U1", action: "mute", detail: {} });
+                const longAgo = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString();
+                await getConnection("dbtests")("chat_ops_audit").update({ date: longAgo });
+
+                // act
+                const result = await getChatOpsAudit();
+
+                // assert
+                expect(result).toHaveLength(0);
+            });
+        });
         describe("when a limit is given", () => {
             it("should honour it", async () => {
                 for (let i = 0; i < 5; i++) {
