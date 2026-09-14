@@ -1,5 +1,6 @@
 allowBuilds:
   '@nestjs/core': false
+  '@parcel/watcher': set this to true or false
   better-sqlite3: true
   esbuild: false
   unrs-resolver: false
