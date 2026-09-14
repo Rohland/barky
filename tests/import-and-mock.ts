@@ -67,10 +67,14 @@ export async function importAndMock<T = any>(
     if (includeActual) {
         original = await import(modulePath);
     }
+    // the factory is invoked once per module registry, and isolateModulesAsync below uses its own,
+    // so the result is built once and reused. Without this the caller is handed different mock
+    // instances to the ones the code under test calls, and every assertion sees zero calls.
+    let mockedModule = null;
     jest.unstable_mockModule(modulePath, () => {
-        const mockedModule = typeof factory === 'function' ? (factory as any)() : (factory ?? {})
-        if (includeActual) {
-            return { ...original, ...mockedModule };
+        if (!mockedModule) {
+            const mocks = typeof factory === 'function' ? (factory as any)() : (factory ?? {});
+            mockedModule = includeActual ? { ...original, ...mocks } : mocks;
         }
         return mockedModule;
     });
