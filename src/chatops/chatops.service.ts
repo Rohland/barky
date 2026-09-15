@@ -1,6 +1,6 @@
 import { WebState } from "../web/web.state.js";
 import { Muter } from "../muter.js";
-import { getChatThread, recordChatOpsAudit } from "../models/db.js";
+import { getChatThread, IChatOpsAuditEntry, recordChatOpsAudit } from "../models/db.js";
 import { SlackApi } from "../models/channels/slack-api.js";
 import { IPinnedSelection, ISelectionCandidate, SelectionStore } from "./selection.js";
 import { ChatOpsConfig } from "./config.js";
@@ -29,6 +29,39 @@ export interface IMuteWindowRequest {
     until?: string;
 }
 
+export interface IChatOpsDependencies {
+    alerts?: IAlertSource;
+    resolver?: IIntentResolver;
+    selections?: SelectionStore;
+}
+
+interface IInterpretation {
+    message: IChatMessage;
+    threadTs: string;
+    pending: IPinnedSelection;
+    candidates: ISelectionCandidate[];
+}
+
+interface IMuteRequest {
+    chosen: ISelectionCandidate[];
+    window: IMuteWindowRequest;
+    actor: IChatMessage;
+    // the list the user was looking at, so alerts that fired after it was drawn can be reported as
+    // deliberately not muted
+    pinnedList?: ISelectionCandidate[];
+}
+
+// without these the app can post alerts but will never be told about a reply, which otherwise
+// looks exactly like barky ignoring people. Either history scope satisfies the second - a private
+// channel reports groups:history instead.
+const RequiredScopes = ["chat:write", "app_mentions:read"];
+const RequiredHistoryScopes = ["channels:history", "groups:history"];
+// chat ops works without these, just less well
+const DegradedWithoutScopes: Record<string, string> = {
+    "reactions:write": "no acknowledgement reaction while barky is thinking",
+    "users:read": "the chat ops log names people by slack id rather than display name"
+};
+
 function toCandidate(alert: { id: string, last_result: string }): ISelectionCandidate {
     return {
         id: alert.id,
@@ -50,18 +83,18 @@ export class WebStateAlertSource implements IAlertSource {
 
 export class ChatOpsService {
 
+    private readonly alerts: IAlertSource;
+    private readonly resolver: IIntentResolver;
     private readonly selections: SelectionStore;
-
 
     constructor(
         private readonly config: ChatOpsConfig,
         private readonly api: SlackApi,
-        private readonly alerts: IAlertSource = new WebStateAlertSource(),
-        private readonly resolver: IIntentResolver = config.ai.configured
-            ? new AiIntentResolver(config.ai)
-            : null,
-        selections: SelectionStore = null) {
-        this.selections = selections ?? new SelectionStore(config.selectionTtlMs);
+        dependencies: IChatOpsDependencies = {}) {
+        this.alerts = dependencies.alerts ?? new WebStateAlertSource();
+        this.resolver = dependencies.resolver
+            ?? (config.ai.configured ? new AiIntentResolver(config.ai) : null);
+        this.selections = dependencies.selections ?? new SelectionStore(config.selectionTtlMs);
     }
 
     public async handleMessage(message: IChatMessage): Promise<void> {
@@ -69,13 +102,7 @@ export class ChatOpsService {
         // people can run separate selections in the same channel without colliding
         const threadTs = message.threadTs ?? message.ts;
         this.selections.sweep();
-        let reply: string;
-        try {
-            reply = await this.resolve(message, threadTs);
-        } catch (err) {
-            log(`chatops: failed handling message in ${ message.channel }: ${ err }`, err);
-            reply = messages.renderFailed(this.config.dashboardHint);
-        }
+        const reply = await this.replyFor(message, threadTs);
         if (!reply) {
             return;
         }
@@ -83,18 +110,6 @@ export class ChatOpsService {
             message.channel,
             messages.clampToSlackLimit(reply, this.config.dashboardHint),
             threadTs);
-    }
-
-    /*
-     Lets the listener tell an unrelated channel message apart from a reply to a list barky posted,
-     so replies need no mention while everything else is left alone.
-     */
-    public hasPendingSelection(
-        channel: string,
-        threadTs: string,
-        userId: string): boolean {
-        // an expired list still counts, so a late reply is answered rather than ignored
-        return !!this.selections.peek(channel, threadTs, userId);
     }
 
     public get pendingSelectionCount(): number {
@@ -106,6 +121,7 @@ export class ChatOpsService {
      first person to ask barky something. Failure is not fatal - it is retried on demand.
      */
     public async warmUp(): Promise<void> {
+        await this.verifyScopes();
         if (!this.resolver?.warmUp) {
             return;
         }
@@ -114,6 +130,58 @@ export class ChatOpsService {
         } catch (err) {
             log(`chatops: could not resolve the ai model at startup, will retry on demand: ${ err }`, err);
         }
+    }
+
+    /*
+     An app set up only to post alerts has no scope to read replies, and slack simply never
+     delivers the events - barky looks like it is ignoring people, with nothing to go on. Checked at
+     startup so there is at least something in the log saying why.
+     */
+    public async verifyScopes(): Promise<string[]> {
+        const granted = await this.api.getGrantedScopes();
+        if (!granted) {
+            return [];
+        }
+        const missing = this.reportScopesBlockingReplies(granted);
+        this.reportScopesDegradingChatOps(granted);
+        return missing;
+    }
+
+    private reportScopesBlockingReplies(granted: string[]): string[] {
+        const missing = RequiredScopes.filter(x => !granted.includes(x));
+        if (!RequiredHistoryScopes.some(x => granted.includes(x))) {
+            missing.push(RequiredHistoryScopes.join(" or "));
+        }
+        if (missing.length > 0) {
+            log(`chatops: the slack app is missing the ${ missing.join(", ") } scope(s), so it can post alerts but will never receive replies - add them under OAuth & Permissions and reinstall the app`);
+        }
+        return missing;
+    }
+
+    private reportScopesDegradingChatOps(granted: string[]): void {
+        Object.keys(DegradedWithoutScopes)
+            .filter(x => !granted.includes(x))
+            .forEach(x => log(`chatops: the slack app has no ${ x } scope - ${ DegradedWithoutScopes[x] }`));
+    }
+
+    private async replyFor(message: IChatMessage, threadTs: string): Promise<string> {
+        try {
+            return await this.resolve(message, threadTs);
+        } catch (err) {
+            return this.explain(err, message);
+        }
+    }
+
+    /*
+     Barky never guesses. When the AI service cannot be reached the user is told exactly that and
+     pointed at the dashboard, which is a different answer to barky having broken.
+     */
+    private explain(err: any, message: IChatMessage): string {
+        if (err instanceof AiUnavailableError) {
+            return messages.renderUnavailable(this.config.dashboardHint);
+        }
+        log(`chatops: failed handling message in ${ message.channel }: ${ err }`, err);
+        return messages.renderFailed(this.config.dashboardHint);
     }
 
     private async resolve(message: IChatMessage, threadTs: string): Promise<string> {
@@ -147,14 +215,13 @@ export class ChatOpsService {
                 return messages.renderCancelled();
             case CommandType.Help:
             default:
-                return messages.renderHelp(this.config.dashboardHint, !!this.resolver);
+                return this.help();
         }
     }
 
     /*
      Anything the local parser cannot read is handed to the AI service, which only ever chooses
-     numbers from the list barky supplies. When that service cannot be reached the user is told so
-     and pointed at the dashboard - barky never guesses.
+     numbers from the list barky supplies.
      */
     private async interpret(
         message: IChatMessage,
@@ -169,45 +236,29 @@ export class ChatOpsService {
             : (await this.getThreadAlerts(message, threadTs)) ?? await this.getActiveAlerts();
         // an interpreted reply takes a moment, so show that it landed
         await this.api.addReaction(message.channel, message.ts, "eyes");
-        let intent: IIntent;
-        try {
-            intent = await this.resolver.resolve({
-                text: message.text,
-                pinned: pending?.kind,
-                candidates
-            });
-        } catch (err) {
-            if (err instanceof AiUnavailableError) {
-                return messages.renderUnavailable(this.config.dashboardHint);
-            }
-            throw err;
-        }
-        return await this.applyIntent(intent, message, threadTs, pending, candidates);
+        const intent = await this.resolver.resolve({
+            text: message.text,
+            pinned: pending?.kind,
+            candidates
+        });
+        return await this.applyIntent(intent, { message, threadTs, pending, candidates });
     }
 
-    private async applyIntent(
-        intent: IIntent,
-        message: IChatMessage,
-        threadTs: string,
-        pending: IPinnedSelection,
-        candidates: ISelectionCandidate[]): Promise<string> {
+    private async applyIntent(intent: IIntent, interpretation: IInterpretation): Promise<string> {
+        const { message, threadTs, pending, candidates } = interpretation;
+        const chosen = () => intent.all ? candidates : intent.numbers.map(x => candidates[x - 1]);
         switch (intent.action) {
-            case IntentAction.Mute: {
-                const chosen = intent.all
-                    ? candidates
-                    : intent.numbers.map(x => candidates[x - 1]);
+            case IntentAction.Mute:
                 this.selections.clear(message.channel, threadTs, message.userId);
-                return await this.mute(
-                    chosen,
-                    { durationMs: parseDuration(intent.duration), until: intent.until },
-                    message,
-                    pending?.scoped ? null : pending?.candidates);
-            }
+                return await this.mute({
+                    chosen: chosen(),
+                    window: { durationMs: parseDuration(intent.duration), until: intent.until },
+                    actor: message,
+                    pinnedList: pending?.scoped ? null : pending?.candidates
+                });
             case IntentAction.Unmute:
                 this.selections.clear(message.channel, threadTs, message.userId);
-                return await this.unmute(
-                    intent.all ? candidates : intent.numbers.map(x => candidates[x - 1]),
-                    message);
+                return await this.unmute(chosen(), message);
             case IntentAction.Select:
                 if (!pending) {
                     return messages.renderNotUnderstood(this.config.dashboardHint);
@@ -217,10 +268,10 @@ export class ChatOpsService {
                     {
                         all: intent.all,
                         indices: intent.numbers,
-                        durationMs: parseDuration(intent.duration)
+                        durationMs: parseDuration(intent.duration),
+                        until: intent.until
                     },
-                    message,
-                    intent.until);
+                    message);
             case IntentAction.RequestMuteList:
                 return await this.requestMute({ type: CommandType.Mute, all: false }, message, threadTs);
             case IntentAction.RequestUnmuteList:
@@ -231,7 +282,7 @@ export class ChatOpsService {
                 this.selections.clear(message.channel, threadTs, message.userId);
                 return messages.renderCancelled();
             case IntentAction.Help:
-                return messages.renderHelp(this.config.dashboardHint, !!this.resolver);
+                return this.help();
             case IntentAction.Reply:
             default:
                 return intent.message || messages.renderNotUnderstood(this.config.dashboardHint);
@@ -241,8 +292,7 @@ export class ChatOpsService {
     private async applySelection(
         pending: IPinnedSelection,
         reply: ISelectionReply,
-        actor: IChatMessage,
-        until?: string): Promise<string> {
+        actor: IChatMessage): Promise<string> {
         if (!reply.all) {
             const outOfRange = reply.indices.filter(x => x < 1 || x > pending.candidates.length);
             if (outOfRange.length > 0) {
@@ -254,12 +304,88 @@ export class ChatOpsService {
             : reply.indices.map(x => pending.candidates[x - 1]);
         this.selections.clear(pending.channel, pending.threadTs, pending.userId);
         return pending.kind === "mute"
-            ? await this.mute(
+            ? await this.mute({
                 chosen,
-                { durationMs: reply.durationMs, until },
+                window: {
+                    durationMs: reply.durationMs ?? pending.durationMs,
+                    until: reply.until ?? pending.until
+                },
                 actor,
-                pending.scoped ? null : pending.candidates)
+                pinnedList: pending.scoped ? null : pending.candidates
+            })
             : await this.unmute(chosen, actor);
+    }
+
+    private async requestMute(
+        command: ICommand,
+        message: IChatMessage,
+        threadTs: string): Promise<string> {
+        const scoped = await this.getThreadAlerts(message, threadTs);
+        const candidates = scoped ?? await this.getActiveAlerts();
+        if (candidates.length === 0) {
+            return scoped
+                ? messages.renderThreadCleared()
+                : messages.renderNothingToDo("mute");
+        }
+        // inside a thread the target is already unambiguous when there is one alert, or when the
+        // user said "this" or "all"
+        const actDirectly = command.all
+            || (!!scoped && (command.scopedToThread || candidates.length === 1));
+        const requestedWindow = { durationMs: command.durationMs, until: command.until };
+        if (actDirectly) {
+            return await this.mute({ chosen: candidates, window: requestedWindow, actor: message });
+        }
+        const list = messages.renderSelectionListOrTooLong({
+            kind: "mute",
+            candidates,
+            dashboardHint: this.config.dashboardHint,
+            expiry: this.describeMuteExpiry(requestedWindow)
+        });
+        if (!list.fits) {
+            // a list too big to post is unusable - "mute all" needs no list, so it stays available
+            return list.text;
+        }
+        // a period given with the original request survives the detour through the list, so
+        // "mute for 1 hour" followed by "all" still means an hour
+        this.selections.pin({
+            kind: "mute",
+            channel: message.channel,
+            threadTs,
+            userId: message.userId,
+            candidates,
+            scoped: !!scoped,
+            ...requestedWindow
+        });
+        return list.text;
+    }
+
+    private async requestUnmute(
+        command: ICommand,
+        message: IChatMessage,
+        threadTs: string): Promise<string> {
+        const mutes = await this.getActiveMutes();
+        if (mutes.length === 0) {
+            return messages.renderNothingToDo("unmute");
+        }
+        if (command.all) {
+            return await this.unmute(mutes, message);
+        }
+        const list = messages.renderSelectionListOrTooLong({
+            kind: "unmute",
+            candidates: mutes,
+            dashboardHint: this.config.dashboardHint
+        });
+        if (!list.fits) {
+            return list.text;
+        }
+        this.selections.pin({
+            kind: "unmute",
+            channel: message.channel,
+            threadTs,
+            userId: message.userId,
+            candidates: mutes
+        });
+        return list.text;
     }
 
     /*
@@ -282,76 +408,19 @@ export class ChatOpsService {
         return active.filter(x => ids.has(x.id));
     }
 
-    private async requestMute(
-        command: ICommand,
-        message: IChatMessage,
-        threadTs: string): Promise<string> {
-        const scoped = await this.getThreadAlerts(message, threadTs);
-        const candidates = scoped ?? await this.getActiveAlerts();
-        if (candidates.length === 0) {
-            return scoped
-                ? messages.renderThreadCleared()
-                : messages.renderNothingToDo("mute");
-        }
-        // inside a thread the target is already unambiguous when there is one alert, or when the
-        // user said "this" or "all"
-        const actDirectly = command.all
-            || (!!scoped && (command.scopedToThread || candidates.length === 1));
-        if (actDirectly) {
-            return await this.mute(candidates, { durationMs: command.durationMs }, message);
-        }
-        const list = messages.renderSelectionListOrTooLong(
-            "mute",
-            candidates,
-            messages.describeInstant(this.defaultMuteUntil()),
-            this.config.dashboardHint);
-        if (!list.fits) {
-            // a list too big to post is unusable - "mute all" needs no list, so it stays available
-            return list.text;
-        }
-        this.selections.pin("mute", message.channel, threadTs, message.userId, candidates, !!scoped);
-        return list.text;
-    }
-
-    private async requestUnmute(
-        command: ICommand,
-        message: IChatMessage,
-        threadTs: string): Promise<string> {
-        const mutes = await this.getActiveMutes();
-        if (mutes.length === 0) {
-            return messages.renderNothingToDo("unmute");
-        }
-        if (command.all) {
-            return await this.unmute(mutes, message);
-        }
-        const list = messages.renderSelectionListOrTooLong(
-            "unmute",
-            mutes,
-            null,
-            this.config.dashboardHint);
-        if (!list.fits) {
-            return list.text;
-        }
-        this.selections.pin("unmute", message.channel, threadTs, message.userId, mutes);
-        return list.text;
-    }
-
-    private async mute(
-        chosen: ISelectionCandidate[],
-        window: IMuteWindowRequest,
-        actor: IChatMessage,
-        pinned?: ISelectionCandidate[]): Promise<string> {
+    private async mute(request: IMuteRequest): Promise<string> {
+        const { chosen, actor, pinnedList } = request;
         if (chosen.length === 0) {
             return messages.renderNothingToDo("mute");
         }
-        const { until, ignored } = this.resolveMuteUntil(window);
+        const { until, ignored } = this.resolveMuteUntil(request.window);
         const active = await this.getActiveAlerts();
         const activeIds = new Set(active.map(x => x.id));
         // an alert that recovered while the user was typing is still muted - flapping is the most
         // common reason to reach for mute in the first place
         const resolvedSince = chosen.filter(x => !activeIds.has(x.id));
-        const firedSince = pinned
-            ? active.filter(x => !pinned.some(candidate => candidate.id === x.id))
+        const firedSince = pinnedList
+            ? active.filter(x => !pinnedList.some(candidate => candidate.id === x.id))
             : [];
         await Muter.getInstance().registerMutes(
             chosen.map(x => mutePatternFor(x.id)),
@@ -359,8 +428,7 @@ export class ChatOpsService {
             until);
         log(`chatops: muted ${ chosen.length } alert(s) until ${ until.toISOString() }`);
         await recordChatOpsAudit({
-            channel: actor?.channel,
-            userId: actor?.userId,
+            ...await this.identify(actor),
             action: "mute",
             detail: {
                 alerts: chosen.map(x => x.id),
@@ -368,7 +436,7 @@ export class ChatOpsService {
                 requested: actor?.text
             }
         });
-        return messages.renderMuteOutcome(chosen, until, firedSince, resolvedSince, ignored);
+        return messages.renderMuteOutcome({ muted: chosen, until, firedSince, resolvedSince, ignoredUntil: ignored });
     }
 
     private async unmute(
@@ -380,8 +448,7 @@ export class ChatOpsService {
         await Muter.getInstance().unmute(chosen.map(x => x.id));
         log(`chatops: lifted ${ chosen.length } mute(s)`);
         await recordChatOpsAudit({
-            channel: actor?.channel,
-            userId: actor?.userId,
+            ...await this.identify(actor),
             action: "unmute",
             detail: {
                 mutes: chosen.map(x => x.id),
@@ -391,10 +458,31 @@ export class ChatOpsService {
         return messages.renderUnmuteOutcome(chosen);
     }
 
+    private async identify(actor: IChatMessage): Promise<Pick<IChatOpsAuditEntry, "channel" | "userId" | "userName">> {
+        return {
+            channel: actor?.channel,
+            userId: actor?.userId,
+            userName: await this.api.getUserName(actor?.userId)
+        };
+    }
+
     private async status(): Promise<string> {
         return messages.renderStatus(
             await this.getActiveAlerts(),
             await this.getActiveMutes());
+    }
+
+    private help(): string {
+        return this.resolver
+            ? messages.renderHelpWithInterpretation(this.config.dashboardHint)
+            : messages.renderHelp(this.config.dashboardHint);
+    }
+
+    private describeMuteExpiry(requested: IMuteWindowRequest): messages.IMuteExpiry {
+        return {
+            description: messages.describeInstant(this.resolveMuteUntil(requested).until),
+            wasRequested: requested.durationMs > 0 || !!requested.until
+        };
     }
 
     /*

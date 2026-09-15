@@ -125,26 +125,39 @@ const ChatEventRetentionMs = 24 * 60 * 60 * 1000;
  */
 export async function tryRecordChatEvent(id: string): Promise<boolean> {
     try {
-        await _connection("chat_events").insert({
-            id,
-            date: new Date().toISOString()
-        });
+        return await recordFirstDelivery(id);
     } catch (err) {
-        if (isDuplicateKeyError(err)) {
-            return false;
-        }
-        // slack has already been acked by this point and will not redeliver, so a message dropped
-        // here is dropped for good - better to risk handling it twice than not at all
-        log(`error recording chat event '${ id }', handling it anyway: ${ err }`, err);
-        return true;
+        return shouldHandleDespite(err, id);
     }
+}
+
+async function recordFirstDelivery(id: string): Promise<boolean> {
+    await _connection("chat_events").insert({
+        id,
+        date: new Date().toISOString()
+    });
+    await pruneChatEvents();
+    return true;
+}
+
+async function pruneChatEvents(): Promise<void> {
     try {
         await _connection("chat_events")
             .where("date", "<", new Date(Date.now() - ChatEventRetentionMs).toISOString())
             .del();
     } catch {
-        // housekeeping only, and the event is already recorded
+        // housekeeping only - the event is already recorded, and the next pass prunes what this
+        // one missed
     }
+}
+
+function shouldHandleDespite(err: any, id: string): boolean {
+    if (isDuplicateKeyError(err)) {
+        return false;
+    }
+    // slack has already been acked by this point and will not redeliver, so a message dropped
+    // here is dropped for good - better to risk handling it twice than not at all
+    log(`error recording chat event '${ id }', handling it anyway: ${ err }`, err);
     return true;
 }
 
@@ -167,31 +180,37 @@ export interface IChatOpsAuditEntry {
     date?: Date;
     channel: string;
     userId: string;
+    userName?: string;
     action: string;
     detail: any;
 }
 
 /*
  Records which alerts a slack message was reporting, so that a reply in its thread can be resolved
- back to them. Best effort - alerting must not fail because chat ops could not take a note.
+ back to them.
  */
 export async function recordChatThread(thread: IChatThread): Promise<void> {
     try {
-        await _connection("chat_threads")
-            .insert({
-                channel: thread.channel,
-                thread_ts: thread.threadTs,
-                alert_ids: JSON.stringify(thread.alertIds ?? []),
-                date: new Date().toISOString()
-            })
-            .onConflict(["channel", "thread_ts"])
-            .merge(["alert_ids", "date"]);
-        await _connection("chat_threads")
-            .where("date", "<", new Date(Date.now() - ChatThreadRetentionMs).toISOString())
-            .del();
+        await writeChatThread(thread);
     } catch {
-        // no-op
+        // alerting must not fail because chat ops could not take a note - without the note a reply
+        // in the thread falls back to acting on everything currently active
     }
+}
+
+async function writeChatThread(thread: IChatThread): Promise<void> {
+    await _connection("chat_threads")
+        .insert({
+            channel: thread.channel,
+            thread_ts: thread.threadTs,
+            alert_ids: JSON.stringify(thread.alertIds ?? []),
+            date: new Date().toISOString()
+        })
+        .onConflict(["channel", "thread_ts"])
+        .merge(["alert_ids", "date"]);
+    await _connection("chat_threads")
+        .where("date", "<", new Date(Date.now() - ChatThreadRetentionMs).toISOString())
+        .del();
 }
 
 export async function getChatThread(
@@ -212,19 +231,24 @@ export async function getChatThread(
 
 export async function recordChatOpsAudit(entry: IChatOpsAuditEntry): Promise<void> {
     try {
-        await _connection("chat_ops_audit").insert({
-            date: new Date().toISOString(),
-            channel: entry.channel,
-            user_id: entry.userId,
-            action: entry.action,
-            detail: JSON.stringify(entry.detail ?? {})
-        });
-        await _connection("chat_ops_audit")
-            .where("date", "<", new Date(Date.now() - ChatOpsAuditRetentionMs).toISOString())
-            .del();
+        await writeChatOpsAudit(entry);
     } catch {
-        // no-op
+        // the mute itself has already been applied - failing here would tell the user nothing
+        // happened when it did
     }
+}
+
+async function writeChatOpsAudit(entry: IChatOpsAuditEntry): Promise<void> {
+    await _connection("chat_ops_audit").insert({
+        date: new Date().toISOString(),
+        channel: entry.channel,
+        user_id: entry.userId,
+        action: entry.action,
+        detail: JSON.stringify({ ...(entry.detail ?? {}), userName: entry.userName ?? null })
+    });
+    await _connection("chat_ops_audit")
+        .where("date", "<", new Date(Date.now() - ChatOpsAuditRetentionMs).toISOString())
+        .del();
 }
 
 export async function getChatOpsAudit(limit: number = 100): Promise<IChatOpsAuditEntry[]> {
@@ -235,14 +259,18 @@ export async function getChatOpsAudit(limit: number = 100): Promise<IChatOpsAudi
         .where("date", ">=", new Date(Date.now() - ChatOpsAuditRetentionMs).toISOString())
         .orderBy("id", "desc")
         .limit(limit);
-    return results.map(x => ({
-        id: x.id,
-        date: new Date(x.date),
-        channel: x.channel,
-        userId: x.user_id,
-        action: x.action,
-        detail: JSON.parse(x.detail ?? "{}")
-    }));
+    return results.map(x => {
+        const detail = JSON.parse(x.detail ?? "{}");
+        return {
+            id: x.id,
+            date: new Date(x.date),
+            channel: x.channel,
+            userId: x.user_id,
+            userName: detail.userName ?? null,
+            action: x.action,
+            detail
+        };
+    });
 }
 
 export async function addMuteWindow(window: IMuteWindowDb) {

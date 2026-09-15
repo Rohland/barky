@@ -1,4 +1,5 @@
-import { CommandType, parseCommand, parseDuration, parseSelectionReply } from "./parser.js";
+import { CommandType, parseCommand, parseDuration, parseSelectionReply, parseUntil } from "./parser.js";
+import { initLocaleAndTimezone } from "../lib/utility.js";
 
 describe("chatops parser", () => {
 
@@ -165,6 +166,82 @@ describe("chatops parser", () => {
                 expect(parseSelectionReply("1,3", "unmute" as any)).not.toBeNull();
                 expect(parseSelectionReply("all", "unmute" as any).all).toEqual(true);
             });
+        });
+    });
+    describe("parseUntil", () => {
+        beforeEach(() => {
+            initLocaleAndTimezone({ locale: "en-ZA", timezone: "Africa/Johannesburg" });
+        });
+
+        // 2026-09-15 is a Tuesday. 08:00 SAST is 06:00Z, so 09:00Z is 11:00 local.
+        const tuesdayMorning = new Date("2026-09-15T04:00:00Z");   // Tue 06:00 local
+        const tuesdayAfternoon = new Date("2026-09-15T12:00:00Z"); // Tue 14:00 local
+
+        describe.each([
+            ["until tomorrow", tuesdayAfternoon, "2026-09-16 08:00"],
+            ["until monday", tuesdayAfternoon, "2026-09-21 08:00"],
+            ["until thursday", tuesdayAfternoon, "2026-09-17 08:00"],
+            ["until friday", tuesdayAfternoon, "2026-09-18 08:00"],
+            ["until sunday", tuesdayAfternoon, "2026-09-20 08:00"],
+            // abbreviations barky already understands elsewhere
+            ["until mon", tuesdayAfternoon, "2026-09-21 08:00"],
+            ["until thurs", tuesdayAfternoon, "2026-09-17 08:00"],
+            ["till friday", tuesdayAfternoon, "2026-09-18 08:00"],
+            ["until next monday", tuesdayAfternoon, "2026-09-21 08:00"],
+            ["UNTIL Tomorrow", tuesdayAfternoon, "2026-09-16 08:00"]
+        ])("given '%s'", (input, now, expected) => {
+            it(`should resolve to ${ expected }`, async () => {
+                expect(parseUntil(input, now)).toEqual(expected);
+            });
+        });
+
+        describe("naming the day it already is", () => {
+            it("should mean today when the hour is still ahead", async () => {
+                // Tuesday 06:00 local, so Tuesday 08:00 has not happened yet
+                expect(parseUntil("until tuesday", tuesdayMorning)).toEqual("2026-09-15 08:00");
+            });
+            it("should mean next week once the hour has passed", async () => {
+                expect(parseUntil("until tuesday", tuesdayAfternoon)).toEqual("2026-09-22 08:00");
+            });
+        });
+
+        describe.each([
+            ["until the end of the outage"],
+            ["until later"],
+            ["mute all"],
+            [""],
+            [null]
+        ])("given '%s'", (input) => {
+            it("should return nothing, leaving it to be interpreted", async () => {
+                expect(parseUntil(input, tuesdayAfternoon)).toBeNull();
+            });
+        });
+    });
+
+    describe("commands carrying an until", () => {
+        beforeEach(() => {
+            initLocaleAndTimezone({ locale: "en-ZA", timezone: "Africa/Johannesburg" });
+        });
+
+        it.each([
+            ["mute until tomorrow", CommandType.Mute, false],
+            ["mute all until monday", CommandType.Mute, true],
+            ["mute this until thursday", CommandType.Mute, false]
+        ])("should parse '%s'", async (input, type, all) => {
+            const result = parseCommand(input);
+            expect(result.type).toEqual(type);
+            expect(result.all).toEqual(all);
+            expect(result.until).not.toBeNull();
+        });
+        it("should carry it on a reply to a list too", async () => {
+            const result = parseSelectionReply("1,3 until friday");
+            expect(result.indices).toEqual([1, 3]);
+            expect(result.until).not.toBeNull();
+        });
+        it("should keep 'all' readable alongside it", async () => {
+            const result = parseSelectionReply("all until tomorrow");
+            expect(result.all).toEqual(true);
+            expect(result.until).not.toBeNull();
         });
     });
 });

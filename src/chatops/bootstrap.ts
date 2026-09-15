@@ -10,11 +10,11 @@ const RetryAfterFailureMs = 5 * 60 * 1000;
 let _listener: SlackChatOpsListener = null;
 let _nextAttemptAfter = 0;
 
-export function findChatOpsChannelConfig(digest: any) {
-    const channels = digest?.channels ?? {};
-    return Object.keys(channels)
-        .map(name => channels[name])
-        .find(channel => channel?.type?.toLowerCase() === "slack" && channel["chat-ops"]?.enabled === true);
+export type ListenerFactory = (config: ChatOpsConfig, channel: any) => SlackChatOpsListener;
+
+export interface IStartChatOpsOptions {
+    now?: number;
+    createListener?: ListenerFactory;
 }
 
 /*
@@ -22,18 +22,12 @@ export function findChatOpsChannelConfig(digest: any) {
  must not stop barky from monitoring. A failed connection is retried on a later pass rather than
  once every loop, so a permanently bad token cannot flood the log.
  */
-export type ListenerFactory = (config: ChatOpsConfig, channel: any) => SlackChatOpsListener;
-
-function buildListener(config: ChatOpsConfig, channel: any): SlackChatOpsListener {
-    const service = new ChatOpsService(config, new SlackApi(getEnvVar(channel.token)));
-    return new SlackChatOpsListener(config, service);
-}
-
 export async function startChatOps(
     args: any,
     digest: any,
-    now: number = Date.now(),
-    createListener: ListenerFactory = buildListener): Promise<SlackChatOpsListener> {
+    options: IStartChatOpsOptions = {}): Promise<SlackChatOpsListener> {
+    const now = options.now ?? Date.now();
+    const createListener = options.createListener ?? buildListener;
     // the configuration is reloaded on every pass, so a channel that has had chat ops removed or
     // switched off must take the listener down with it rather than leaving the socket live until
     // the process restarts
@@ -78,8 +72,21 @@ export async function stopChatOps() {
     try {
         await _listener?.stop();
     } catch {
-        // no-op
+        // a socket that will not close cleanly is already gone as far as barky is concerned, and
+        // the reference is dropped below either way
     }
     _listener = null;
     _nextAttemptAfter = 0;
+}
+
+export function findChatOpsChannelConfig(digest: any) {
+    const channels = digest?.channels ?? {};
+    return Object.keys(channels)
+        .map(name => channels[name])
+        .find(channel => channel?.type?.toLowerCase() === "slack" && channel["chat-ops"]?.enabled === true);
+}
+
+function buildListener(config: ChatOpsConfig, channel: any): SlackChatOpsListener {
+    const service = new ChatOpsService(config, new SlackApi(getEnvVar(channel.token)));
+    return new SlackChatOpsListener(config, service);
 }

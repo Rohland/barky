@@ -8,7 +8,7 @@ describe("SelectionStore", () => {
     ];
 
     function pinInto(store: SelectionStore, userId = "U1") {
-        return store.pin("mute", "C1", "1.1", userId, candidates);
+        return store.pin({ kind: "mute", channel: "C1", threadTs: "1.1", userId, candidates });
     }
 
     describe("pin and get", () => {
@@ -35,16 +35,21 @@ describe("SelectionStore", () => {
         it("should replace an earlier list for the same conversation", async () => {
             const sut = new SelectionStore(60_000);
             pinInto(sut);
-            sut.pin("unmute", "C1", "1.1", "U1", [candidates[0]]);
+            sut.pin({ kind: "unmute", channel: "C1", threadTs: "1.1", userId: "U1", candidates: [candidates[0]] });
             const result = sut.get("C1", "1.1", "U1");
             expect(result.kind).toEqual("unmute");
             expect(result.candidates).toHaveLength(1);
             expect(sut.size).toEqual(1);
         });
+        it("should carry a period requested when the list was raised", async () => {
+            const sut = new SelectionStore(60_000);
+            sut.pin({ kind: "mute", channel: "C1", threadTs: "1.1", userId: "U1", candidates, durationMs: 3600000 });
+            expect(sut.get("C1", "1.1", "U1").durationMs).toEqual(3600000);
+        });
         it("should default to being a list of everything, not a scoped one", async () => {
             const sut = new SelectionStore(60_000);
             expect(pinInto(sut).scoped).toEqual(false);
-            expect(sut.pin("mute", "C1", "2.2", "U1", candidates, true).scoped).toEqual(true);
+            expect(sut.pin({ kind: "mute", channel: "C1", threadTs: "2.2", userId: "U1", candidates, scoped: true }).scoped).toEqual(true);
         });
     });
 

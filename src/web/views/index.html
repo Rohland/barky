@@ -462,7 +462,17 @@
                                 {{ entry.action === 'mute' ? '🔕 muted' : '🔔 unmuted' }}
                             </span>
                         </td>
-                        <td class="p-2 whitespace-nowrap">{{ entry.userId }}</td>
+                        <td class="p-2 whitespace-nowrap">
+                            <span v-if="entry.userName">{{ entry.userName }}</span>
+                            <span v-else
+                                  class="border-b border-dotted border-gray-400 cursor-help"
+                                  title="Slack display names need the optional users:read scope on the app - without it, entries are recorded against the Slack user id">
+                                {{ entry.userId }}
+                            </span>
+                            <div v-if="entry.userName" class="text-xs text-gray-500 dark:text-gray-400">
+                                {{ entry.userId }}
+                            </div>
+                        </td>
                         <td class="p-2">
                             <div v-for="id in auditTargets(entry)">{{ id }}</div>
                             <div v-if="entry.detail && entry.detail.requested"

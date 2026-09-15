@@ -786,22 +786,61 @@ These are two different Slack credentials and both are needed - they are not a d
   It is what barky *listens* on. It is scoped to the app rather than to a workspace installation,
   and cannot post anything by itself.
 
+Barky checks its granted scopes when it starts and logs which are missing (visible with `--debug`),
+since an app that cannot read mentions looks exactly like one that is ignoring you.
+
 Chat ops connects over [Socket Mode](https://docs.slack.dev/apis/events-api/using-socket-mode),
 so barky needs no inbound network access and no public URL. It only runs under the `loop` command,
 since the connection has to outlive a single evaluation. If Slack cannot be reached, barky logs it
 and carries on monitoring, retrying every five minutes.
+
+Two settings are needed to receive anything, on two different screens, and **both are required**:
+
+- **OAuth & Permissions** grants the app *permission* to read mentions and channel history
+- **Event Subscriptions** tells Slack to actually *send* those events
+
+Granting the scope does not subscribe you to the event. With scopes but no subscriptions, barky
+connects to Slack successfully, posts alerts, and silently never receives a single reply - there is
+no error anywhere, because nothing is wrong from Slack's point of view.
 
 **Setting up a new Slack app**
 
 1. Create an app at api.slack.com/apps.
 2. Under *Socket Mode*, turn it on. This generates an app level token with the `connections:write`
    scope - that is `app-token` above.
-3. Under *OAuth & Permissions*, add the bot scopes `chat:write`, `app_mentions:read`,
-   `channels:history` and `reactions:write`.
-4. Under *Event Subscriptions*, turn events on and subscribe to `app_mention` and
-   `message.channels`.
+3. Under *OAuth & Permissions* → *Scopes* → *Bot Token Scopes*, add the scopes in the table below.
+4. Under *Event Subscriptions*, toggle *Enable Events* on, then expand *Subscribe to bot events*
+   and add both `app_mention` and `message.channels` (`message.groups` for a private channel).
+   Socket Mode means there is no request URL to verify - the section may look finished without
+   these, so check the list itself rather than the toggle.
 5. Install the app to the workspace and copy the bot token (`xoxb-...`) into `token`.
 6. Invite the bot to the channel barky posts to.
+
+**Bot token scopes**
+
+| Scope | Required | What it is for | Without it |
+|---|---|---|---|
+| `chat:write` | yes | Posting alerts and replies | Nothing works |
+| `app_mentions:read` | yes | Being told when someone mentions barky | Barky never receives anything |
+| `channels:history` | yes | Reading the thread a mention arrived in (`groups:history` for a private channel) | Barky never receives anything |
+| `users:read` | no | Looking up the display name of whoever ran a command | The chat ops log records the Slack user id (`U0HKZGDKQ`) instead of a name |
+| `reactions:write` | no | The 👀 acknowledgement while barky is thinking | No reaction, everything else unaffected |
+
+Barky reports any that are missing when it starts, visible with `--debug`.
+
+**Naming people in the chat ops log**
+
+Slack only ever tells barky the *id* of whoever sent a message - `U0HKZGDKQ`, never a name. Turning
+that into something readable needs a lookup, and that lookup needs the `users:read` scope. There is
+no way around it: the display name is not in the message payload.
+
+So if the chat ops log shows ids rather than names, add `users:read` under *OAuth & Permissions*
+and reinstall the app. Two things to expect afterwards:
+
+- **Entries already recorded keep their ids.** The name is captured at the time of the action, so
+  only new entries pick it up.
+- Where a name cannot be resolved the id is shown with a dotted underline, and hovering it explains
+  why - so an id in the log always means the scope is absent, never that something failed silently.
 
 **Adding chat ops to the app you already use for alerts**
 
@@ -810,24 +849,57 @@ listen. To add chat ops to it:
 
 1. Open the existing app at api.slack.com/apps and turn on *Socket Mode*, generating an app level
    token (`connections:write`). Put it in `app-token`.
-2. Under *OAuth & Permissions*, add `app_mentions:read`, `channels:history` and `reactions:write`
-   to the bot scopes it already has. **Adding scopes requires reinstalling the app** - Slack will
-   prompt you, and the existing `xoxb-` token keeps working afterwards, so `token` does not change.
-3. Under *Event Subscriptions*, turn events on and subscribe to `app_mention` and
-   `message.channels`. Socket Mode means there is no request URL to verify.
+2. Under *OAuth & Permissions*, add the scopes from the table above to the ones it already has -
+   an app built only to post alerts typically has just `chat:write` and `incoming-webhook`. An app created
+   only to post alerts typically has just `chat:write` and `incoming-webhook`, and **without the
+   read scopes Slack never delivers any events at all** - barky connects, posts alerts and appears
+   to ignore every reply. **Adding scopes requires reinstalling the app** - Slack will prompt you,
+   and the existing `xoxb-` token keeps working afterwards, so `token` does not change.
+3. Under *Event Subscriptions*, toggle *Enable Events* on, then under *Subscribe to bot events*
+   add `app_mention` and `message.channels` (`message.groups` for a private channel). An app that
+   only posted alerts has no subscriptions at all, and this is a **separate step from the scopes
+   above** - adding `app_mentions:read` in step 2 does not subscribe you to `app_mention`.
+   **Changing subscriptions also requires reinstalling**, the same as scopes.
 4. Make sure the bot is a member of the channel - it may already be, if it posts there.
 
 No change to your alert configuration is needed; chat ops sits alongside it.
+
+**If barky posts alerts but ignores every reply**
+
+The app is connected but is not being sent anything. In order of likelihood:
+
+1. *Event Subscriptions* has no `app_mention` under *Subscribe to bot events* - the most common
+   cause, because the scopes screen looks complete on its own.
+2. Scopes or subscriptions were changed without reinstalling the app afterwards.
+3. The bot is not a member of the channel.
+4. The reply did not mention barky, or was not in the thread of one of barky's own alert messages
+   - barky deliberately ignores everything else, including top level mentions in the channel.
+
+**If the chat ops log shows Slack ids instead of names**
+
+The `users:read` scope is not granted - see *Naming people in the chat ops log* above.
+
+Run with `--debug` and barky reports which scopes are missing at startup. The quickest check of the
+rest is your app's *App Manifest*, which should contain:
+
+```yaml
+settings:
+  event_subscriptions:
+    bot_events:
+      - app_mention
+      - message.channels
+  socket_mode_enabled: true
+```
 
 Anyone who can see the channel can mute - channel membership is the authorisation boundary, so
 there is no separate user list to maintain.
 
 **Talking to barky**
 
-Barky only takes part in the threads of its own alert messages, and only when it is spoken to
-there. It does not watch the rest of the channel, it does not answer direct messages, and it stays
-out of conversations between people - including conversations in an alert's own thread. Mention it
-in an alert thread to start, and it replies in that same thread:
+Barky only takes part in the threads of its own alert messages, and only when it is addressed
+directly. It does not watch the rest of the channel, it does not answer direct messages, and it
+stays out of conversations between people - including conversations in an alert's own thread.
+Mention it in an alert thread, and it replies in that same thread:
 
 > **barky**: 🔥 Ongoing Outage!
 > `web::health::www.acme.com` — expected 200, received 500
@@ -844,8 +916,9 @@ in an alert thread to start, and it replies in that same thread:
 > >
 > > **barky**: 🔕 Muted until *12:30 today*: web::health::www.acme.com
 
-Once barky has asked you something, your replies in that thread need no mention - it is waiting on
-you. Anyone else talking in the thread is ignored.
+**Every message to barky must mention it, including answers to its own questions.** That is
+deliberate: people working an outage need to be able to say "all" or "1" to each other in the
+thread without barky acting on it.
 
 The list is pinned at the moment it is posted, so `all` always means the alerts you were shown -
 anything that starts alerting in between is reported back to you rather than quietly swept into the
@@ -877,8 +950,7 @@ Commands:
 - `help`
 - `cancel` - abandons a pending list
 
-Replies to a list accept `1`, `1,3`, `2 and 4`, `1-3` or `all`, optionally with a period
-(`for 1h`, `for 90 mins`, `for 2 days`).
+Replies to a list accept `1`, `1,3`, `2 and 4`, `1-3` or `all`, optionally with an expiry.
 
 Where a list would be too long to fit in a single Slack message, barky points at the dashboard
 instead of posting an unusable wall of numbers. `mute all` needs no list, so it still works.
@@ -886,7 +958,8 @@ instead of posting an unusable wall of numbers. `mute all` needs no list, so it 
 **Audit trail**
 
 Every mute and unmute made through Slack is recorded - who asked, what they said, which alerts were
-affected and until when - and kept for 30 days. It survives Slack message retention and deletion.
+affected and until when - and kept for 30 days. People are named by their Slack display name where
+the optional `users:read` scope is granted, and by their Slack id otherwise. It survives Slack message retention and deletion.
 
 The dashboard has a **Chat ops log** link in the top right that shows it, and it is also available
 as JSON at `/api/chat-ops/audit`.
@@ -897,6 +970,15 @@ With no period given, a mute runs until the next business day - the next occurre
 weekday. This is deliberately not configurable. Note it resolves to the next such moment still
 ahead of you, so muting at 02:00 on a Tuesday lasts until 08:00 that morning rather than until
 Wednesday, and muting on Friday afternoon lasts until Monday.
+
+An expiry can be given either as a period or as a day, on the original request or on the reply to
+a list - `mute for 4h`, `mute until Monday`, `1,3 for 90 mins`, `all until tomorrow`. Periods accept
+`s`, `m`/`mins`/`minutes`, `h`/`hours` and `d`/`days`. Days accept `tomorrow` or any weekday, long
+or short (`until thurs`), and resolve to 08:00 on the next such day still ahead - so `until
+Thursday` said on a Thursday afternoon means the following one.
+
+Saying it once is enough: an expiry given with the original request survives the detour through a
+numbered list, and an expiry named on the reply overrides it.
 
 Anything longer than `max-mute` is capped. Barky's own default is exempt, since on a Friday it
 legitimately reaches into Monday.

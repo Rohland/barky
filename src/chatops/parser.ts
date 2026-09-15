@@ -1,5 +1,6 @@
-import { parsePeriodToMillis } from "../lib/period-parser.js";
-import { fromLocalDateAndTime } from "../lib/utility.js";
+import { parseDaysOfWeek, parsePeriodToMillis } from "../lib/period-parser.js";
+import { addLocalDays, fromLocalDateAndTime, localWeekday, toLocalDateAndTime } from "../lib/utility.js";
+import { BusinessStart } from "../lib/time.js";
 import { SelectionKind } from "./selection.js";
 
 export enum CommandType {
@@ -16,12 +17,14 @@ export interface ICommand {
     // "mute this" only means everything when said in an alert's thread, where "this" has a referent
     scopedToThread?: boolean;
     durationMs?: number;
+    until?: string;
 }
 
 export interface ISelectionReply {
     all: boolean;
     indices: number[];
     durationMs?: number;
+    until?: string;
 }
 
 // no list barky posts comes close to this - anything larger is a typo or an attempt to make the
@@ -39,46 +42,16 @@ const DurationRegex = new RegExp(
     `(?:^|\\s|\\bfor\\s+)(\\d+)\\s*(${ Object.keys(DurationUnits).join("|") })\\b`,
     "i");
 
-/*
- Extracts a duration such as "for 1h", "90 mins" or "2 days". Returns null when none is present,
- which the caller reads as "use the default" rather than as a failure to understand.
- */
-export function parseDuration(input: string): number {
-    const match = DurationRegex.exec(input ?? "");
-    if (!match) {
-        return null;
-    }
-    const unit = DurationUnits[match[2].toLowerCase()];
-    // parsePeriodToMillis reads the clock twice, so trim the sub-second drift between the two
-    const millis = parsePeriodToMillis(`${ match[1] }${ unit }`);
-    return Math.round(millis / 1000) * 1000;
-}
+// "until tomorrow", "until Monday", "till thurs"
+const UntilRegex = /\b(?:until|till|til)\s+(?:the\s+)?(?:next\s+)?([a-z]+)\b/i;
 
-/*
- Parses a local wall clock moment ("2026-09-21 08:00") into the instant it refers to in the
- configured timezone. Returns null for anything malformed.
- */
-export function parseLocalDateTime(input: string): Date {
-    const match = /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})/.exec((input ?? "").trim());
-    if (!match) {
-        return null;
-    }
-    try {
-        const result = fromLocalDateAndTime(match[1], match[2]);
-        return Number.isNaN(result.getTime()) ? null : result;
-    } catch {
-        return null;
-    }
-}
+// a weekday recurs within this many days of any starting point
+const DaysInWeek = 7;
 
-function stripMention(input: string): string {
-    // messages addressed to the bot arrive as "<@U123> mute", and the mention may be repeated
-    return (input ?? "").replace(/<@[^>]+>/g, " ").trim();
-}
+// trailing punctuation people type but do not mean - "mute all!"
+const TrailingPunctuationRegex = /(?<=.)[.!?]+$/;
 
-function withoutDuration(input: string): string {
-    return input.replace(DurationRegex, " ").replace(/\bfor\b/gi, " ").trim();
-}
+const IndexRangeRegex = /^(\d+)\s*[-–]\s*(\d+)$/;
 
 /*
  Parses the commands barky understands without help from a language model. Returns null for
@@ -89,8 +62,7 @@ export function parseCommand(input: string): ICommand {
     if (!text) {
         return null;
     }
-    const durationMs = parseDuration(text);
-    const remainder = withoutDuration(text).replace(/(?<=.)[.!?]+$/, "").trim();
+    const { durationMs, until, remainder } = takePeriod(text);
     switch (remainder) {
         case "help":
         case "?":
@@ -104,15 +76,15 @@ export function parseCommand(input: string): ICommand {
         case "never mind":
             return { type: CommandType.Cancel };
         case "mute":
-            return { type: CommandType.Mute, all: false, durationMs };
+            return { type: CommandType.Mute, all: false, durationMs, until };
         case "mute this":
         case "mute these":
         case "mute this one":
         case "mute it":
-            return { type: CommandType.Mute, all: false, scopedToThread: true, durationMs };
+            return { type: CommandType.Mute, all: false, scopedToThread: true, durationMs, until };
         case "mute all":
         case "mute everything":
-            return { type: CommandType.Mute, all: true, durationMs };
+            return { type: CommandType.Mute, all: true, durationMs, until };
         case "unmute":
             return { type: CommandType.Unmute, all: false };
         case "unmute all":
@@ -135,58 +107,173 @@ export function parseSelectionReply(input: string, kind?: SelectionKind): ISelec
     if (!text) {
         return null;
     }
-    const durationMs = parseDuration(text);
-    let remainder = withoutDuration(text)
-        .replace(/(?<=.)[.!?]+$/, "")
-        .trim();
+    const { durationMs, until, remainder } = takePeriod(text);
+    const selected = withoutMatchingVerb(remainder, kind);
+    if (selected === null) {
+        return null;
+    }
+    if (/^(all|all of them|everything|both)$/.test(selected)) {
+        return { all: true, indices: [], durationMs, until };
+    }
+    const indices = parseIndices(selected);
+    return indices
+        ? { all: false, indices, durationMs, until }
+        : null;
+}
+
+function withoutMatchingVerb(remainder: string, kind?: SelectionKind): string {
     const verb = /^(mute|unmute)\s+/.exec(remainder);
-    if (verb) {
-        if (kind && verb[1] !== kind) {
-            return null;
-        }
-        remainder = remainder.substring(verb[0].length).trim();
+    if (!verb) {
+        return remainder;
     }
-    if (/^(all|all of them|everything|both)$/.test(remainder)) {
-        return { all: true, indices: [], durationMs };
-    }
+    return kind && verb[1] !== kind
+        ? null
+        : remainder.substring(verb[0].length).trim();
+}
+
+/*
+ Expands "1", "1,3", "2 and 4" or "1-3" into the indices named. Returns null when any part is not a
+ number, so that a half understood answer never acts on the half that was understood.
+ */
+function parseIndices(input: string): number[] {
     // normalise the separators people actually type before looking for numbers
-    remainder = remainder.replace(/\band\b|&|\+/g, ",");
-    if (!/^[\d\s,\-–]+$/.test(remainder)) {
+    const text = input.replace(/\band\b|&|\+/g, ",");
+    if (!/^[\d\s,\-–]+$/.test(text)) {
         return null;
     }
     const indices = [];
-    for (const part of remainder.split(",")) {
+    for (const part of text.split(",")) {
         const token = part.trim();
         if (!token) {
             continue;
         }
-        const range = /^(\d+)\s*[-–]\s*(\d+)$/.exec(token);
-        if (range) {
-            const from = parseInt(range[1]);
-            const to = parseInt(range[2]);
-            if (from > to || to > MaxSelectableIndex) {
-                return null;
-            }
-            for (let i = from; i <= to; i++) {
-                indices.push(i);
-            }
-            continue;
-        }
-        if (!/^\d+$/.test(token)) {
+        const expanded = expandIndexToken(token);
+        if (!expanded) {
             return null;
         }
-        const index = parseInt(token);
-        if (index > MaxSelectableIndex) {
-            return null;
-        }
-        indices.push(index);
+        indices.push(...expanded);
     }
-    if (indices.length === 0) {
+    return indices.length === 0
+        ? null
+        : Array.from(new Set(indices)).sort((a, b) => a - b);
+}
+
+function expandIndexToken(token: string): number[] {
+    const range = IndexRangeRegex.exec(token);
+    if (range) {
+        return expandIndexRange(parseInt(range[1]), parseInt(range[2]));
+    }
+    if (!/^\d+$/.test(token)) {
         return null;
     }
+    const index = parseInt(token);
+    return index > MaxSelectableIndex ? null : [index];
+}
+
+function expandIndexRange(from: number, to: number): number[] {
+    if (from > to || to > MaxSelectableIndex) {
+        return null;
+    }
+    const indices = [];
+    for (let i = from; i <= to; i++) {
+        indices.push(i);
+    }
+    return indices;
+}
+
+function stripMention(input: string): string {
+    // messages addressed to the bot arrive as "<@U123> mute", and the mention may be repeated
+    return (input ?? "").replace(/<@[^>]+>/g, " ").trim();
+}
+
+/*
+ Splits the period out of a message - "mute 1,3 for 4h until monday" is a period and a remainder of
+ "mute 1,3" - so the callers above only ever match against what is left.
+ */
+function takePeriod(text: string): { durationMs: number, until: string, remainder: string } {
     return {
-        all: false,
-        indices: Array.from(new Set(indices)).sort((a, b) => a - b),
-        durationMs
+        durationMs: parseDuration(text),
+        until: parseUntil(text),
+        remainder: withoutPeriod(text).replace(TrailingPunctuationRegex, "").trim()
     };
+}
+
+function withoutPeriod(input: string): string {
+    return input
+        .replace(UntilRegex, " ")
+        .replace(DurationRegex, " ")
+        .replace(/\bfor\b/gi, " ")
+        .trim();
+}
+
+/*
+ Extracts a duration such as "for 1h", "90 mins" or "2 days". Returns null when none is present,
+ which the caller reads as "use the default" rather than as a failure to understand.
+ */
+export function parseDuration(input: string): number {
+    const match = DurationRegex.exec(input ?? "");
+    if (!match) {
+        return null;
+    }
+    const unit = DurationUnits[match[2].toLowerCase()];
+    // parsePeriodToMillis reads the clock twice, so trim the sub-second drift between the two
+    const millis = parsePeriodToMillis(`${ match[1] }${ unit }`);
+    return Math.round(millis / 1000) * 1000;
+}
+
+/*
+ Resolves "until tomorrow" or "until <weekday>" to a local wall clock moment, using the same start
+ of business barky's default expiry uses. Returns null for anything else, which is left for the
+ language model to make sense of.
+ */
+export function parseUntil(input: string, now?: Date): string {
+    const match = UntilRegex.exec(input ?? "");
+    if (!match) {
+        return null;
+    }
+    const from = now ?? new Date();
+    const token = match[1].toLowerCase();
+    if (token === "tomorrow") {
+        return startOfBusinessOn(addLocalDays(toLocalDateAndTime(from).date, 1));
+    }
+    const days = parseDaysOfWeek([token]);
+    return days.length === 0
+        ? null
+        : nextStartOfBusinessOnWeekday(days[0], from);
+}
+
+/*
+ The next occurrence of the named weekday that is still ahead - saying "until Thursday" on a
+ Thursday afternoon means the following one.
+ */
+function nextStartOfBusinessOnWeekday(weekday: number, from: Date): string {
+    const today = toLocalDateAndTime(from).date;
+    for (let offset = 0; offset <= DaysInWeek; offset++) {
+        const date = addLocalDays(today, offset);
+        if (localWeekday(date) === weekday && fromLocalDateAndTime(date, BusinessStart) > from) {
+            return startOfBusinessOn(date);
+        }
+    }
+    return null;
+}
+
+function startOfBusinessOn(date: string): string {
+    return `${ date } ${ BusinessStart }`;
+}
+
+/*
+ Parses a local wall clock moment ("2026-09-21 08:00") into the instant it refers to in the
+ configured timezone. Returns null for anything malformed.
+ */
+export function parseLocalDateTime(input: string): Date {
+    const match = /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})/.exec((input ?? "").trim());
+    if (!match) {
+        return null;
+    }
+    try {
+        const result = fromLocalDateAndTime(match[1], match[2]);
+        return Number.isNaN(result.getTime()) ? null : result;
+    } catch {
+        return null;
+    }
 }

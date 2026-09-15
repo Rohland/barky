@@ -112,8 +112,8 @@ describe("chatops bootstrap", () => {
                 const digest = digestWith({ enabled: true, "app-token": "test-app-token" });
 
                 // act
-                await startChatOps({ loop: true }, digest, Date.now(), fakeListener(record));
-                await startChatOps({ loop: true }, digest, Date.now(), fakeListener(record));
+                await startChatOps({ loop: true }, digest, { now: Date.now(), createListener: fakeListener(record) });
+                await startChatOps({ loop: true }, digest, { now: Date.now(), createListener: fakeListener(record) });
 
                 // assert
                 expect(record.started).toEqual(1);
@@ -129,16 +129,14 @@ describe("chatops bootstrap", () => {
                     await startChatOps(
                         { loop: true },
                         digestWith({ enabled: true, "app-token": "test-app-token" }),
-                        Date.now(),
-                        factory);
+                        { now: Date.now(), createListener: factory });
                     expect(record.started).toEqual(1);
 
                     // act - the next pass sees a channel with chat ops switched off
                     const result = await startChatOps(
                         { loop: true },
                         digestWith({ enabled: false, "app-token": "test-app-token" }),
-                        Date.now(),
-                        factory);
+                        { now: Date.now(), createListener: factory });
 
                     // assert
                     expect(result).toBeNull();
@@ -149,11 +147,11 @@ describe("chatops bootstrap", () => {
                     const record = { started: 0, stopped: 0, warmed: 0 };
                     const factory = fakeListener(record);
                     const enabled = digestWith({ enabled: true, "app-token": "test-app-token" });
-                    await startChatOps({ loop: true }, enabled, Date.now(), factory);
-                    await startChatOps({ loop: true }, digestWith(null), Date.now(), factory);
+                    await startChatOps({ loop: true }, enabled, { now: Date.now(), createListener: factory });
+                    await startChatOps({ loop: true }, digestWith(null), { now: Date.now(), createListener: factory });
 
                     // act
-                    await startChatOps({ loop: true }, enabled, Date.now(), factory);
+                    await startChatOps({ loop: true }, enabled, { now: Date.now(), createListener: factory });
 
                     // assert
                     expect(record.started).toEqual(2);
@@ -176,11 +174,11 @@ describe("chatops bootstrap", () => {
                 // arrange
                 const digest = digestWith({ enabled: true, "app-token": "test-app-token" });
                 const now = Date.now();
-                await startChatOps({ loop: true }, digest, now);
+                await startChatOps({ loop: true }, digest, { now });
                 const callsAfterFirstAttempt = (console.log as any).mock.calls.length;
 
                 // act - a pass a minute later must not try again
-                await startChatOps({ loop: true }, digest, now + 60_000);
+                await startChatOps({ loop: true }, digest, { now: now + 60_000 });
 
                 // assert
                 expect((console.log as any).mock.calls.length).toEqual(callsAfterFirstAttempt);

@@ -1,4 +1,4 @@
-import { dayOfWeek, flatten, fromLocalDateAndTime, toLocalDateAndTime, toLocalTimeString } from "./utility.js";
+import { addLocalDays, dayOfWeek, flatten, fromLocalDateAndTime, toLocalDateAndTime, toLocalTimeString } from "./utility.js";
 import { parseDaysOfWeek, parseTimeRange } from "./period-parser.js";
 
 export class Time {
@@ -77,15 +77,13 @@ export function nextBusinessHoursStart(now?: Date): Date {
     const startTime = new Time(BusinessStart);
     const wallTime = `${ pad(startTime.hours) }:${ pad(startTime.minutes) }`;
     const from = now ?? new Date();
-    // anchored at midday UTC purely to step calendar days without tripping over DST boundaries
-    const cursor = new Date(`${ toLocalDateAndTime(from).date }T12:00:00Z`);
+    const today = toLocalDateAndTime(from).date;
     const maxDaysToScan = 14;
-    for (let i = 0; i <= maxDaysToScan; i++) {
-        const candidate = fromLocalDateAndTime(cursor.toISOString().substring(0, 10), wallTime);
+    for (let offset = 0; offset <= maxDaysToScan; offset++) {
+        const candidate = fromLocalDateAndTime(addLocalDays(today, offset), wallTime);
         if (candidate > from && days.includes(dayOfWeek(candidate))) {
             return candidate;
         }
-        cursor.setUTCDate(cursor.getUTCDate() + 1);
     }
     throw new Error(`could not resolve the next business day within ${ maxDaysToScan } days`);
 }

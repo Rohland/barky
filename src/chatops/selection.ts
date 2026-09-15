@@ -6,7 +6,7 @@ export interface ISelectionCandidate {
     detail?: string;
 }
 
-export interface IPinnedSelection {
+export interface IPinRequest {
     kind: SelectionKind;
     channel: string;
     threadTs: string;
@@ -14,6 +14,14 @@ export interface IPinnedSelection {
     candidates: ISelectionCandidate[];
     // a list drawn from one alert's thread was never a list of everything, so alerts firing
     // elsewhere are not drift worth reporting against it
+    scoped?: boolean;
+    // a period given when the list was asked for ("mute for 1 hour"), carried so that answering
+    // the list does not quietly discard what was already said
+    durationMs?: number;
+    until?: string;
+}
+
+export interface IPinnedSelection extends IPinRequest {
     scoped: boolean;
     expiresAt: Date;
 }
@@ -39,28 +47,24 @@ export class SelectionStore {
         private readonly graceMs: number = DefaultExpiredGraceMs) {
     }
 
-    private static keyFor(channel: string, threadTs: string, userId: string): string {
-        return [channel, threadTs, userId].join(":");
-    }
-
-    public pin(
-        kind: SelectionKind,
-        channel: string,
-        threadTs: string,
-        userId: string,
-        candidates: ISelectionCandidate[],
-        scoped: boolean = false): IPinnedSelection {
+    public pin(request: IPinRequest): IPinnedSelection {
         const selection = {
-            kind,
-            channel,
-            threadTs,
-            userId,
-            candidates,
-            scoped,
+            ...request,
+            scoped: request.scoped === true,
             expiresAt: new Date(Date.now() + this.ttlMs)
         };
-        this._selections.set(SelectionStore.keyFor(channel, threadTs, userId), selection);
+        this._selections.set(
+            SelectionStore.keyFor(request.channel, request.threadTs, request.userId),
+            selection);
         return selection;
+    }
+
+    public get(
+        channel: string,
+        threadTs: string,
+        userId: string): IPinnedSelection {
+        const found = this.peek(channel, threadTs, userId);
+        return found && !found.expired ? found.selection : null;
     }
 
     public peek(
@@ -75,14 +79,6 @@ export class SelectionStore {
             selection,
             expired: selection.expiresAt <= new Date()
         };
-    }
-
-    public get(
-        channel: string,
-        threadTs: string,
-        userId: string): IPinnedSelection {
-        const found = this.peek(channel, threadTs, userId);
-        return found && !found.expired ? found.selection : null;
     }
 
     public clear(channel: string, threadTs: string, userId: string) {
@@ -100,5 +96,9 @@ export class SelectionStore {
 
     public get size(): number {
         return this._selections.size;
+    }
+
+    private static keyFor(channel: string, threadTs: string, userId: string): string {
+        return [channel, threadTs, userId].join(":");
     }
 }

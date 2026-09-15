@@ -1,3 +1,4 @@
+import { ICompletionRequest } from "./openai.js";
 import { AiIntentResolver, buildInput, buildInstructions, IntentSchema } from "./resolver.js";
 import { AiUnavailableError, IIntentContext, IntentAction } from "./types.js";
 import { AiConfig } from "../config.js";
@@ -210,8 +211,8 @@ describe("AiIntentResolver", () => {
             // arrange
             const used = { model: null };
             const client = {
-                complete: async (model: string) => {
-                    used.model = model;
+                complete: async (request: ICompletionRequest) => {
+                    used.model = request.model;
                     return rawIntent();
                 }
             } as any;

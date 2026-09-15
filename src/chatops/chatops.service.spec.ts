@@ -7,7 +7,7 @@ import { SlackMaxMessageLength } from "../models/channels/slack-api.js";
 import { SlackApi } from "../models/channels/slack-api.js";
 import { Muter } from "../muter.js";
 import { deleteDbIfExists, destroy, getChatOpsAudit, initConnection, recordChatThread } from "../models/db.js";
-import { initLocaleAndTimezone } from "../lib/utility.js";
+import { dayOfWeek, initLocaleAndTimezone, toLocalDateAndTime } from "../lib/utility.js";
 import { singleton } from "../lib/singleton.js";
 
 describe("ChatOpsService", () => {
@@ -16,6 +16,8 @@ describe("ChatOpsService", () => {
     let restoreConsole;
     let posted: { channel: string, text: string, threadTs: string }[];
     let reactions: string[];
+    let grantedScopes: string[];
+    let userNames: Record<string, string>;
 
     beforeEach(async () => {
         restoreConsole = mockConsole();
@@ -24,6 +26,8 @@ describe("ChatOpsService", () => {
         initLocaleAndTimezone({ locale: "en-ZA", timezone: "Africa/Johannesburg" });
         posted = [];
         reactions = [];
+        grantedScopes = ["chat:write", "app_mentions:read", "channels:history", "reactions:write"];
+        userNames = { U1: "Rohland" };
         // the muter is a process wide singleton, so it is reset per test against the test db
         const muter = singleton(Muter.name, () => new Muter()) as Muter;
         await muter.init({ "mute-windows": [] });
@@ -43,7 +47,9 @@ describe("ChatOpsService", () => {
             },
             addReaction: async (_channel: string, _ts: string, reaction: string) => {
                 reactions.push(reaction);
-            }
+            },
+            getGrantedScopes: async () => grantedScopes,
+            getUserName: async (userId: string) => userNames[userId] ?? null
         } as unknown as SlackApi;
     }
 
@@ -58,8 +64,7 @@ describe("ChatOpsService", () => {
         return new ChatOpsService(
             new ChatOpsConfig({ enabled: true, "app-token": "x", ...config }),
             getApi(),
-            getAlertSource(ids),
-            resolver);
+            { alerts: getAlertSource(ids), resolver });
     }
 
     function resolverReturning(intent: Partial<IIntent>): IIntentResolver {
@@ -148,7 +153,7 @@ describe("ChatOpsService", () => {
             it("should not pin a list it never showed", async () => {
                 const sut = getSut(manyLongIds(60));
                 await sut.handleMessage(messageFrom("mute"));
-                expect(sut.hasPendingSelection("C1", "100.000100", "U1")).toEqual(false);
+                expect(sut.pendingSelectionCount).toEqual(0);
             });
             describe("and the user asks to mute all", () => {
                 it("should mute them regardless, since that needs no list", async () => {
@@ -160,7 +165,7 @@ describe("ChatOpsService", () => {
                     await sut.handleMessage(messageFrom("mute all"));
 
                     // assert
-                    expect(lastReply()).toContain("Muted until");
+                    expect(lastReply()).toContain("Muting until");
                     expect(await Muter.getInstance().getDynamicMutes()).toHaveLength(ids.length);
                 });
             });
@@ -212,7 +217,7 @@ describe("ChatOpsService", () => {
                 const sut = new ChatOpsService(
                     new ChatOpsConfig({ enabled: true, "app-token": "x" }),
                     getApi(),
-                    alerts);
+                    { alerts });
                 await sut.handleMessage(messageFrom("mute"));
                 ids.push("web::health::new.com");
 
@@ -237,7 +242,7 @@ describe("ChatOpsService", () => {
                 const sut = new ChatOpsService(
                     new ChatOpsConfig({ enabled: true, "app-token": "x" }),
                     getApi(),
-                    alerts);
+                    { alerts });
                 await sut.handleMessage(messageFrom("mute"));
                 ids.pop();
 
@@ -291,7 +296,6 @@ describe("ChatOpsService", () => {
             const mutes = await Muter.getInstance().getDynamicMutes();
             expect(mutes[0].to.getTime()).toBeGreaterThan(Date.now());
             // the business day default always lands on an 08:00 boundary
-            const { toLocalDateAndTime } = await import("../lib/utility.js");
             expect(toLocalDateAndTime(mutes[0].to).time).toEqual("08:00");
         });
         it("should honour an explicit period", async () => {
@@ -325,7 +329,7 @@ describe("ChatOpsService", () => {
             // assert - the pattern is shown back in readable form, not as an escaped regex
             expect(list).toContain("`1.` web::health::a.com");
             expect(await Muter.getInstance().getDynamicMutes()).toHaveLength(1);
-            expect(lastReply()).toContain("Lifted 1 mute");
+            expect(lastReply()).toContain("Lifting 1 mute");
         });
         describe("when nothing is muted", () => {
             it("should say so", async () => {
@@ -352,6 +356,20 @@ describe("ChatOpsService", () => {
             expect(lastReply()).toContain("mute all");
             expect(lastReply()).toContain("https://barky.acme.com");
         });
+        describe("when barky can interpret free text", () => {
+            it("should say so, since nothing else advertises it", async () => {
+                const sut = getSut([], {}, resolverReturning({}));
+                await sut.handleMessage(messageFrom("help"));
+                expect(lastReply()).toContain("in your own words");
+            });
+        });
+        describe("when barky cannot interpret free text", () => {
+            it("should not offer it", async () => {
+                const sut = getSut([]);
+                await sut.handleMessage(messageFrom("help"));
+                expect(lastReply()).not.toContain("in your own words");
+            });
+        });
     });
 
     describe("when the message is in a thread", () => {
@@ -373,7 +391,7 @@ describe("ChatOpsService", () => {
             const sut = new ChatOpsService(
                 new ChatOpsConfig({ enabled: true, "app-token": "x" }),
                 getApi(),
-                alerts);
+                { alerts });
 
             // act
             await sut.handleMessage(messageFrom("mute"));
@@ -433,8 +451,7 @@ describe("ChatOpsService", () => {
                 it("should mute until then", async () => {
                     // arrange - a wall clock time in the configured timezone
                     const until = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
-                    const { toLocalDateAndTime } = await import("../lib/utility.js");
-                    const local = toLocalDateAndTime(until);
+                            const local = toLocalDateAndTime(until);
                     const sut = getSut(
                         twoAlerts,
                         {},
@@ -592,7 +609,7 @@ describe("ChatOpsService", () => {
                 const mutes = await Muter.getInstance().getDynamicMutes();
                 expect(mutes).toHaveLength(1);
                 expect(mutes[0].match).toContain("a\\.com");
-                expect(lastReply()).toContain("Muted until");
+                expect(lastReply()).toContain("Muting until");
             });
         });
 
@@ -693,6 +710,7 @@ describe("ChatOpsService", () => {
             expect(audit[0].action).toEqual("mute");
             expect(audit[0].userId).toEqual("U1");
             expect(audit[0].channel).toEqual("C1");
+            expect(audit[0].userName).toEqual("Rohland");
             expect(audit[0].detail.alerts).toEqual(["web::health::a.com"]);
             expect(audit[0].detail.requested).toEqual("1 for 4h");
             expect(new Date(audit[0].detail.until).getTime()).toBeGreaterThan(Date.now());
@@ -741,7 +759,7 @@ describe("ChatOpsService", () => {
             await sut.handleMessage(messageFrom("silence the web one"));
 
             // assert - a bare "2" afterwards must not resolve against the spent list
-            expect(sut.hasPendingSelection("C1", "100.000100", "U1")).toEqual(false);
+            expect(sut.pendingSelectionCount).toEqual(0);
             await sut.handleMessage(messageFrom("2"));
             const mutes = await Muter.getInstance().getDynamicMutes();
             expect(mutes.some(x => x.match.includes("db-01"))).toEqual(false);
@@ -762,14 +780,14 @@ describe("ChatOpsService", () => {
             expect(await Muter.getInstance().getDynamicMutes()).toHaveLength(0);
             expect(lastReply()).toContain("expired");
         });
-        it("should still be recognised as a reply barky should answer", async () => {
-            // arrange - the listener only handles unaddressed thread replies when barky is waiting
+        it("should be kept long enough to answer a late reply, not dropped on expiry", async () => {
+            // arrange
             const sut = getSut(twoAlerts, { "selection-ttl": "1s" });
             await sut.handleMessage(messageFrom("mute"));
             await new Promise(resolve => setTimeout(resolve, 1100));
 
             // act & assert
-            expect(sut.hasPendingSelection("C1", "100.000100", "U1")).toEqual(true);
+            expect(sut.pendingSelectionCount).toEqual(1);
         });
     });
 
@@ -780,9 +798,7 @@ describe("ChatOpsService", () => {
             const sut = new ChatOpsService(
                 new ChatOpsConfig({ enabled: true, "app-token": "x" }),
                 getApi(),
-                getAlertSource(twoAlerts),
-                null,
-                store);
+                { alerts: getAlertSource(twoAlerts), selections: store });
             for (let i = 0; i < 5; i++) {
                 await sut.handleMessage(messageFrom("mute", { userId: `U${ i }`, ts: `10${ i }.000100` }));
             }
@@ -921,6 +937,219 @@ describe("ChatOpsService", () => {
             expect(inserts.count).toEqual(1);
             expect(await muter.getDynamicMutes()).toHaveLength(2);
             (muter as any).registerMutes = original;
+        });
+    });
+    describe("verifyScopes", () => {
+        describe("when the app can read mentions and history", () => {
+            it("should report nothing missing", async () => {
+                const sut = getSut(twoAlerts);
+                expect(await sut.verifyScopes()).toEqual([]);
+            });
+        });
+        describe("when the app was only ever set up to post alerts", () => {
+            it("should name the scopes that stop it receiving replies", async () => {
+                // arrange - exactly the scopes a post-only alerting app is given
+                grantedScopes = ["incoming-webhook", "chat:write", "reactions:write"];
+                const sut = getSut(twoAlerts);
+
+                // act
+                const missing = await sut.verifyScopes();
+
+                // assert
+                expect(missing).toContain("app_mentions:read");
+                expect(missing.join(" ")).toContain("channels:history");
+            });
+        });
+        describe("in a private channel", () => {
+            it("should accept groups:history in place of channels:history", async () => {
+                grantedScopes = ["chat:write", "app_mentions:read", "groups:history"];
+                const sut = getSut(twoAlerts);
+                expect(await sut.verifyScopes()).toEqual([]);
+            });
+        });
+        describe("when the scopes cannot be determined", () => {
+            it("should say nothing rather than warn wrongly", async () => {
+                grantedScopes = null;
+                const sut = getSut(twoAlerts);
+                expect(await sut.verifyScopes()).toEqual([]);
+            });
+        });
+    });
+    describe("warming up", () => {
+        it("should check the scopes even with no ai configured", async () => {
+            grantedScopes = ["chat:write"];
+            const sut = getSut(twoAlerts);
+            await sut.warmUp();
+            expect(await sut.verifyScopes()).toContain("app_mentions:read");
+        });
+    });
+    describe("the outcome of a mute", () => {
+        it("should say it is muting, not that it already has", async () => {
+            // arrange - the window is written now but only applied when the next evaluation
+            // reloads it, so claiming it is already in force would be wrong
+            const sut = getSut(twoAlerts);
+            await sut.handleMessage(messageFrom("mute"));
+
+            // act
+            await sut.handleMessage(messageFrom("1"));
+
+            // assert
+            expect(lastReply()).toContain("Muting until");
+            expect(lastReply()).toContain("next evaluation");
+        });
+        it("should say the same when lifting a mute", async () => {
+            const sut = getSut(twoAlerts);
+            await sut.handleMessage(messageFrom("mute all"));
+            await sut.handleMessage(messageFrom("unmute all"));
+            expect(lastReply()).toContain("Lifting");
+            expect(lastReply()).toContain("next evaluation");
+        });
+    });
+
+    describe("who the log records", () => {
+        it("should record the display name alongside the id", async () => {
+            // arrange
+            const sut = getSut(twoAlerts);
+
+            // act
+            await sut.handleMessage(messageFrom("mute all", { userId: "U1" }));
+
+            // assert
+            const audit = await getChatOpsAudit();
+            expect(audit[0].userName).toEqual("Rohland");
+            expect(audit[0].userId).toEqual("U1");
+        });
+        describe("when the name cannot be resolved", () => {
+            it("should still record the action, with no name", async () => {
+                // arrange - users:read is optional, and its absence must not lose the audit entry
+                userNames = {};
+                const sut = getSut(twoAlerts);
+
+                // act
+                await sut.handleMessage(messageFrom("mute all", { userId: "U9" }));
+
+                // assert
+                const audit = await getChatOpsAudit();
+                expect(audit).toHaveLength(1);
+                expect(audit[0].userName).toBeNull();
+                expect(audit[0].userId).toEqual("U9");
+            });
+        });
+    });
+    describe("when a period is given before barky asks which alerts", () => {
+        it("should still apply it after the answer", async () => {
+            // arrange - "mute for 1 hour", then a list, then "all": the hour must survive
+            const sut = getSut(twoAlerts);
+            await sut.handleMessage(messageFrom("mute for 1 hour"));
+
+            // act
+            await sut.handleMessage(messageFrom("all"));
+
+            // assert
+            const mutes = await Muter.getInstance().getDynamicMutes();
+            expect(mutes).toHaveLength(2);
+            const oneHour = 60 * 60 * 1000;
+            expect(Math.abs(mutes[0].to.getTime() - (Date.now() + oneHour))).toBeLessThan(5000);
+        });
+        it("should say which expiry it is going to use when it asks", async () => {
+            const sut = getSut(twoAlerts);
+            await sut.handleMessage(messageFrom("mute for 1 hour"));
+            expect(lastReply()).toContain("as you asked");
+            expect(lastReply()).not.toContain("the default of");
+        });
+        it("should let the answer override it", async () => {
+            // arrange
+            const sut = getSut(twoAlerts);
+            await sut.handleMessage(messageFrom("mute for 1 hour"));
+
+            // act
+            await sut.handleMessage(messageFrom("1 for 4h"));
+
+            // assert
+            const mutes = await Muter.getInstance().getDynamicMutes();
+            const fourHours = 4 * 60 * 60 * 1000;
+            expect(Math.abs(mutes[0].to.getTime() - (Date.now() + fourHours))).toBeLessThan(5000);
+        });
+        it("should apply it through the ai path too", async () => {
+            // arrange
+            const sut = getSut(
+                twoAlerts,
+                {},
+                resolverReturning({ action: IntentAction.Select, numbers: [1] }));
+            await sut.handleMessage(messageFrom("mute for 1 hour"));
+
+            // act - free text the ai resolves to a selection, naming no period of its own
+            await sut.handleMessage(messageFrom("just the first one thanks"));
+
+            // assert
+            const mutes = await Muter.getInstance().getDynamicMutes();
+            const oneHour = 60 * 60 * 1000;
+            expect(Math.abs(mutes[0].to.getTime() - (Date.now() + oneHour))).toBeLessThan(5000);
+        });
+    });
+
+    describe("when no period is given", () => {
+        it("should offer the default in the prompt", async () => {
+            const sut = getSut(twoAlerts);
+            await sut.handleMessage(messageFrom("mute"));
+            expect(lastReply()).toContain("the default of");
+            expect(lastReply()).not.toContain("as you asked");
+        });
+    });
+    describe("muting until a named day", () => {
+        it("should mute until tomorrow morning", async () => {
+            // arrange
+            const sut = getSut(twoAlerts);
+
+            // act
+            await sut.handleMessage(messageFrom("mute all until tomorrow"));
+
+            // assert
+            const mutes = await Muter.getInstance().getDynamicMutes();
+            const local = toLocalDateAndTime(mutes[0].to);
+            expect(local.time).toEqual("08:00");
+            expect(mutes[0].to.getTime()).toBeGreaterThan(Date.now());
+        });
+        it("should survive the detour through a list", async () => {
+            // arrange - "mute until monday" is ambiguous about which alerts, so a list is raised
+            const sut = getSut(twoAlerts);
+            await sut.handleMessage(messageFrom("mute until monday"));
+            const prompt = lastReply();
+
+            // act
+            await sut.handleMessage(messageFrom("all"));
+
+            // assert - the day asked for is applied, not the default
+            expect(prompt).toContain("as you asked");
+            const mutes = await Muter.getInstance().getDynamicMutes();
+            expect(toLocalDateAndTime(mutes[0].to).time).toEqual("08:00");
+            expect(dayOfWeek(mutes[0].to)).toEqual(1);
+        });
+        it("should let a reply name the day instead", async () => {
+            // arrange
+            const sut = getSut(twoAlerts);
+            await sut.handleMessage(messageFrom("mute"));
+
+            // act
+            await sut.handleMessage(messageFrom("all until thursday"));
+
+            // assert
+            const mutes = await Muter.getInstance().getDynamicMutes();
+            expect(dayOfWeek(mutes[0].to)).toEqual(4);
+        });
+        describe("when the day asked for is beyond the maximum mute", () => {
+            it("should be capped", async () => {
+                // arrange
+                const sut = getSut(twoAlerts, { "max-mute": "2h" });
+
+                // act
+                await sut.handleMessage(messageFrom("mute all until monday"));
+
+                // assert
+                const mutes = await Muter.getInstance().getDynamicMutes();
+                const twoHours = 2 * 60 * 60 * 1000;
+                expect(Math.abs(mutes[0].to.getTime() - (Date.now() + twoHours))).toBeLessThan(5000);
+            });
         });
     });
 });

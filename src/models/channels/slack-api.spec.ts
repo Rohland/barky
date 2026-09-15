@@ -157,4 +157,55 @@ describe("SlackApi", () => {
             });
         });
     });
+    describe("getUserName", () => {
+        function mockUser(data: any) {
+            return jest.spyOn(axios, "request").mockResolvedValue({ data } as any);
+        }
+
+        it("should return the display name", async () => {
+            const spy = mockUser({ ok: true, user: { profile: { display_name: "rohland", real_name: "Rohland de Charmoy" } } });
+            const result = await new SlackApi("token").getUserName("U1");
+            expect(spy.mock.calls[0][0].url).toEqual("https://slack.com/api/users.info");
+            expect(spy.mock.calls[0][0].params).toEqual({ user: "U1" });
+            expect(result).toEqual("rohland");
+        });
+        describe("when there is no display name", () => {
+            it("should fall back through the other names slack offers", async () => {
+                mockUser({ ok: true, user: { profile: { real_name: "Rohland de Charmoy" } } });
+                expect(await new SlackApi("token").getUserName("U1")).toEqual("Rohland de Charmoy");
+                jest.restoreAllMocks();
+                mockUser({ ok: true, user: { name: "rohland" } });
+                expect(await new SlackApi("token").getUserName("U2")).toEqual("rohland");
+            });
+        });
+        it("should only look a person up once", async () => {
+            // arrange - the same few people act repeatedly
+            const spy = mockUser({ ok: true, user: { profile: { display_name: "rohland" } } });
+            const sut = new SlackApi("token");
+
+            // act
+            await sut.getUserName("U1");
+            await sut.getUserName("U1");
+
+            // assert
+            expect(spy).toHaveBeenCalledTimes(1);
+        });
+        describe("when the lookup is refused", () => {
+            it("should return nothing rather than throwing, since users:read is optional", async () => {
+                mockUser({ ok: false, error: "missing_scope" });
+                expect(await new SlackApi("token").getUserName("U1")).toBeNull();
+            });
+            it("should also survive the call failing outright", async () => {
+                jest.spyOn(axios, "request").mockRejectedValue(new Error("boom"));
+                expect(await new SlackApi("token").getUserName("U1")).toBeNull();
+            });
+        });
+        describe("given no user id", () => {
+            it("should not call slack at all", async () => {
+                const spy = mockUser({ ok: true });
+                expect(await new SlackApi("token").getUserName(null)).toBeNull();
+                expect(spy).not.toHaveBeenCalled();
+            });
+        });
+    });
 });

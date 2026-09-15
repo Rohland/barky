@@ -21,42 +21,6 @@ const NonChatMarkers = [
 // this, and if none of them match, the newest chat model is used instead.
 const CostTierMarkers = ["nano", "mini", "small", "lite", "luna", "flash"];
 
-function isNonChat(id: string): boolean {
-    const lowered = id.toLowerCase();
-    return NonChatMarkers.some(marker => lowered.includes(marker));
-}
-
-function isDatedSnapshot(id: string): boolean {
-    // prefer the moving alias over a pinned snapshot of it
-    return /-\d{4}-\d{2}-\d{2}$/.test(id) || /-\d{8}$/.test(id);
-}
-
-function byNewestThenName(a: IModelInfo, b: IModelInfo): number {
-    const byCreated = (b.created ?? 0) - (a.created ?? 0);
-    return byCreated !== 0 ? byCreated : a.id.localeCompare(b.id);
-}
-
-/*
- Chooses the model to use from whatever the account actually has access to, so the choice keeps up
- with the lineup instead of being pinned to a name that ages out. Prefers the newest cost optimised
- model, since the job is choosing a number from a short list.
- */
-export function selectModel(models: IModelInfo[]): string {
-    const candidates = (models ?? [])
-        .filter(x => !!x?.id)
-        .filter(x => !x.id.startsWith("ft:"))
-        .filter(x => !x.shutdown_date)
-        .filter(x => !isNonChat(x.id))
-        .filter(x => !isDatedSnapshot(x.id));
-    if (candidates.length === 0) {
-        return null;
-    }
-    const costOptimised = candidates
-        .filter(x => CostTierMarkers.some(marker => x.id.toLowerCase().includes(marker)));
-    const pool = costOptimised.length > 0 ? costOptimised : candidates;
-    return pool.sort(byNewestThenName)[0].id;
-}
-
 export class ModelSelector {
 
     private _resolved: string;
@@ -90,4 +54,40 @@ export class ModelSelector {
         this._resolved = selected;
         return selected;
     }
+}
+
+/*
+ Chooses the model to use from whatever the account actually has access to, so the choice keeps up
+ with the lineup instead of being pinned to a name that ages out. Prefers the newest cost optimised
+ model, since the job is choosing a number from a short list.
+ */
+export function selectModel(models: IModelInfo[]): string {
+    const candidates = (models ?? [])
+        .filter(x => !!x?.id)
+        .filter(x => !x.id.startsWith("ft:"))
+        .filter(x => !x.shutdown_date)
+        .filter(x => !isNonChat(x.id))
+        .filter(x => !isDatedSnapshot(x.id));
+    if (candidates.length === 0) {
+        return null;
+    }
+    const costOptimised = candidates
+        .filter(x => CostTierMarkers.some(marker => x.id.toLowerCase().includes(marker)));
+    const pool = costOptimised.length > 0 ? costOptimised : candidates;
+    return pool.sort(byNewestThenName)[0].id;
+}
+
+function isNonChat(id: string): boolean {
+    const lowered = id.toLowerCase();
+    return NonChatMarkers.some(marker => lowered.includes(marker));
+}
+
+function isDatedSnapshot(id: string): boolean {
+    // prefer the moving alias over a pinned snapshot of it
+    return /-\d{4}-\d{2}-\d{2}$/.test(id) || /-\d{8}$/.test(id);
+}
+
+function byNewestThenName(a: IModelInfo, b: IModelInfo): number {
+    const byCreated = (b.created ?? 0) - (a.created ?? 0);
+    return byCreated !== 0 ? byCreated : a.id.localeCompare(b.id);
 }

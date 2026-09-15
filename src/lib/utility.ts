@@ -31,6 +31,7 @@ export const DefaultLocale = fromPosixLocale(
     || getEnvVar("LC_MESSAGES")
     || getEnvVar("LANG")
     || getEnvVar("LANGUAGE"));
+const WeekdayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const defaultTimeZone = "Africa/Johannesburg";
 let locale = correctCUTF8Locale(DefaultLocale || "en-US");
 let timeZone = defaultTimeZone;
@@ -171,6 +172,25 @@ export function fromLocalDateAndTime(date: string, time: string): Date {
     return settledOffset === offset
         ? candidate
         : new Date(wallAsUtc - settledOffset);
+}
+
+/*
+ Steps a wall clock date (YYYY-MM-DD) forward or back by whole calendar days. Anchored at midday
+ UTC purely so the arithmetic does not trip over a DST boundary.
+ */
+export function addLocalDays(date: string, days: number): string {
+    const cursor = new Date(`${ date }T12:00:00Z`);
+    cursor.setUTCDate(cursor.getUTCDate() + days);
+    return cursor.toISOString().substring(0, 10);
+}
+
+// 0 is Sunday, matching dayOfWeek
+export function localWeekday(date: string): number {
+    return new Date(`${ date }T12:00:00Z`).getUTCDay();
+}
+
+export function localWeekdayName(date: string): string {
+    return WeekdayNames[localWeekday(date)];
 }
 
 export function isToday(date: string, on?: Date): boolean {

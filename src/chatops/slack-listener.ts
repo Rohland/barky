@@ -21,6 +21,10 @@ interface ISlackEnvelope {
     event: ISlackEvent;
 }
 
+interface ISlackSubscriber {
+    on(event: string, handler: (envelope: ISlackEnvelope) => Promise<void>): unknown;
+}
+
 class ChatOpsLogger implements Logger {
     private level: LogLevel = LogLevel.INFO;
 
@@ -74,8 +78,7 @@ export class SlackChatOpsListener {
             appToken: this.config.appToken,
             logger: new ChatOpsLogger()
         });
-        this._client.on("app_mention", async (envelope: ISlackEnvelope) => await this.onEvent(envelope, true));
-        this._client.on("message", async (envelope: ISlackEnvelope) => await this.onEvent(envelope, false));
+        this.subscribe(this._client);
         await this._client.start();
         log("chatops: listening for slack events");
     }
@@ -89,42 +92,62 @@ export class SlackChatOpsListener {
         this._client = null;
     }
 
-    private async onEvent(envelope: ISlackEnvelope, isMention: boolean): Promise<void> {
-        // acknowledge first - slack expects one within three seconds and redelivers otherwise
+    private subscribe(client: ISlackSubscriber): void {
+        client.on("app_mention", async (envelope: ISlackEnvelope) => await this.onMention(envelope));
+        // barky never acts on a message that does not name it, but an unacknowledged event is
+        // redelivered, so plain channel messages are acknowledged and dropped
+        client.on("message", async (envelope: ISlackEnvelope) => await this.acknowledge(envelope));
+    }
+
+    private async onMention(envelope: ISlackEnvelope): Promise<void> {
+        await this.acknowledge(envelope);
+        await this.handle(envelope.event);
+    }
+
+    // slack expects an acknowledgement within three seconds and redelivers otherwise, so it comes
+    // before any work
+    private async acknowledge(envelope: ISlackEnvelope): Promise<void> {
         try {
             await envelope.ack();
         } catch (err) {
             log(`chatops: failed to ack event: ${ err }`, err);
         }
+    }
+
+    private async handle(event: ISlackEvent): Promise<void> {
         try {
-            const event = envelope.event;
-            if (!await this.shouldHandle(event, isMention)) {
-                return;
-            }
-            // a mention and a channel message can arrive for the same user message as separate
-            // events, so the message itself is what gets recorded, not the event
-            const handled = await tryRecordChatEvent(`${ event.channel }:${ event.ts }`);
-            if (!handled) {
-                return;
-            }
-            await this.service.handleMessage({
-                channel: event.channel,
-                ts: event.ts,
-                threadTs: event.thread_ts,
-                userId: event.user,
-                text: event.text
-            });
+            await this.dispatch(event);
         } catch (err) {
             log(`chatops: error processing event: ${ err }`, err);
         }
     }
 
+    private async dispatch(event: ISlackEvent): Promise<void> {
+        if (!await this.shouldHandle(event)) {
+            return;
+        }
+        // a mention and a channel message can arrive for the same user message as separate
+        // events, so the message itself is what gets recorded, not the event
+        const handled = await tryRecordChatEvent(`${ event.channel }:${ event.ts }`);
+        if (!handled) {
+            return;
+        }
+        await this.service.handleMessage({
+            channel: event.channel,
+            ts: event.ts,
+            threadTs: event.thread_ts,
+            userId: event.user,
+            text: event.text
+        });
+    }
+
     /*
-     Barky only takes part in the threads of its own alert messages, and only when it is spoken to
-     there. It is not a general purpose bot listening to the channel - ordinary conversation, in the
-     channel or in an alert's thread, is none of its business.
+     Barky only takes part in the threads of its own alert messages. It is not a general purpose
+     bot listening to the channel - ordinary conversation, in the channel or in an alert's thread,
+     is none of its business, and people discussing an outage must be able to say "all" or "1" to
+     each other without barky acting on it.
      */
-    private async shouldHandle(event: ISlackEvent, isMention: boolean): Promise<boolean> {
+    private async shouldHandle(event: ISlackEvent): Promise<boolean> {
         if (!event?.ts || !event.user || !event.text) {
             return false;
         }
@@ -135,12 +158,6 @@ export class SlackChatOpsListener {
         if (!event.thread_ts) {
             return false;
         }
-        const thread = await getChatThread(event.channel, event.thread_ts);
-        if (!thread) {
-            return false;
-        }
-        // addressed to barky, or answering a question barky asked this person
-        return isMention
-            || this.service.hasPendingSelection(event.channel, event.thread_ts, event.user);
+        return !!await getChatThread(event.channel, event.thread_ts);
     }
 }

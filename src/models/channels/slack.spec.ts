@@ -1,4 +1,5 @@
 import { SlackChannelConfig } from "./slack.js";
+import { SlackApi } from "./slack-api.js";
 import { Snapshot } from "../snapshot.js";
 import { AlertState } from "../alerts.js";
 import * as os from "os";
@@ -227,6 +228,75 @@ describe("slack", () => {
         });
     });
 
+    describe("postToSlack", () => {
+        describe("when the alert already has a message", () => {
+            it("should update that message in place", async () => {
+                // arrange
+                const sut = new SlackChannelConfig(null, { channel: "my-channel" });
+                const api = stubApiOn(sut);
+
+                // act
+                await sut.postToSlack("updated", { channel: "C1", ts: 123 });
+
+                // assert
+                expect(api.updateMessage).toHaveBeenCalledWith("C1", 123, "updated");
+                expect(api.postMessage).not.toHaveBeenCalled();
+            });
+        });
+        describe("when the alert has no message yet", () => {
+            it("should post a new one to the configured channel", async () => {
+                // arrange
+                const sut = new SlackChannelConfig(null, { channel: "my-channel" });
+                const api = stubApiOn(sut);
+
+                // act
+                await sut.postToSlack("new", null);
+
+                // assert
+                expect(api.postMessage).toHaveBeenCalledWith("my-channel", "new");
+            });
+        });
+    });
+
+    describe("replyInThreadOnSlack", () => {
+        describe("when barky has already posted the alert", () => {
+            it("should reply under that message rather than replacing it", async () => {
+                // arrange
+                const sut = new SlackChannelConfig(null, { channel: "my-channel" });
+                const api = stubApiOn(sut);
+
+                // act
+                await sut.replyInThreadOnSlack("resolved", { channel: "C1", ts: 123 });
+
+                // assert
+                expect(api.postMessage).toHaveBeenCalledWith("C1", "resolved", 123);
+                expect(api.updateMessage).not.toHaveBeenCalled();
+            });
+        });
+        describe("when there is no message to reply to", () => {
+            it("should post it to the channel instead", async () => {
+                // arrange
+                const sut = new SlackChannelConfig(null, { channel: "my-channel" });
+                const api = stubApiOn(sut);
+
+                // act
+                await sut.replyInThreadOnSlack("resolved", null);
+
+                // assert
+                expect(api.postMessage).toHaveBeenCalledWith("my-channel", "resolved");
+            });
+        });
+    });
+
+    function stubApiOn(sut: SlackChannelConfig) {
+        const api = {
+            postMessage: jest.fn(async () => ({ channel: "C1", ts: "1" })),
+            updateMessage: jest.fn(async () => ({ channel: "C1", ts: "1" }))
+        };
+        sut["_api"] = api as unknown as SlackApi;
+        return api;
+    }
+
     // integration/exploratory test
     xit("should be able to send a message", async () => {
         process.env["slack-token"] = "/* insert token here */";
@@ -239,7 +309,7 @@ describe("slack", () => {
             token: "slack-token"
         });
         const msg = "hello world!";
-        const result = await sut.postToSlack(msg, null, false);
+        const result = await sut.postToSlack(msg, null);
         console.log("result", result);
     });
 

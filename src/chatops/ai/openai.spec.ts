@@ -42,7 +42,7 @@ describe("OpenAiClient", () => {
             const sut = getSut();
 
             // act
-            const result = await sut.complete("m1", "do the thing", "the message", { type: "object" });
+            const result = await sut.complete({ model: "m1", instructions: "do the thing", input: "the message", schema: { type: "object" } });
 
             // assert
             const request = spy.mock.calls[0][0];
@@ -62,14 +62,14 @@ describe("OpenAiClient", () => {
             it("should call that instead, so a gateway or azure can be used", async () => {
                 const spy = mockContent("{}");
                 const sut = getSut({ url: "https://gateway.acme.com/v1/" });
-                await sut.complete("m1", "a", "b", {});
+                await sut.complete({ model: "m1", instructions: "a", input: "b", schema: {} });
                 expect(spy.mock.calls[0][0].url).toEqual("https://gateway.acme.com/v1/chat/completions");
             });
         });
         describe("with a different model", () => {
             it("should use the one it is given", async () => {
                 const spy = mockContent("{}");
-                await getSut().complete("some-other-model", "a", "b", {});
+                await getSut().complete({ model: "some-other-model", instructions: "a", input: "b", schema: {} });
                 expect(JSON.parse(spy.mock.calls[0][0].data as string).model).toEqual("some-other-model");
             });
         });
@@ -82,14 +82,14 @@ describe("OpenAiClient", () => {
                 const sut = getSut();
 
                 // act & assert
-                await expect(sut.complete("m1", "a", "b", {})).rejects.toBeInstanceOf(AiUnavailableError);
+                await expect(sut.complete({ model: "m1", instructions: "a", input: "b", schema: {} })).rejects.toBeInstanceOf(AiUnavailableError);
                 expect(axios.request).toHaveBeenCalledTimes(1);
             });
         });
         describe("when the reply is not valid json", () => {
             it("should report the service as unavailable", async () => {
                 mockContent("not json at all");
-                await expect(getSut().complete("m1", "a", "b", {})).rejects.toBeInstanceOf(AiUnavailableError);
+                await expect(getSut().complete({ model: "m1", instructions: "a", input: "b", schema: {} })).rejects.toBeInstanceOf(AiUnavailableError);
             });
         });
         describe("when the call times out", () => {
@@ -99,21 +99,21 @@ describe("OpenAiClient", () => {
                 const sut = getSut();
 
                 // act & assert
-                await expect(sut.complete("m1", "a", "b", {})).rejects.toBeInstanceOf(AiUnavailableError);
+                await expect(sut.complete({ model: "m1", instructions: "a", input: "b", schema: {} })).rejects.toBeInstanceOf(AiUnavailableError);
                 expect(axios.request).toHaveBeenCalledTimes(2);
             });
         });
         describe.each([[429], [500], [503]])("when the service returns %s", (status) => {
             it("should retry once", async () => {
                 jest.spyOn(axios, "request").mockRejectedValue(errorWithStatus(status));
-                await expect(getSut().complete("m1", "a", "b", {})).rejects.toBeInstanceOf(AiUnavailableError);
+                await expect(getSut().complete({ model: "m1", instructions: "a", input: "b", schema: {} })).rejects.toBeInstanceOf(AiUnavailableError);
                 expect(axios.request).toHaveBeenCalledTimes(2);
             });
         });
         describe.each([[400], [401], [403]])("when the service returns %s", (status) => {
             it("should not retry, as it will not succeed", async () => {
                 jest.spyOn(axios, "request").mockRejectedValue(errorWithStatus(status));
-                await expect(getSut().complete("m1", "a", "b", {})).rejects.toBeInstanceOf(AiUnavailableError);
+                await expect(getSut().complete({ model: "m1", instructions: "a", input: "b", schema: {} })).rejects.toBeInstanceOf(AiUnavailableError);
                 expect(axios.request).toHaveBeenCalledTimes(1);
             });
         });
@@ -125,7 +125,7 @@ describe("OpenAiClient", () => {
                     .mockResolvedValueOnce({ data: { choices: [{ message: { content: '{"ok":true}' } }] } } as any);
 
                 // act
-                const result = await getSut().complete("m1", "a", "b", {});
+                const result = await getSut().complete({ model: "m1", instructions: "a", input: "b", schema: {} });
 
                 // assert
                 expect(result).toEqual({ ok: true });
@@ -163,7 +163,7 @@ describe("OpenAiClient", () => {
             jest.spyOn(axios, "request").mockRejectedValue(axiosLikeError(400));
 
             // act
-            await expect(getSut().complete("m", "a", "b", {})).rejects.toBeInstanceOf(AiUnavailableError);
+            await expect(getSut().complete({ model: "m", instructions: "a", input: "b", schema: {} })).rejects.toBeInstanceOf(AiUnavailableError);
 
             // assert
             expect(everythingLogged()).not.toContain("sk-SUPERSECRET");
@@ -176,7 +176,7 @@ describe("OpenAiClient", () => {
             // act
             let caught: any = null;
             try {
-                await getSut().complete("m", "a", "b", {});
+                await getSut().complete({ model: "m", instructions: "a", input: "b", schema: {} });
             } catch (err) {
                 caught = err;
             }
@@ -188,7 +188,7 @@ describe("OpenAiClient", () => {
         });
         it("should still say enough to diagnose the failure", async () => {
             jest.spyOn(axios, "request").mockRejectedValue(axiosLikeError(400));
-            await expect(getSut().complete("m", "a", "b", {})).rejects.toBeInstanceOf(AiUnavailableError);
+            await expect(getSut().complete({ model: "m", instructions: "a", input: "b", schema: {} })).rejects.toBeInstanceOf(AiUnavailableError);
             const logged = everythingLogged();
             expect(logged).toContain("status 400");
             expect(logged).toContain("invalid_request_error");

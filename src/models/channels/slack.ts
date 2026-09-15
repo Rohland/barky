@@ -215,10 +215,9 @@ export class SlackChannelConfig extends ChannelConfig {
             this.generateMessage([], alert),
             alert.state);
         await Promise.all([
-            this.postToSlack(
+            this.replyInThreadOnSlack(
                 `✅ <!channel> Previous outage resolved at ${ alert.endTime }. Duration was ${ alert.durationHuman }.\n_See above for more details about affected services._`,
-                alert.state,
-                true
+                alert.state
             ),
             this.reactToSlackMessage(alert.state, "white_check_mark"),
             this.deleteOngoingAlert(alert)
@@ -230,10 +229,9 @@ export class SlackChannelConfig extends ChannelConfig {
             this.postToSlack(
                 this.generateMessage([], alert),
                 alert.state),
-            this.postToSlack(
+            this.replyInThreadOnSlack(
                 `🔕 <!channel> Affected alerts were muted at ${ alert.endTime }.\n_See above for more details about affected services._`,
-                alert.state,
-                true
+                alert.state
             ),
             this.reactToSlackMessage(alert.state, "no_bell"),
             this.deleteOngoingAlert(alert)
@@ -250,17 +248,23 @@ export class SlackChannelConfig extends ChannelConfig {
 
     async postToSlack(
         message: string,
-        state?: { channel: string, ts: number },
-        reply: boolean = false): Promise<any> {
+        state?: { channel: string, ts: number }): Promise<any> {
         const channel = state?.channel ?? this.channel;
-        const isReply = reply && !!state?.ts;
-        if (isReply) {
-            return await this.api.postMessage(channel, message, state.ts);
-        }
-        if (state) {
-            return await this.api.updateMessage(channel, state.ts, message);
-        }
-        return await this.api.postMessage(channel, message);
+        return state
+            ? await this.api.updateMessage(channel, state.ts, message)
+            : await this.api.postMessage(channel, message);
+    }
+
+    /*
+     Replies under the alert barky already posted, so the outcome reads as part of that incident.
+     With no message to hang off, the reply becomes an alert message in its own right.
+     */
+    async replyInThreadOnSlack(
+        message: string,
+        state?: { channel: string, ts: number }): Promise<any> {
+        return state?.ts
+            ? await this.api.postMessage(state.channel ?? this.channel, message, state.ts)
+            : await this.postToSlack(message, state);
     }
 
     private async reactToSlackMessage(state: any, reaction: string) {

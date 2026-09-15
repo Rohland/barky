@@ -4,10 +4,8 @@ import { OpenAiClient } from "./openai.js";
 import { ModelSelector } from "./model-selector.js";
 import { CallBudget } from "./budget.js";
 import { ISelectionCandidate } from "../selection.js";
-import { toLocalDateAndTime } from "../../lib/utility.js";
+import { localWeekdayName, toLocalDateAndTime } from "../../lib/utility.js";
 import { log } from "../../models/logger.js";
-
-const WeekdayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 export const IntentSchema = {
     type: "object",
@@ -43,18 +41,109 @@ export const IntentSchema = {
     }
 };
 
-function renderCandidates(candidates: ISelectionCandidate[]): string {
-    if (candidates.length === 0) {
-        return "(nothing)";
+export class AiIntentResolver implements IIntentResolver {
+
+    private readonly budget: CallBudget;
+
+    constructor(
+        private readonly config: AiConfig,
+        private readonly client = new OpenAiClient(config),
+        private readonly models = new ModelSelector(config, client)) {
+        this.budget = new CallBudget(config.maxCallsPerHour);
     }
-    return candidates
-        .map((x, i) => `${ i + 1 }. ${ x.title }${ x.detail ? ` — ${ x.detail }` : "" }`)
-        .join("\n");
+
+    public async warmUp(): Promise<void> {
+        await this.models.resolve();
+    }
+
+    public async resolve(context: IIntentContext): Promise<IIntent> {
+        if (!this.budget.tryConsume()) {
+            log(`chatops: ai call budget of ${ this.config.maxCallsPerHour }/hour exhausted`);
+            throw new AiUnavailableError("ai call budget exhausted");
+        }
+        const model = await this.models.resolve();
+        const raw = await this.client.complete({
+            model,
+            instructions: buildInstructions(context),
+            input: buildInput(context),
+            schema: IntentSchema
+        });
+        return AiIntentResolver.validate(raw, context);
+    }
+
+    /*
+     The schema constrains the shape but not the meaning, so anything the model chose is checked
+     against the list it was given before it reaches the parts of barky that act.
+     */
+    public static validate(raw: any, context: IIntentContext): IIntent {
+        return AiIntentResolver.withReachableAction(
+            AiIntentResolver.readIntent(raw, context),
+            context);
+    }
+
+    private static readIntent(raw: any, context: IIntentContext): IIntent {
+        const chosen: number[] = Array.isArray(raw?.numbers)
+            ? raw.numbers.filter(x => Number.isInteger(x) && x >= 1 && x <= context.candidates.length)
+            : [];
+        const intent: IIntent = {
+            action: Object.values(IntentAction).includes(raw?.action)
+                ? raw.action as IntentAction
+                : IntentAction.Reply,
+            numbers: Array.from(new Set<number>(chosen)).sort((a, b) => a - b),
+            all: raw?.all === true,
+            duration: typeof raw?.duration === "string" ? raw.duration : null,
+            until: typeof raw?.until === "string" ? raw.until : null,
+            message: typeof raw?.message === "string" ? raw.message : null
+        };
+        if (intent.duration && intent.until) {
+            // the model was told not to set both - the explicit period is the safer of the two
+            intent.until = null;
+        }
+        return intent;
+    }
+
+    /*
+     A list is either of alerts or of mutes, and the two are not interchangeable - acting on the
+     wrong one would mute a mute pattern, or lift a mute that was never named.
+     */
+    private static withReachableAction(intent: IIntent, context: IIntentContext): IIntent {
+        if (intent.action === IntentAction.Unmute && context.pinned !== "unmute") {
+            return { ...intent, action: IntentAction.RequestUnmuteList };
+        }
+        if (intent.action === IntentAction.Mute && context.pinned === "unmute") {
+            return { ...intent, action: IntentAction.RequestMuteList };
+        }
+        return AiIntentResolver.withTargets(intent);
+    }
+
+    /*
+     An action that acts on alerts but names none of those listed had the model reaching for
+     something it was not shown, so the list is offered again rather than acting on nothing.
+     */
+    private static withTargets(intent: IIntent): IIntent {
+        const needsTargets = [IntentAction.Mute, IntentAction.Unmute, IntentAction.Select];
+        if (!needsTargets.includes(intent.action) || intent.all || intent.numbers.length > 0) {
+            return intent;
+        }
+        if (intent.action === IntentAction.Select) {
+            return {
+                ...intent,
+                action: IntentAction.Reply,
+                message: "I couldn't tell which of those you meant — reply with the numbers from the list, or `all`."
+            };
+        }
+        return {
+            ...intent,
+            action: intent.action === IntentAction.Unmute
+                ? IntentAction.RequestUnmuteList
+                : IntentAction.RequestMuteList
+        };
+    }
 }
 
 export function buildInstructions(context: IIntentContext, now: Date = new Date()): string {
     const local = toLocalDateAndTime(now);
-    const weekday = WeekdayNames[new Date(`${ local.date }T12:00:00Z`).getUTCDay()];
+    const weekday = localWeekdayName(local.date);
     const parts = [
         "You are barky, a monitoring watchdog that reports alerts into Slack. Your only job is to",
         "translate one Slack message into a single structured instruction.",
@@ -104,85 +193,11 @@ export function buildInput(context: IIntentContext): string {
     ].join("\n");
 }
 
-export class AiIntentResolver implements IIntentResolver {
-
-    private readonly budget: CallBudget;
-
-    constructor(
-        private readonly config: AiConfig,
-        private readonly client = new OpenAiClient(config),
-        private readonly models = new ModelSelector(config, client)) {
-        this.budget = new CallBudget(config.maxCallsPerHour);
+function renderCandidates(candidates: ISelectionCandidate[]): string {
+    if (candidates.length === 0) {
+        return "(nothing)";
     }
-
-    public async warmUp(): Promise<void> {
-        await this.models.resolve();
-    }
-
-    public async resolve(context: IIntentContext): Promise<IIntent> {
-        if (!this.budget.tryConsume()) {
-            log(`chatops: ai call budget of ${ this.config.maxCallsPerHour }/hour exhausted`);
-            throw new AiUnavailableError("ai call budget exhausted");
-        }
-        const model = await this.models.resolve();
-        const raw = await this.client.complete(
-            model,
-            buildInstructions(context),
-            buildInput(context),
-            IntentSchema);
-        return AiIntentResolver.validate(raw, context);
-    }
-
-    /*
-     The schema constrains the shape but not the meaning, so anything the model chose is checked
-     against the list it was given before it reaches the parts of barky that act.
-     */
-    public static validate(raw: any, context: IIntentContext): IIntent {
-        const action = Object.values(IntentAction).includes(raw?.action)
-            ? raw.action as IntentAction
-            : IntentAction.Reply;
-        const chosen: number[] = Array.isArray(raw?.numbers)
-            ? raw.numbers.filter(x => Number.isInteger(x) && x >= 1 && x <= context.candidates.length)
-            : [];
-        const numbers = Array.from(new Set<number>(chosen)).sort((a, b) => a - b);
-        const intent: IIntent = {
-            action,
-            numbers,
-            all: raw?.all === true,
-            duration: typeof raw?.duration === "string" ? raw.duration : null,
-            until: typeof raw?.until === "string" ? raw.until : null,
-            message: typeof raw?.message === "string" ? raw.message : null
-        };
-        if (intent.duration && intent.until) {
-            // the model was told not to set both - the explicit period is the safer of the two
-            intent.until = null;
-        }
-        // a list is either of alerts or of mutes, and the two are not interchangeable - acting on
-        // the wrong one would mute a mute pattern, or lift a mute that was never named
-        if (intent.action === IntentAction.Unmute && context.pinned !== "unmute") {
-            return { ...intent, action: IntentAction.RequestUnmuteList };
-        }
-        if (intent.action === IntentAction.Mute && context.pinned === "unmute") {
-            return { ...intent, action: IntentAction.RequestMuteList };
-        }
-        const needsTargets = [IntentAction.Mute, IntentAction.Unmute, IntentAction.Select];
-        if (needsTargets.includes(intent.action) && !intent.all && intent.numbers.length === 0) {
-            // it named something that is not on the list, so fall back to showing the list rather
-            // than acting on nothing
-            if (intent.action === IntentAction.Select) {
-                return {
-                    ...intent,
-                    action: IntentAction.Reply,
-                    message: "I couldn't tell which of those you meant — reply with the numbers from the list, or `all`."
-                };
-            }
-            return {
-                ...intent,
-                action: intent.action === IntentAction.Unmute
-                    ? IntentAction.RequestUnmuteList
-                    : IntentAction.RequestMuteList
-            };
-        }
-        return intent;
-    }
+    return candidates
+        .map((x, i) => `${ i + 1 }. ${ x.title }${ x.detail ? ` — ${ x.detail }` : "" }`)
+        .join("\n");
 }

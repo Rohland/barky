@@ -2,7 +2,7 @@ import { singleton } from "./lib/singleton.js";
 import { IDigestConfig } from "./models/digest.js";
 import { addMuteWindow, addMuteWindows, deleteMuteWindowsByIds, getMuteWindows } from "./models/db.js";
 import { IMuteWindowDb } from "./models/mute-window.js";
-import { toLocalDateAndTime } from "./lib/utility.js";
+import { addLocalDays, toLocalDateAndTime } from "./lib/utility.js";
 
 export class Muter {
 
@@ -91,17 +91,12 @@ export class Muter {
         const start = toLocalDateAndTime(from);
         const end = toLocalDateAndTime(to);
         const result = [];
-        // anchored at midday UTC purely to step calendar days without tripping over DST boundaries
-        const cursor = new Date(`${ start.date }T12:00:00Z`);
-        const last = new Date(`${ end.date }T12:00:00Z`);
-        while (cursor <= last) {
-            const currentDateStr = cursor.toISOString().substring(0, 10);
+        for (let date = start.date; date <= end.date; date = addLocalDays(date, 1)) {
             result.push({
-                date: currentDateStr,
-                startTime: currentDateStr === start.date ? start.time : "00:00",
-                endTime: currentDateStr === end.date ? end.time : "24:00"
+                date,
+                startTime: date === start.date ? start.time : "00:00",
+                endTime: date === end.date ? end.time : "24:00"
             });
-            cursor.setUTCDate(cursor.getUTCDate() + 1);
         }
         return result;
     }

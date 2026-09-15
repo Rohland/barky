@@ -9,7 +9,6 @@ describe("SlackChatOpsListener", () => {
     const testDb = "dblistener";
     let restoreConsole;
     let handled: IChatMessage[];
-    let pending: boolean;
     let acked: number;
 
     beforeEach(async () => {
@@ -17,7 +16,6 @@ describe("SlackChatOpsListener", () => {
         deleteDbIfExists(testDb);
         await initConnection(testDb);
         handled = [];
-        pending = false;
         acked = 0;
     });
 
@@ -32,7 +30,7 @@ describe("SlackChatOpsListener", () => {
             handleMessage: async (message: IChatMessage) => {
                 handled.push(message);
             },
-            hasPendingSelection: () => pending
+            pendingSelectionCount: 0
         } as unknown as ChatOpsService;
         return new SlackChatOpsListener(
             new ChatOpsConfig({ enabled: true, "app-token": "xapp-1" }),
@@ -67,9 +65,12 @@ describe("SlackChatOpsListener", () => {
     }
 
     async function dispatch(sut: SlackChatOpsListener, event: any, isMention = false) {
-        // onEvent is the listener's entry point once slack has routed the event
+        // routed through the same subscriptions start() wires into the socket mode client, so the
+        // tests below cover which events barky actually listens to
+        const handlers: Record<string, (envelope: any) => Promise<void>> = {};
         // @ts-ignore
-        await sut.onEvent(envelopeFor(event), isMention);
+        sut.subscribe({ on: (name: string, handler: any) => handlers[name] = handler });
+        await handlers[isMention ? "app_mention" : "message"](envelopeFor(event));
     }
 
     describe("when mentioned in the thread of one of its own alerts", () => {
@@ -144,24 +145,28 @@ describe("SlackChatOpsListener", () => {
     });
 
     describe("when people talk to each other in an alert thread", () => {
-        it("should not join in", async () => {
-            // arrange - ordinary conversation about the outage, not addressed to barky
+        it.each([
+            ["looks like the cache again"],
+            ["all"],
+            ["1,3"],
+            ["mute all"]
+        ])("should not join in, even when someone says '%s'", async (text) => {
+            // arrange - people discussing an outage must be able to say "all" or "1" to each other
+            // without barky acting on it, including while it is waiting on an answer
             await recordAlertThread();
             const sut = getSut();
-            pending = false;
 
             // act
-            await dispatch(sut, { text: "looks like the cache again" }, false);
+            await dispatch(sut, { text }, false);
 
             // assert
             expect(handled).toHaveLength(0);
         });
-        describe("but barky is waiting on an answer from that person", () => {
-            it("should take the reply without needing a mention", async () => {
+        describe("and the reply names barky", () => {
+            it("should be taken as an answer", async () => {
                 await recordAlertThread();
                 const sut = getSut();
-                pending = true;
-                await dispatch(sut, { text: "1,3" }, false);
+                await dispatch(sut, { text: "<@U05NX4E9VEW> 1,3" }, true);
                 expect(handled).toHaveLength(1);
             });
         });
