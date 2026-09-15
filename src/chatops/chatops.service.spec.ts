@@ -654,6 +654,37 @@ describe("ChatOpsService", () => {
                     // assert
                     expect(lastReply()).not.toContain("fired after that list");
                 });
+                describe("and another alert that message reported comes back in the meantime", () => {
+                    it("should leave it out of the mute, and say so", async () => {
+                        // arrange - the thread reported three alerts, one of which had recovered
+                        // by the time the list was drawn and fires again before the reply. "all"
+                        // has to mean the two that were on screen, and the third has to be named
+                        const ids = [...twoAlerts];
+                        const alerts: IAlertSource = {
+                            getActiveAlerts: async () => ids.map(id => ({ id, title: id, detail: "failed" }))
+                        };
+                        const sut = new ChatOpsService(
+                            new ChatOpsConfig({ enabled: true, "app-token": "x" }),
+                            getApi(),
+                            { alerts });
+                        await recordChatThread({
+                            channel: "C1",
+                            threadTs,
+                            alertIds: [...twoAlerts, "web::health::flapping.com"]
+                        });
+                        await sut.handleMessage(threadMessage("mute"));
+                        ids.push("web::health::flapping.com");
+
+                        // act
+                        await sut.handleMessage(threadMessage("all"));
+
+                        // assert
+                        const mutes = await Muter.getInstance().getDynamicMutes();
+                        expect(mutes).toHaveLength(2);
+                        expect(mutes.some(x => x.match.includes("flapping"))).toEqual(false);
+                        expect(lastReply()).toContain("fired after that list was drawn");
+                    });
+                });
             });
         });
 
@@ -1064,6 +1095,24 @@ describe("ChatOpsService", () => {
 
             // act
             await sut.handleMessage(messageFrom("1 for 4h"));
+
+            // assert
+            const mutes = await Muter.getInstance().getDynamicMutes();
+            const fourHours = 4 * 60 * 60 * 1000;
+            expect(Math.abs(mutes[0].to.getTime() - (Date.now() + fourHours))).toBeLessThan(5000);
+        });
+        it("should carry a period the ai read, through the list it asks barky for", async () => {
+            // arrange - "silence the noisy ones for 4 hours" names a period but not which alerts,
+            // so the ai asks for the list. The period was said once and must survive the detour
+            const sut = getSut(
+                twoAlerts,
+                {},
+                resolverReturning({ action: IntentAction.RequestMuteList, duration: "4h" }));
+            await sut.handleMessage(messageFrom("silence the noisy ones for 4 hours"));
+            expect(lastReply()).toContain("as you asked");
+
+            // act
+            await sut.handleMessage(messageFrom("all"));
 
             // assert
             const mutes = await Muter.getInstance().getDynamicMutes();

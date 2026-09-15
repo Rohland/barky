@@ -120,6 +120,38 @@ describe("chatops bootstrap", () => {
                 expect(record.warmed).toEqual(1);
             });
 
+            describe("and warming up fails", () => {
+                it("should keep hold of the connected listener rather than orphaning the socket", async () => {
+                    // arrange - the socket is live and already delivering events by the time warm
+                    // up runs, so dropping the reference to it would leave it handling mentions
+                    // with a second connection added on the next pass
+                    const record = { started: 0, stopped: 0, warmed: 0 };
+                    const factory = () => ({
+                        start: async () => {
+                            record.started++;
+                        },
+                        warmUp: async () => {
+                            record.warmed++;
+                            throw new Error("slack would not say which scopes it granted");
+                        },
+                        stop: async () => {
+                            record.stopped++;
+                        }
+                    }) as any;
+                    const digest = digestWith({ enabled: true, "app-token": "test-app-token" });
+
+                    // act
+                    const first = await startChatOps({ loop: true }, digest, { now: Date.now(), createListener: factory });
+                    await startChatOps({ loop: true }, digest, { now: Date.now(), createListener: factory });
+
+                    // assert - one connection, and it is the one barky can still shut down
+                    expect(first).not.toBeNull();
+                    expect(record.started).toEqual(1);
+                    await stopChatOps();
+                    expect(record.stopped).toEqual(1);
+                });
+            });
+
             describe("and chat ops is then removed from the configuration", () => {
                 it("should shut it down rather than leaving the socket live", async () => {
                     // arrange - the config is reloaded on every pass, so disabling chat ops has to

@@ -48,7 +48,7 @@ interface IMuteRequest {
     actor: IChatMessage;
     // the list the user was looking at, so alerts that fired after it was drawn can be reported as
     // deliberately not muted
-    pinnedList?: ISelectionCandidate[];
+    pinned?: IPinnedSelection;
 }
 
 // without these the app can post alerts but will never be told about a reply, which otherwise
@@ -254,7 +254,7 @@ export class ChatOpsService {
                     chosen: chosen(),
                     window: { durationMs: parseDuration(intent.duration), until: intent.until },
                     actor: message,
-                    pinnedList: pending?.scoped ? null : pending?.candidates
+                    pinned: pending
                 });
             case IntentAction.Unmute:
                 this.selections.clear(message.channel, threadTs, message.userId);
@@ -273,7 +273,19 @@ export class ChatOpsService {
                     },
                     message);
             case IntentAction.RequestMuteList:
-                return await this.requestMute({ type: CommandType.Mute, all: false }, message, threadTs);
+                // "silence the noisy ones for 4h" names a period but not the alerts, so the list
+                // is shown carrying the period the user already gave rather than losing it. "all"
+                // is deliberately not carried - a list is being offered precisely because it is
+                // not yet clear what was meant, so nothing is muted without a reply
+                return await this.requestMute(
+                    {
+                        type: CommandType.Mute,
+                        all: false,
+                        durationMs: parseDuration(intent.duration),
+                        until: intent.until
+                    },
+                    message,
+                    threadTs);
             case IntentAction.RequestUnmuteList:
                 return await this.requestUnmute({ type: CommandType.Unmute, all: false }, message, threadTs);
             case IntentAction.Status:
@@ -311,7 +323,7 @@ export class ChatOpsService {
                     until: reply.until ?? pending.until
                 },
                 actor,
-                pinnedList: pending.scoped ? null : pending.candidates
+                pinned: pending
             })
             : await this.unmute(chosen, actor);
     }
@@ -399,17 +411,41 @@ export class ChatOpsService {
         if (!message.threadTs) {
             return null;
         }
-        const thread = await getChatThread(message.channel, threadTs);
+        return await this.narrowToThread(await this.getActiveAlerts(), message.channel, threadTs);
+    }
+
+    private async narrowToThread(
+        active: ISelectionCandidate[],
+        channel: string,
+        threadTs: string): Promise<ISelectionCandidate[]> {
+        const thread = await getChatThread(channel, threadTs);
         if (!thread) {
             return null;
         }
         const ids = new Set(thread.alertIds);
-        const active = await this.getActiveAlerts();
         return active.filter(x => ids.has(x.id));
     }
 
+    /*
+     "all" means the alerts the user was shown, so anything that started firing while they were
+     reading is deliberately left alone - and said so, rather than quietly slipping past the mute.
+     Drift is measured against the same set the list was drawn from: a list drawn inside an alert's
+     thread was never a list of everything, so alerts elsewhere are not drift against it.
+     */
+    private async alertsFiredSince(
+        pinned: IPinnedSelection,
+        active: ISelectionCandidate[]): Promise<ISelectionCandidate[]> {
+        if (!pinned) {
+            return [];
+        }
+        const universe = pinned.scoped
+            ? (await this.narrowToThread(active, pinned.channel, pinned.threadTs)) ?? []
+            : active;
+        return universe.filter(x => !pinned.candidates.some(candidate => candidate.id === x.id));
+    }
+
     private async mute(request: IMuteRequest): Promise<string> {
-        const { chosen, actor, pinnedList } = request;
+        const { chosen, actor } = request;
         if (chosen.length === 0) {
             return messages.renderNothingToDo("mute");
         }
@@ -419,9 +455,7 @@ export class ChatOpsService {
         // an alert that recovered while the user was typing is still muted - flapping is the most
         // common reason to reach for mute in the first place
         const resolvedSince = chosen.filter(x => !activeIds.has(x.id));
-        const firedSince = pinnedList
-            ? active.filter(x => !pinnedList.some(candidate => candidate.id === x.id))
-            : [];
+        const firedSince = await this.alertsFiredSince(request.pinned, active);
         await Muter.getInstance().registerMutes(
             chosen.map(x => mutePatternFor(x.id)),
             new Date(),

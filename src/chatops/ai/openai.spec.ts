@@ -92,6 +92,49 @@ describe("OpenAiClient", () => {
                 await expect(getSut().complete({ model: "m1", instructions: "a", input: "b", schema: {} })).rejects.toBeInstanceOf(AiUnavailableError);
             });
         });
+        describe("when the model spends the whole output budget before answering", () => {
+            it("should not spend the retry on a call that cannot succeed", async () => {
+                // arrange - a reasoning model charges its thinking to the same budget, so an
+                // answer can be cut off before a single character of it is emitted
+                jest.spyOn(axios, "request").mockResolvedValue({
+                    data: { choices: [{ finish_reason: "length", message: { content: "" } }] }
+                } as any);
+
+                // act & assert
+                await expect(getSut().complete({ model: "m1", instructions: "a", input: "b", schema: {} }))
+                    .rejects.toBeInstanceOf(AiUnavailableError);
+                expect(axios.request).toHaveBeenCalledTimes(1);
+            });
+            it("should say so, rather than reporting an unexplained outage", async () => {
+                // arrange
+                initLogger({ debug: true });
+                jest.spyOn(axios, "request").mockResolvedValue({
+                    data: { choices: [{ finish_reason: "length", message: { content: "" } }] }
+                } as any);
+
+                // act
+                await expect(getSut().complete({ model: "m1", instructions: "a", input: "b", schema: {} }))
+                    .rejects.toBeInstanceOf(AiUnavailableError);
+
+                // assert
+                const logged = (console.log as any).mock.calls.map(args => args.map(a => String(a)).join(" ")).join("\n");
+                expect(logged).toContain("output tokens before answering");
+                initLogger({ debug: false });
+            });
+        });
+        describe("when the reply is empty for some other reason", () => {
+            it("should retry once, since it may well have been a blip", async () => {
+                // arrange
+                jest.spyOn(axios, "request").mockResolvedValue({
+                    data: { choices: [{ finish_reason: "stop", message: { content: "" } }] }
+                } as any);
+
+                // act & assert
+                await expect(getSut().complete({ model: "m1", instructions: "a", input: "b", schema: {} }))
+                    .rejects.toBeInstanceOf(AiUnavailableError);
+                expect(axios.request).toHaveBeenCalledTimes(2);
+            });
+        });
         describe("when the call times out", () => {
             it("should retry once and then give up", async () => {
                 // arrange

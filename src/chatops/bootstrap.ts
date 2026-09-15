@@ -57,14 +57,29 @@ export async function startChatOps(
         }
         const listener = createListener(config, channel);
         await listener.start();
-        await listener.warmUp();
+        // the socket is live and already delivering events from here, so it is tracked before
+        // anything else runs - a failure in between would otherwise leave a connection nothing
+        // holds a reference to, still handling mentions, with the next pass adding a second one
         _listener = listener;
         _nextAttemptAfter = 0;
+        await warmUp(listener);
         return _listener;
     } catch (err) {
         _nextAttemptAfter = now + RetryAfterFailureMs;
         log(`chat ops failed to start, retrying in ${ RetryAfterFailureMs / 60000 } minutes: ${ err }`, err);
         return null;
+    }
+}
+
+/*
+ Warming up resolves the ai model and reports missing scopes, both of which only make the log more
+ useful - a failure there is not a reason to take a working listener down.
+ */
+async function warmUp(listener: SlackChatOpsListener): Promise<void> {
+    try {
+        await listener.warmUp();
+    } catch (err) {
+        log(`chat ops started but could not warm up: ${ err }`, err);
     }
 }
 

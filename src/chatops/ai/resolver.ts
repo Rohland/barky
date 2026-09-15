@@ -188,7 +188,7 @@ export function buildInput(context: IIntentContext): string {
         "</alerts>",
         "",
         "<message>",
-        context.text ?? "",
+        asData(context.text),
         "</message>"
     ].join("\n");
 }
@@ -198,6 +198,24 @@ function renderCandidates(candidates: ISelectionCandidate[]): string {
         return "(nothing)";
     }
     return candidates
-        .map((x, i) => `${ i + 1 }. ${ x.title }${ x.detail ? ` — ${ x.detail }` : "" }`)
+        .map((x, i) => `${ i + 1 }. ${ asData(x.title) }${ x.detail ? ` — ${ asData(x.detail) }` : "" }`)
         .join("\n");
+}
+
+// the tags below are the only thing telling the model where captured output ends and barky's own
+// words resume, and the alert titles and detail interpolated between them are whatever a monitored
+// system printed. One printing a closing tag would otherwise end the block early and have what
+// follows read as instruction rather than data.
+const DelimiterRegex = /<\/?\s*(?:alerts|message)\s*>/gi;
+
+/*
+ Anything that reaches the model as data rather than instruction goes through here. Line breaks are
+ folded away as well, so a multi line check result cannot lay out convincing extra rows of its own
+ in the numbered list.
+ */
+function asData(text: string): string {
+    return (text ?? "")
+        .replace(DelimiterRegex, " ")
+        .replace(/\s+/g, " ")
+        .trim();
 }

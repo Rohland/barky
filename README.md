@@ -922,7 +922,8 @@ thread without barky acting on it.
 
 The list is pinned at the moment it is posted, so `all` always means the alerts you were shown -
 anything that starts alerting in between is reported back to you rather than quietly swept into the
-mute. An alert that recovers while you are typing is still muted, so it stays quiet if it flaps
+mute. That is measured against the set the list was drawn from, so a list drawn inside an alert's
+thread is compared to what that message reported rather than to the whole system. An alert that recovers while you are typing is still muted, so it stays quiet if it flaps
 back.
 
 **Replying to an alert directly**
@@ -992,8 +993,9 @@ a number.
 It is only ever asked to pick numbers from a list barky supplies. It never names an alert,
 builds a mute expression or works out an expiry time - barky does all of that, and discards any
 number that was not on the list it gave. Output captured from monitored systems is passed to the
-model inside a delimited block and marked as data, so a failing check cannot smuggle in an
-instruction by putting one in its response body. Where the model is unsure, it is told to show the
+model inside a delimited block and marked as data, and any delimiter the output itself contains is
+stripped along with its line breaks - so a failing check can neither smuggle in an instruction by
+putting one in its response body nor close the block early to make it look like barky's own words. Where the model is unsure, it is told to show the
 numbered list rather than guess.
 
 **Choosing a model**

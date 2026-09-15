@@ -3,7 +3,11 @@ import { AiConfig } from "../config.js";
 import { AiUnavailableError } from "./types.js";
 import { log } from "../../models/logger.js";
 
-const MaxOutputTokens = 400;
+// a reasoning model spends this budget thinking before a single character of the answer is
+// emitted, and the cost optimised tier barky prefers is exactly where those live. Too small a cap
+// comes back as an empty reply rather than an error, so it is deliberately generous - it is a cap
+// and not a reservation, so a reply that needs eighty tokens is only ever charged for eighty.
+const MaxOutputTokens = 4000;
 
 export interface ICompletionRequest {
     model: string;
@@ -20,9 +24,23 @@ export class AiRefusedError extends AiUnavailableError {
 }
 
 export class EmptyAiResponseError extends Error {
-    constructor() {
-        super("ai service returned no content");
+    constructor(public readonly finishReason?: string) {
+        super(EmptyAiResponseError.describe(finishReason));
         this.name = "EmptyAiResponseError";
+    }
+
+    /*
+     The reply was cut off before it was finished rather than never started - the model used the
+     whole output budget, which for a reasoning model can happen before it answers at all.
+     */
+    public get budgetExhausted(): boolean {
+        return this.finishReason === "length";
+    }
+
+    private static describe(finishReason?: string): string {
+        return finishReason === "length"
+            ? `ai service returned no content - the model used all ${ MaxOutputTokens } output tokens before answering`
+            : "ai service returned no content";
     }
 }
 
@@ -109,12 +127,13 @@ export class OpenAiClient {
             },
             data: JSON.stringify(body)
         });
-        const message = result.data?.choices?.[0]?.message;
+        const choice = result.data?.choices?.[0];
+        const message = choice?.message;
         if (message?.refusal) {
             throw new AiRefusedError(message.refusal);
         }
         if (!message?.content) {
-            throw new EmptyAiResponseError();
+            throw new EmptyAiResponseError(choice?.finish_reason);
         }
         return message.content;
     }
@@ -132,6 +151,11 @@ export class OpenAiClient {
     }
 
     private static isWorthRetrying(err: any): boolean {
+        if (err instanceof EmptyAiResponseError) {
+            // a reply the output budget cut short will be cut short again - only a larger cap
+            // fixes it, so the retry is spent to no purpose and the log says exactly that
+            return !err.budgetExhausted;
+        }
         const status = err?.response?.status;
         if (!status) {
             // a timeout or connection level failure
