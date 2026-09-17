@@ -372,11 +372,14 @@ describe("slack", () => {
             // assert
             const thread = await getChatThread("C1", "1700000000.000100");
             expect(thread.alertIds).toEqual(["web::health::www.codeo.co.za"]);
+            // so a reply in the thread is answered by the config that posted it, with the bot
+            // token that can post in that channel
+            expect(thread.channelName).toEqual("slack");
         });
-        describe("for a channel without chat ops", () => {
+        describe("for a channel chat ops does not cover", () => {
             it("should not record a thread, since the record is what authorises a reply", async () => {
-                // arrange - another slack channel having chat ops on must not make this one's
-                // threads actionable
+                // arrange - a channel posting with a bot that has no chat ops app behind it. What
+                // is covered is worked out from the digest as a whole, in resolveChatOpsCoverage
                 const sut = new SlackChannelConfig("slack", { channel: "#quiet" });
                 sut.postToSlack = jest.fn().mockResolvedValue({ channel: "C2", ts: "1700000000.000200" }) as any;
                 const alert = new AlertState({ channel: "slack", start_date: new Date() });

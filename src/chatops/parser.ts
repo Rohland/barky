@@ -51,6 +51,13 @@ const DaysInWeek = 7;
 // trailing punctuation people type but do not mean - "mute all!"
 const TrailingPunctuationRegex = /(?<=.)[.!?]+$/;
 
+/*
+ People are polite to barky, and "all please" is the same answer as "all". Without this the courtesy
+ is what makes the reply unreadable, which is a baffling thing to be told off for - and where no ai
+ service is configured there is nothing else to fall back on.
+ */
+const CourtesyRegex = /\b(?:please|pls|plz|thank you|thanks|thx|ta|cheers|just|only)\b/g;
+
 const IndexRangeRegex = /^(\d+)\s*[-–]\s*(\d+)$/;
 
 /*
@@ -194,8 +201,18 @@ function takePeriod(text: string): { durationMs: number, until: string, remainde
     return {
         durationMs: parseDuration(text),
         until: parseUntil(text),
-        remainder: withoutPeriod(text).replace(TrailingPunctuationRegex, "").trim()
+        remainder: withoutCourtesy(withoutPeriod(text)).replace(TrailingPunctuationRegex, "").trim()
     };
+}
+
+function withoutCourtesy(input: string): string {
+    return input
+        .replace(CourtesyRegex, " ")
+        .replace(/\s+/g, " ")
+        // a courtesy word lifted out of "all, please" leaves a separator with nothing on the far
+        // side of it, which would otherwise read as a half given answer
+        .replace(/\s*,\s*,\s*/g, ", ")
+        .replace(/^[\s,;]+|[\s,;]+$/g, "");
 }
 
 function withoutPeriod(input: string): string {

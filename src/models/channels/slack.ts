@@ -28,6 +28,14 @@ export class SlackChannelConfig extends ChannelConfig {
         return this._api ??= new SlackApi(this.token);
     }
 
+    /*
+     The constructor reads this channel's own chat-ops block, but an app can cover a channel that
+     declared nothing, so the digest settles it from the coverage as a whole.
+     */
+    public applyChatOpsCoverage(coveredChannelNames: Set<string>) {
+        this.chatOpsEnabled = coveredChannelNames.has(this.name);
+    }
+
     public generateMessage(
         snapshots: Snapshot[],
         alert: AlertState): string {
@@ -155,7 +163,8 @@ export class SlackChannelConfig extends ChannelConfig {
         await recordChatThread({
             channel: state.channel ?? this.channel,
             threadTs: state.ts.toString(),
-            alertIds: snapshots.map(x => x.uniqueId)
+            alertIds: snapshots.map(x => x.uniqueId),
+            channelName: this.name
         });
     }
 

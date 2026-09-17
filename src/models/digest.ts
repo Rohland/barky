@@ -1,5 +1,7 @@
 import { ChannelConfig, ChannelType } from "./channels/base.js";
 import { getChannelConfigFor } from "./channel.js";
+import { SlackChannelConfig } from "./channels/slack.js";
+import { resolveChatOpsCoverage } from "../chatops/coverage.js";
 import { AlertConfiguration } from "./alert_configuration.js";
 import { MonitorFailureResult, Result } from "./result.js";
 import { log } from "./logger.js";
@@ -58,6 +60,21 @@ export class DigestConfiguration {
             channelConfig.title ??= title;
             return getChannelConfigFor(name, channelConfig);
         });
+        this.applyChatOpsCoverage(config);
+    }
+
+    /*
+     Chat ops answers in every channel the app it is configured on posts to, not only the channel
+     that declared it. Each of those has to note which alerts its messages were reporting, since a
+     reply barky has no note for is one it will not act on.
+     */
+    private applyChatOpsCoverage(config: any) {
+        const covered = new Set(resolveChatOpsCoverage(config).apps
+            .flatMap(app => app.channels)
+            .map(x => x.name));
+        this.channelConfigs
+            .filter(x => x instanceof SlackChannelConfig)
+            .forEach(x => x.applyChatOpsCoverage(covered));
     }
 
     public trackChannelConfigIssues(results: Result[]) {

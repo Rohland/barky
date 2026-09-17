@@ -1,7 +1,8 @@
 import mockConsole from "jest-mock-console";
-import { SlackChatOpsListener } from "./slack-listener.js";
+import { SlackChatOpsListener, sharedConnections } from "./slack-listener.js";
 import { ChatOpsConfig } from "./config.js";
 import { ChatOpsService, IChatMessage } from "./chatops.service.js";
+import { ChatOpsRouter } from "./router.js";
 import { deleteDbIfExists, destroy, initConnection, recordChatThread } from "../models/db.js";
 
 describe("SlackChatOpsListener", () => {
@@ -25,16 +26,19 @@ describe("SlackChatOpsListener", () => {
         restoreConsole();
     });
 
-    function getSut() {
-        const service = {
+    function serviceRecordingInto(into: IChatMessage[]): ChatOpsService {
+        return {
             handleMessage: async (message: IChatMessage) => {
-                handled.push(message);
+                into.push(message);
             },
             pendingSelectionCount: 0
         } as unknown as ChatOpsService;
+    }
+
+    function getSut(router?: ChatOpsRouter) {
         return new SlackChatOpsListener(
             new ChatOpsConfig({ enabled: true, "app-token": "xapp-1" }),
-            service);
+            router ?? new ChatOpsRouter(serviceRecordingInto(handled)));
     }
 
     const alertThreadTs = "1699999999.000100";
@@ -86,6 +90,100 @@ describe("SlackChatOpsListener", () => {
             expect(handled).toHaveLength(1);
             expect(handled[0].text).toEqual("mute");
             expect(handled[0].threadTs).toEqual(alertThreadTs);
+        });
+    });
+
+    describe("when the app covers more than one channel", () => {
+        it("should answer with the channel config that posted the thread", async () => {
+            // arrange - each install posts with its own bot token, and replying to a channel with
+            // another one is refused by slack after the mute has already been applied
+            const ops: IChatMessage[] = [];
+            const db: IChatMessage[] = [];
+            const sut = getSut(new ChatOpsRouter(
+                serviceRecordingInto(ops),
+                new Map([
+                    ["slack-ops", serviceRecordingInto(ops)],
+                    ["slack-db", serviceRecordingInto(db)]
+                ])));
+            await recordChatThread({
+                channel: "C1",
+                threadTs: alertThreadTs,
+                alertIds: ["mysql::lag::db-01"],
+                channelName: "slack-db"
+            });
+
+            // act
+            await dispatch(sut, {}, true);
+
+            // assert
+            expect(db).toHaveLength(1);
+            expect(ops).toHaveLength(0);
+        });
+        describe("and the channel that posted the thread has since opted out of chat ops", () => {
+            it("should stay out of it, rather than answering as another channel", async () => {
+                // arrange - a channel switched off keeps its recorded threads for the retention
+                // window, and the socket stays up for the others, so its replies still arrive.
+                // Acting on one would mute from a channel the operator has switched off, with a
+                // token that may no longer be able to post the reply
+                const ops: IChatMessage[] = [];
+                const sut = getSut(new ChatOpsRouter(
+                    serviceRecordingInto(ops),
+                    new Map([["slack-ops", serviceRecordingInto(ops)]])));
+                await recordChatThread({
+                    channel: "C1",
+                    threadTs: alertThreadTs,
+                    alertIds: ["mysql::lag::db-01"],
+                    channelName: "slack-db"
+                });
+
+                // act
+                await dispatch(sut, {}, true);
+
+                // assert
+                expect(ops).toHaveLength(0);
+                expect(acked).toEqual(1);
+            });
+        });
+        describe("for a thread recorded before barky noted which channel posted it", () => {
+            it("should fall back to the channel that declared chat ops", async () => {
+                // arrange - rows written by an older barky carry no channel name
+                const ops: IChatMessage[] = [];
+                const db: IChatMessage[] = [];
+                const sut = getSut(new ChatOpsRouter(
+                    serviceRecordingInto(ops),
+                    new Map([["slack-db", serviceRecordingInto(db)]])));
+                await recordAlertThread();
+
+                // act
+                await dispatch(sut, {}, true);
+
+                // assert
+                expect(ops).toHaveLength(1);
+                expect(db).toHaveLength(0);
+            });
+        });
+    });
+
+    describe("when the slack app has more than one socket open", () => {
+        // slack hands each event to one connection rather than all of them, so a second barky on
+        // the same app token silently takes a share of the replies meant for this one
+        const hello = (connections: number) =>
+            `Received a message on the WebSocket: {"type":"hello","num_connections":${ connections },"debug_info":{"host":"applink-14"}}`;
+
+        it("should read how many there are, so the log can say why some replies arrive late", async () => {
+            expect(sharedConnections(hello(4))).toEqual(4);
+        });
+        describe("when it is the only one", () => {
+            it("should report none, since there is nothing to explain", async () => {
+                expect(sharedConnections(hello(1))).toEqual(0);
+            });
+        });
+        describe("for any other socket chatter", () => {
+            it("should report none", async () => {
+                expect(sharedConnections('Received a message: {"type":"events_api","num_connections":9}')).toEqual(0);
+                expect(sharedConnections("Initiating new WebSocket connection.")).toEqual(0);
+                expect(sharedConnections(null)).toEqual(0);
+            });
         });
     });
 

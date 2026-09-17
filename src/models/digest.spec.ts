@@ -104,6 +104,57 @@ describe("digest", () => {
                     assertWebConfig(config.getChannelConfig("web"))
                 });
             });
+            describe("with chat ops configured on one slack channel", () => {
+
+                const digestConfig = {
+                    channels: {
+                        "slack-ops": {
+                            type: "slack",
+                            token: "chatops-bot-token",
+                            channel: "#ops",
+                            "chat-ops": { enabled: true, "app-token": "chatops-app-token" }
+                        },
+                        "slack-db": {
+                            type: "slack",
+                            token: "chatops-bot-token",
+                            channel: "#db"
+                        },
+                        "slack-other": {
+                            type: "slack",
+                            token: "another-bot-token",
+                            channel: "#other"
+                        }
+                    }
+                };
+
+                beforeEach(() => {
+                    process.env["chatops-bot-token"] = "xoxb-1";
+                    process.env["chatops-app-token"] = "xapp-1";
+                    process.env["another-bot-token"] = "xoxb-2";
+                });
+
+                afterEach(() => {
+                    delete process.env["chatops-bot-token"];
+                    delete process.env["chatops-app-token"];
+                    delete process.env["another-bot-token"];
+                });
+
+                it("should note the threads of every channel that app posts to", async () => {
+                    // arrange - chat ops answers wherever that app posts, and a reply barky kept
+                    // no note for is one it will not act on
+                    const config = new DigestConfiguration(digestConfig);
+
+                    // act
+                    const slackOps = config.getChannelConfig("slack-ops") as SlackChannelConfig;
+                    const slackDb = config.getChannelConfig("slack-db") as SlackChannelConfig;
+                    const other = config.getChannelConfig("slack-other") as SlackChannelConfig;
+
+                    // assert - the third posts with a different bot, so no app is listening there
+                    expect(slackOps.chatOpsEnabled).toEqual(true);
+                    expect(slackDb.chatOpsEnabled).toEqual(true);
+                    expect(other.chatOpsEnabled).toEqual(false);
+                });
+            });
             describe("with unknown type", () => {
                 it("should throw", async () => {
                     // arrange

@@ -201,6 +201,10 @@ export class ChatOpsService {
         const pending = found?.expired ? null : found?.selection;
         const command = parseCommand(message.text);
         if (!command) {
+            if (!pending && parseSelectionReply(message.text)) {
+                // an answer to a list barky no longer has - it did not survive whatever restarted
+                return messages.renderNoListWaiting();
+            }
             return await this.interpret(message, threadTs, pending);
         }
         switch (command.type) {
@@ -228,7 +232,7 @@ export class ChatOpsService {
         threadTs: string,
         pending: IPinnedSelection): Promise<string> {
         if (!this.resolver) {
-            return messages.renderNotUnderstood(this.config.dashboardHint);
+            return this.notUnderstood(pending);
         }
         // a reply in an alert's thread is interpreted against that alert, not everything active
         const candidates = pending
@@ -297,7 +301,7 @@ export class ChatOpsService {
                 return this.help();
             case IntentAction.Reply:
             default:
-                return intent.message || messages.renderNotUnderstood(this.config.dashboardHint);
+                return intent.message || this.notUnderstood(pending);
         }
     }
 
@@ -504,6 +508,12 @@ export class ChatOpsService {
         return messages.renderStatus(
             await this.getActiveAlerts(),
             await this.getActiveMutes());
+    }
+
+    private notUnderstood(pending: IPinnedSelection): string {
+        return pending
+            ? messages.renderNotUnderstoodWithList(pending.kind)
+            : messages.renderNotUnderstood(this.config.dashboardHint);
     }
 
     private help(): string {

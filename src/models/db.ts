@@ -173,6 +173,9 @@ export interface IChatThread {
     channel: string;
     threadTs: string;
     alertIds: string[];
+    // the digest channel config that posted the message, so a reply to it is answered by the same
+    // one - null for threads recorded before barky tracked this
+    channelName?: string;
 }
 
 export interface IChatOpsAuditEntry {
@@ -204,10 +207,11 @@ async function writeChatThread(thread: IChatThread): Promise<void> {
             channel: thread.channel,
             thread_ts: thread.threadTs,
             alert_ids: JSON.stringify(thread.alertIds ?? []),
+            channel_name: thread.channelName ?? null,
             date: new Date().toISOString()
         })
         .onConflict(["channel", "thread_ts"])
-        .merge(["alert_ids", "date"]);
+        .merge(["alert_ids", "channel_name", "date"]);
     await _connection("chat_threads")
         .where("date", "<", new Date(Date.now() - ChatThreadRetentionMs).toISOString())
         .del();
@@ -219,13 +223,15 @@ export async function getChatThread(
     const result = await _connection("chat_threads")
         .where({ channel, thread_ts: threadTs })
         .first();
-    if (!result) {
-        return null;
-    }
+    return result ? toChatThread(result) : null;
+}
+
+function toChatThread(result: any): IChatThread {
     return {
         channel: result.channel,
         threadTs: result.thread_ts,
-        alertIds: JSON.parse(result.alert_ids ?? "[]")
+        alertIds: JSON.parse(result.alert_ids ?? "[]"),
+        channelName: result.channel_name ?? null
     };
 }
 
@@ -333,6 +339,7 @@ async function intialiseSchema(connection: Knex) {
 
 async function createChatThreadsTable(connection: Knex) {
     if (await connection.schema.hasTable("chat_threads")) {
+        await addChannelNameToChatThreads(connection);
         return;
     }
     await connection.schema.createTable(
@@ -341,10 +348,24 @@ async function createChatThreadsTable(connection: Knex) {
             table.string("channel");
             table.string("thread_ts");
             table.json("alert_ids");
+            table.string("channel_name");
             table.dateTime("date");
             table.primary(["channel", "thread_ts"]);
         }
     );
+}
+
+/*
+ Added once chat ops could cover more than one channel. Existing rows keep a null, which routes a
+ reply to the channel that declared chat ops - the only one that could have posted it before.
+ */
+async function addChannelNameToChatThreads(connection: Knex) {
+    if (await connection.schema.hasColumn("chat_threads", "channel_name")) {
+        return;
+    }
+    await connection.schema.alterTable(
+        "chat_threads",
+        table => table.string("channel_name"));
 }
 
 async function createChatOpsAuditTable(connection: Knex) {

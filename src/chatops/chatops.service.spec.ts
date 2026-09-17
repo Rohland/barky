@@ -269,7 +269,8 @@ describe("ChatOpsService", () => {
                 await sut.handleMessage(messageFrom("mute"));
                 await sut.handleMessage(messageFrom("1", { userId: "U2" }));
                 expect(await Muter.getInstance().getDynamicMutes()).toHaveLength(0);
-                expect(lastReply()).toContain("didn't understand");
+                // and says why, rather than pretending the answer was unreadable
+                expect(lastReply()).toContain("haven't got one waiting for you");
             });
         });
         describe("when the user cancels", () => {
@@ -1067,6 +1068,73 @@ describe("ChatOpsService", () => {
             });
         });
     });
+    describe("when the answer to a list is a polite one", () => {
+        it("should act on it rather than telling the user off", async () => {
+            // arrange - "mute for 1 hour", the list, then "all please". With no ai configured the
+            // local parser is all there is, and the courtesy must not be what breaks it
+            const sut = getSut(twoAlerts);
+            await sut.handleMessage(messageFrom("mute for 1 hour"));
+
+            // act
+            await sut.handleMessage(messageFrom("all please"));
+
+            // assert
+            const mutes = await Muter.getInstance().getDynamicMutes();
+            expect(mutes).toHaveLength(2);
+            const oneHour = 60 * 60 * 1000;
+            expect(Math.abs(mutes[0].to.getTime() - (Date.now() + oneHour))).toBeLessThan(5000);
+        });
+    });
+
+    describe("when an answer arrives for a list barky no longer has", () => {
+        it("should say so, rather than that it did not understand", async () => {
+            // arrange - the lists live in memory, so a restart takes them with it. Being told the
+            // answer was unreadable when it is exactly what was asked for is baffling
+            const sut = getSut(twoAlerts);
+
+            // act - "all" with nothing pinned, as after a restart
+            await sut.handleMessage(messageFrom("all"));
+
+            // assert
+            expect(lastReply()).toContain("haven't got one waiting for you");
+            expect(lastReply()).toContain("`mute`");
+            expect(await Muter.getInstance().getDynamicMutes()).toHaveLength(0);
+        });
+        describe("and it is a plain command rather than an answer", () => {
+            it("should carry on as normal", async () => {
+                const sut = getSut(twoAlerts);
+                await sut.handleMessage(messageFrom("mute all"));
+                expect(await Muter.getInstance().getDynamicMutes()).toHaveLength(2);
+            });
+        });
+    });
+
+    describe("when a list is waiting and the reply cannot be read", () => {
+        it("should point back at the list, not at the commands", async () => {
+            // arrange - being told to try `mute` halfway through muting reads as barky having
+            // lost the thread
+            const sut = getSut(twoAlerts);
+            await sut.handleMessage(messageFrom("mute"));
+
+            // act
+            await sut.handleMessage(messageFrom("the mysql ones"));
+
+            // assert
+            expect(lastReply()).toContain("which of those you meant");
+            expect(lastReply()).toContain("`all`");
+            expect(lastReply()).not.toContain("Try `mute`");
+            // and the list is still pinned, so the next answer still lands
+            expect(sut.pendingSelectionCount).toEqual(1);
+        });
+        describe("with no list waiting", () => {
+            it("should offer the commands", async () => {
+                const sut = getSut(twoAlerts);
+                await sut.handleMessage(messageFrom("the mysql ones"));
+                expect(lastReply()).toContain("Try `mute`");
+            });
+        });
+    });
+
     describe("when a period is given before barky asks which alerts", () => {
         it("should still apply it after the answer", async () => {
             // arrange - "mute for 1 hour", then a list, then "all": the hour must survive

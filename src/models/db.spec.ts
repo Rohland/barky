@@ -20,6 +20,7 @@ import { Snapshot } from "./snapshot.js";
 import { AlertState } from "./alerts.js";
 import { AlertConfiguration, IAlertConfig } from "./alert_configuration.js";
 import { getTestSnapshot } from "./snapshot.spec.js";
+import knex from "knex";
 
 describe("db", () => {
 
@@ -521,6 +522,21 @@ describe("db", () => {
             // assert
             expect(result.alertIds).toEqual(["web::health::a.com", "mysql::lag::db-01"]);
         });
+        it("should record which channel config posted it, so a reply is answered by the same one", async () => {
+            // arrange
+            await recordChatThread({
+                channel: "C1",
+                threadTs: "1700000000.000100",
+                alertIds: ["mysql::lag::db-01"],
+                channelName: "slack-db"
+            });
+
+            // act
+            const result = await getChatThread("C1", "1700000000.000100");
+
+            // assert
+            expect(result.channelName).toEqual("slack-db");
+        });
         describe("when the same message is recorded again", () => {
             it("should replace what it reports, not duplicate it", async () => {
                 // arrange - the alert message is edited in place as the outage changes
@@ -537,6 +553,84 @@ describe("db", () => {
         describe("for a thread that was never recorded", () => {
             it("should return nothing", async () => {
                 expect(await getChatThread("C1", "9.9")).toBeNull();
+            });
+        });
+    });
+
+    describe("for a database created by a version before chat ops covered several channels", () => {
+
+        const olderDb = "dbtestsolder";
+
+        beforeEach(async () => {
+            // the outer hook already holds a connection to a current schema db
+            await destroy();
+            deleteDbIfExists(olderDb);
+            const older = knex({
+                client: "better-sqlite3",
+                connection: { filename: `./db/${ olderDb }.sqlite` },
+                useNullAsDefault: true
+            });
+            await older.schema.createTable("chat_threads", table => {
+                table.string("channel");
+                table.string("thread_ts");
+                table.json("alert_ids");
+                table.dateTime("date");
+                table.primary(["channel", "thread_ts"]);
+            });
+            await older("chat_threads").insert({
+                channel: "C_OLD",
+                thread_ts: "1699999999.000100",
+                alert_ids: JSON.stringify(["web::health::a.com"]),
+                date: new Date().toISOString()
+            });
+            await older.destroy();
+        });
+
+        afterEach(async () => {
+            await destroy();
+            deleteDbIfExists(olderDb);
+            // leave the connection as the outer hooks expect to find it
+            await initConnection(testDb);
+        });
+
+        it("should keep the threads already recorded, belonging to no particular channel config", async () => {
+            // act - what barky does when it starts against an existing file
+            await initConnection(olderDb);
+
+            // assert - a thread naming no channel routes a reply to the one that declared chat ops
+            const existing = await getChatThread("C_OLD", "1699999999.000100");
+            expect(existing.alertIds).toEqual(["web::health::a.com"]);
+            expect(existing.channelName).toBeNull();
+        });
+
+        it("should add the column it needs, so threads recorded from here name the channel that posted them", async () => {
+            // arrange - what barky does when it starts against an existing file
+            await initConnection(olderDb);
+
+            // act
+            await recordChatThread({
+                channel: "C_NEW",
+                threadTs: "1700000000.000200",
+                alertIds: ["mysql::lag::db-01"],
+                channelName: "slack-db"
+            });
+
+            // assert
+            expect((await getChatThread("C_NEW", "1700000000.000200")).channelName).toEqual("slack-db");
+        });
+
+        describe("and barky is restarted again afterwards", () => {
+            it("should leave the upgraded file alone", async () => {
+                // arrange
+                await initConnection(olderDb);
+                await destroy();
+
+                // act
+                await initConnection(olderDb);
+
+                // assert
+                expect((await getChatThread("C_OLD", "1699999999.000100")).alertIds)
+                    .toEqual(["web::health::a.com"]);
             });
         });
     });

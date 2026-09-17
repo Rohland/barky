@@ -794,6 +794,66 @@ so barky needs no inbound network access and no public URL. It only runs under t
 since the connection has to outlive a single evaluation. If Slack cannot be reached, barky logs it
 and carries on monitoring, retrying every five minutes.
 
+**One slack app per barky**
+
+Every barky that runs chat ops needs a Slack app of its own. Slack hands each event to *one* of the
+sockets an app has open rather than repeating it to all of them, so two barkys sharing an `app-token`
+split the replies between them at random - and the one that receives a reply to a thread it did not
+post cannot act on it: the alerts it names, and the mutes that would silence them, live in the
+database of the barky that posted it. The reply is dropped, and nothing is said in the channel.
+
+This is not something barky can work around. Slack offers no way to say which connection an event
+belongs to, and the instances share nothing but the workspace.
+
+The symptom is distinctive: barky answers some replies and ignores others at random, while alerting
+carries on working perfectly - posting alerts is an ordinary API call and never touches the socket.
+Run with `--debug` and barky reports how many connections its app has open, which is the first thing
+to check:
+
+> chatops: this slack app has 4 socket connections open, so this is not the only barky listening on it
+
+One is what you want. See *Setting up a slack app for an instance* below.
+
+**More than one channel**
+
+Chat ops is configured once per Slack app, not once per channel. Every other slack channel posting
+with the same bot `token` is covered by it, because that is the same app: it already receives those
+events and can already post there. So alerts routed to `#ops` and `#db` are both answerable with
+one `chat-ops` block:
+
+```yaml
+channels:
+  slack-ops:
+    type: slack
+    token: slack-token
+    channel: "#ops"
+    chat-ops:
+      enabled: true
+      app-token: slack-app-token
+  slack-db:
+    type: slack
+    token: slack-token          # same bot, so chat ops covers this channel too
+    channel: "#db"
+  slack-quiet:
+    type: slack
+    token: slack-token
+    channel: "#noise"
+    chat-ops:
+      enabled: false            # opt this one out
+```
+
+Opting a channel out takes effect on the next pass: barky stops answering there, including in the
+threads of alerts it had already posted in that channel.
+
+A channel posting with a *different* bot token is a different Slack app, and needs its own
+`chat-ops` block with its own `app-token`. Barky then opens a connection per app and keeps them
+apart: each reply is answered by the channel config that posted the alert it is threaded under, so
+it goes out with a token that can actually post there.
+
+At startup barky logs the channels each app covers, and says so when a `chat-ops` block cannot be
+used - one that cannot listen otherwise looks exactly like one that is working. Both are visible
+with `--debug`.
+
 Two settings are needed to receive anything, on two different screens, and **both are required**:
 
 - **OAuth & Permissions** grants the app *permission* to read mentions and channel history
@@ -803,18 +863,67 @@ Granting the scope does not subscribe you to the event. With scopes but no subsc
 connects to Slack successfully, posts alerts, and silently never receives a single reply - there is
 no error anywhere, because nothing is wrong from Slack's point of view.
 
-**Setting up a new Slack app**
+**Setting up a slack app for an instance**
 
-1. Create an app at api.slack.com/apps.
-2. Under *Socket Mode*, turn it on. This generates an app level token with the `connections:write`
-   scope - that is `app-token` above.
+Since every barky needs its own app, name each one for the instance it belongs to. The bot's
+*username* has to be unique in the workspace; its *display name* does not, so all of them can still
+appear as plain `Barky` in the channel:
+
+| Setting | Where | Example |
+|---|---|---|
+| App name | *Basic Information* → *Display Information* | `Barky (SPAR)` |
+| Icon | *Basic Information* → *Display Information* | the same image for all of them |
+| Display name | *App Home* → *Your App's Presence in Slack* | `Barky` |
+| Default username | *App Home* → *Your App's Presence in Slack* | `barky-spar` |
+
+Slack appends a number to a username that is already taken, so set it explicitly rather than letting
+it pick. Each bot is only invited to its own channel, so typing `@bark` there offers the one that
+belongs to it - Slack ranks channel members first - and picking the wrong one fails loudly with
+"they're not in the channel" rather than silently.
+
+1. Create the app at api.slack.com/apps and fill in the names above.
+2. Under *Socket Mode*, turn it on. This generates an app level token (`xapp-...`) with the
+   `connections:write` scope - that is `app-token`.
 3. Under *OAuth & Permissions* → *Scopes* → *Bot Token Scopes*, add the scopes in the table below.
 4. Under *Event Subscriptions*, toggle *Enable Events* on, then expand *Subscribe to bot events*
    and add both `app_mention` and `message.channels` (`message.groups` for a private channel).
    Socket Mode means there is no request URL to verify - the section may look finished without
    these, so check the list itself rather than the toggle.
-5. Install the app to the workspace and copy the bot token (`xoxb-...`) into `token`.
-6. Invite the bot to the channel barky posts to.
+5. Install the app to the workspace and copy the bot token (`xoxb-...`).
+6. Invite the bot to the channel barky posts to: `/invite @barky-spar`.
+
+**Wiring it up**
+
+Name the environment variables for the instance too, so it is obvious which app a config belongs to:
+
+```
+slack-token-spar=xoxb-...       # bot token, posts alerts and replies
+slack-app-token-spar=xapp-...   # app level token, holds the socket open
+```
+
+The digest config names those variables rather than the tokens themselves:
+
+```yaml
+channels:
+  slack-ops:
+    type: slack
+    token: slack-token-spar            # this instance's bot token
+    channel: "#spar-ops"
+    chat-ops:
+      enabled: true
+      app-token: slack-app-token-spar  # this instance's app level token
+```
+
+Both must belong to the *same* app: the bot token posts the alert, and the app token listens for the
+replies to it. Mixing tokens from two apps means barky posts as one bot while listening as another,
+and every reply goes unanswered.
+
+To check it: start barky with `--debug` and look for
+
+> chat ops is listening for slack-ops (#spar-ops)
+
+and make sure the line about *socket connections open* does not appear. If it does, another barky is
+running on the same app - see *One slack app per barky* above.
 
 **Bot token scopes**
 
@@ -874,6 +983,8 @@ The app is connected but is not being sent anything. In order of likelihood:
 3. The bot is not a member of the channel.
 4. The reply did not mention barky, or was not in the thread of one of barky's own alert messages
    - barky deliberately ignores everything else, including top level mentions in the channel.
+5. The channel posts with a different bot token to the one chat ops is configured on, so no app is
+   listening there - see *More than one channel* above.
 
 **If the chat ops log shows Slack ids instead of names**
 
@@ -951,7 +1062,8 @@ Commands:
 - `help`
 - `cancel` - abandons a pending list
 
-Replies to a list accept `1`, `1,3`, `2 and 4`, `1-3` or `all`, optionally with an expiry.
+Replies to a list accept `1`, `1,3`, `2 and 4`, `1-3` or `all`, optionally with an expiry. Ordinary
+politeness is read straight through, so `all please` and `1,3 thanks` are the answers they look like.
 
 Where a list would be too long to fit in a single Slack message, barky points at the dashboard
 instead of posting an unusable wall of numbers. `mute all` needs no list, so it still works.
@@ -1009,7 +1121,8 @@ a name that ages out. The model it settled on is written to the log at startup.
 Set `model` explicitly to override that. If the lookup fails, barky reports the AI service as
 unavailable and retries on the next request rather than guessing a name.
 
-Any request barky cannot interpret locally costs one API call, capped at `max-calls-per-hour`.
+Any request barky cannot interpret locally costs one API call, capped at `max-calls-per-hour` -
+a ceiling across every channel configured with the same AI settings, rather than one each.
 Replies that are plainly numbers (`1,3`, `all`) never reach the model at all.
 
 If the AI service times out or is unreachable, barky says so and points at the dashboard rather

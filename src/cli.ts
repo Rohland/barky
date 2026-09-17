@@ -65,6 +65,10 @@ async function run(args: any) {
             args.eval);
         return 0;
     } catch (err) {
+        // this ends the process, chat ops socket and all, so it is said out loud rather than only
+        // under --debug - a watchdog that vanishes without explaining itself is worse than one
+        // that reports a fault, and there is nothing else left running to report it
+        console.log(`barky is stopping - it could not complete this run: ${ err }`);
         log(err.toString(), err);
         // emits a global config error - assume cloud watch monitor is set up for this as a safety net
         await emitAndPersistResults([MonitorFailureResult.ConfigurationError(err)]);

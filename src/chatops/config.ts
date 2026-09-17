@@ -28,6 +28,15 @@ export class AiConfig {
     public get configured(): boolean {
         return !!this.apiKey;
     }
+
+    /*
+     Two channels pointing at the same service, model and ceiling are one ai setup however many
+     channels declare it, so they share a resolver - and with it the call budget, which is meant
+     to be what barky spends in an hour rather than what each channel may spend.
+     */
+    public get signature(): string {
+        return [this.apiKey, this.url, this.model, this.timeoutMs, this.maxCallsPerHour].join("|");
+    }
 }
 
 export class ChatOpsConfig {

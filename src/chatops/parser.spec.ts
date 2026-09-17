@@ -77,6 +77,25 @@ describe("chatops parser", () => {
         });
     });
 
+    describe("parseCommand with courtesy", () => {
+        it.each([
+            ["mute all please", CommandType.Mute, true],
+            ["please mute all", CommandType.Mute, true],
+            ["mute, thanks", CommandType.Mute, false],
+            ["status please", CommandType.Status, undefined],
+            ["help please", CommandType.Help, undefined]
+        ])("should read '%s' as the command it is", async (input, type, all) => {
+            const result = parseCommand(input);
+            expect(result.type).toEqual(type);
+            expect(result.all).toEqual(all);
+        });
+        it("should still keep a period given with it", async () => {
+            const result = parseCommand("please mute for 1 hour");
+            expect(result.type).toEqual(CommandType.Mute);
+            expect(result.durationMs).toEqual(oneHour);
+        });
+    });
+
     describe("parseSelectionReply", () => {
         describe.each([
             ["1", [1], undefined],
@@ -101,6 +120,28 @@ describe("chatops parser", () => {
                 const result = parseSelectionReply(input);
                 expect(result.all).toEqual(true);
                 expect(result.indices).toEqual([]);
+            });
+        });
+        describe("when the answer is a polite one", () => {
+            // people are polite to barky, and the courtesy must not be what makes the answer
+            // unreadable - especially with no ai service configured to fall back on
+            it.each([
+                ["all please", true, []],
+                ["all, thanks", true, []],
+                ["please all", true, []],
+                ["just all", true, []],
+                ["1 and 3 please", false, [1, 3]],
+                ["only 1", false, [1]],
+                ["1,3 thanks!", false, [1, 3]]
+            ])("should read '%s' as the answer it is", async (input, all, indices) => {
+                const result = parseSelectionReply(input);
+                expect(result.all).toEqual(all);
+                expect(result.indices).toEqual(indices);
+            });
+            it("should still keep a period given with it", async () => {
+                const result = parseSelectionReply("all for 4h please");
+                expect(result.all).toEqual(true);
+                expect(result.durationMs).toEqual(4 * oneHour);
             });
         });
         describe("given 'all' with a duration", () => {

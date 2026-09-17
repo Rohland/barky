@@ -156,6 +156,30 @@ export function renderNotUnderstood(dashboardHint: string): string {
     ].join("\n");
 }
 
+/*
+ A list is on screen and the answer to it did not read as one. Telling someone to try `mute` when
+ they are already halfway through muting reads as barky having lost the thread, so the numbered list
+ they are looking at is what they are pointed back at.
+ */
+export function renderNotUnderstoodWithList(kind: SelectionKind): string {
+    return [
+        "I didn't catch which of those you meant — reply with the numbers from the list (`1,3`), `all`, or `cancel`.",
+        `Say \`${ kind }\` again if you want a fresh list.`
+    ].join("\n");
+}
+
+/*
+ A bare "all" or "1,3" with nothing pinned is an answer to a list barky hasn't got: someone else's,
+ or one lost to a restart, since the lists live in memory. Being told "I didn't understand that"
+ when what you typed is exactly what was asked for is a baffling place to be left.
+ */
+export function renderNoListWaiting(): string {
+    return [
+        "That looks like an answer to a numbered list, but I haven't got one waiting for you — lists are per person, and they don't survive a restart.",
+        "Say `mute` or `unmute` and I'll give you one."
+    ].join("\n");
+}
+
 export function renderFailed(dashboardHint: string): string {
     return `⚠️ Something went wrong handling that — nothing was changed. Please use ${ dashboardHint }.`;
 }
