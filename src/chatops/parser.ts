@@ -6,6 +6,7 @@ import { SelectionKind } from "./selection.js";
 export enum CommandType {
     Mute = "mute",
     Unmute = "unmute",
+    Define = "define",
     Status = "status",
     Help = "help",
     Cancel = "cancel"
@@ -97,6 +98,32 @@ export function parseCommand(input: string): ICommand {
         case "unmute all":
         case "unmute everything":
             return { type: CommandType.Unmute, all: true };
+        /*
+         Only one definition is shown at a time, so "all" cannot be honoured as asked and "this" is
+         already unambiguous whenever the thread holds a single alert - which leaves every one of
+         these phrasings with the same answer. They are still spelt out so that asking in the words
+         people use is understood here rather than costing a trip to the AI service.
+         */
+        case "define":
+        case "definition":
+        case "config":
+        case "configuration":
+        case "explain":
+        case "yaml":
+        case "define this":
+        case "define these":
+        case "define this one":
+        case "define it":
+        case "explain this":
+        case "explain it":
+        // "config for this" reaches here without its "for", which is taken as part of a period
+        case "config this":
+        case "configuration this":
+        case "define all":
+        case "define everything":
+        case "config all":
+        case "configuration all":
+            return { type: CommandType.Define };
         default:
             return null;
     }
@@ -107,7 +134,8 @@ export function parseCommand(input: string): ICommand {
  duration. Returns null when the reply needs interpreting instead.
 
  When the reply names a verb, it must be the one the pinned list is for - "mute 1" answering an
- unmute list is a request to silence something, not to un-silence it, so it is not a selection.
+ unmute list is a request to silence something, not to un-silence it, so it is not a selection. The
+ same holds for "define 1" against a mute list, and for "mute 1" against a list of definitions.
  */
 export function parseSelectionReply(input: string, kind?: SelectionKind): ISelectionReply {
     const text = stripMention(input).toLowerCase();
@@ -129,7 +157,7 @@ export function parseSelectionReply(input: string, kind?: SelectionKind): ISelec
 }
 
 function withoutMatchingVerb(remainder: string, kind?: SelectionKind): string {
-    const verb = /^(mute|unmute)\s+/.exec(remainder);
+    const verb = /^(mute|unmute|define)\s+/.exec(remainder);
     if (!verb) {
         return remainder;
     }

@@ -522,6 +522,38 @@ describe("db", () => {
             // assert
             expect(result.alertIds).toEqual(["web::health::a.com", "mysql::lag::db-01"]);
         });
+        it("should record a thread that only points at another, for a message barky reposts", async () => {
+            // arrange
+            await recordChatThread({
+                channel: "C1",
+                threadTs: "1700000000.000900",
+                alertIds: [],
+                pointsToTs: "1700000000.000100",
+                pointsToUrl: "https://codeo.slack.com/archives/C1/p1700000000000100"
+            });
+
+            // act
+            const result = await getChatThread("C1", "1700000000.000900");
+
+            // assert
+            expect(result.pointsToTs).toEqual("1700000000.000100");
+            expect(result.pointsToUrl).toEqual("https://codeo.slack.com/archives/C1/p1700000000000100");
+        });
+        it("should leave an alert's own thread pointing at nothing", async () => {
+            // arrange
+            await recordChatThread({
+                channel: "C1",
+                threadTs: "1700000000.000100",
+                alertIds: ["web::health::a.com"]
+            });
+
+            // act
+            const result = await getChatThread("C1", "1700000000.000100");
+
+            // assert
+            expect(result.pointsToTs).toBeNull();
+            expect(result.pointsToUrl).toBeNull();
+        });
         it("should record which channel config posted it, so a reply is answered by the same one", async () => {
             // arrange
             await recordChatThread({

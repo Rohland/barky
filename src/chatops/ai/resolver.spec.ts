@@ -7,7 +7,7 @@ import { initLocaleAndTimezone } from "../../lib/utility.js";
 
 describe("AiIntentResolver", () => {
 
-    function contextWith(count: number, pinned?: "mute" | "unmute"): IIntentContext {
+    function contextWith(count: number, pinned?: "mute" | "unmute" | "define"): IIntentContext {
         return {
             text: "mute the db one",
             pinned,
@@ -105,6 +105,44 @@ describe("AiIntentResolver", () => {
                 expect(result.action).toEqual(IntentAction.RequestMuteList);
             });
         });
+        describe("when asked to define", () => {
+            it("should act on the numbers chosen, since the list is of alerts", async () => {
+                const raw = rawIntent({ action: IntentAction.Define, numbers: [2] });
+                const result = AiIntentResolver.validate(raw, contextWith(3));
+                expect(result.action).toEqual(IntentAction.Define);
+                expect(result.numbers).toEqual([2]);
+            });
+            describe("but naming no alert at all", () => {
+                it("should offer the list rather than reading something it was not shown", async () => {
+                    const raw = rawIntent({ action: IntentAction.Define, numbers: [] });
+                    const result = AiIntentResolver.validate(raw, contextWith(3));
+                    expect(result.action).toEqual(IntentAction.RequestDefineList);
+                });
+            });
+            describe("while an unmute list is pinned", () => {
+                it("should ask for an alert list, since a mute pattern has no definition", async () => {
+                    const raw = rawIntent({ action: IntentAction.Define, numbers: [1] });
+                    const result = AiIntentResolver.validate(raw, contextWith(3, "unmute"));
+                    expect(result.action).toEqual(IntentAction.RequestDefineList);
+                });
+            });
+            describe("while a define list is pinned", () => {
+                it("should act on it", async () => {
+                    const raw = rawIntent({ action: IntentAction.Define, numbers: [1] });
+                    const result = AiIntentResolver.validate(raw, contextWith(3, "define"));
+                    expect(result.action).toEqual(IntentAction.Define);
+                });
+            });
+        });
+        describe("when asked to mute while a define list is pinned", () => {
+            it("should ask for a mute list rather than silencing what was being explained", async () => {
+                // the user was answering "which of these shall I explain?", which is not an
+                // instruction to silence anything
+                const raw = rawIntent({ action: IntentAction.Mute, numbers: [1] });
+                const result = AiIntentResolver.validate(raw, contextWith(3, "define"));
+                expect(result.action).toEqual(IntentAction.RequestMuteList);
+            });
+        });
         describe("when a selection resolves to nothing", () => {
             it("should ask the user rather than guess", async () => {
                 const raw = rawIntent({ action: IntentAction.Select, numbers: [77] });
@@ -149,6 +187,10 @@ describe("AiIntentResolver", () => {
             // assert
             expect(result).toContain("2026-09-15 12:00");
             expect(result).toContain("Tuesday");
+        });
+        it("should tell the model that define only ever reads configuration", async () => {
+            const result = buildInstructions(contextWith(1));
+            expect(result).toContain("define only ever shows configuration");
         });
         it("should mark monitored output as data rather than instructions", async () => {
             const result = buildInstructions(contextWith(1));

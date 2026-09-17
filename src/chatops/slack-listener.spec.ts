@@ -93,6 +93,61 @@ describe("SlackChatOpsListener", () => {
         });
     });
 
+    describe("when mentioned in the thread of a follow-up ping", () => {
+
+        const pingThreadTs = "1699999999.000900";
+
+        async function recordPingThread(url: string = null) {
+            await recordChatThread({
+                channel: "C1",
+                threadTs: pingThreadTs,
+                alertIds: [],
+                pointsToTs: alertThreadTs,
+                pointsToUrl: url
+            });
+        }
+
+        it("should handle the message, saying where it belongs", async () => {
+            // arrange - dropping it in silence reads exactly like barky having stopped working
+            await recordPingThread("https://codeo.slack.com/archives/C1/p1699999999000100");
+            const sut = getSut();
+
+            // act
+            await dispatch(sut, { thread_ts: pingThreadTs }, true);
+
+            // assert
+            expect(handled).toHaveLength(1);
+            expect(handled[0].pointsTo).toEqual({
+                url: "https://codeo.slack.com/archives/C1/p1699999999000100"
+            });
+        });
+        it("should still handle it where there is no link to give", async () => {
+            // arrange
+            await recordPingThread(null);
+            const sut = getSut();
+
+            // act
+            await dispatch(sut, { thread_ts: pingThreadTs }, true);
+
+            // assert
+            expect(handled).toHaveLength(1);
+            expect(handled[0].pointsTo).toEqual({ url: null });
+        });
+        describe("an alert's own thread", () => {
+            it("should point at nothing, so it is acted on as it always was", async () => {
+                // arrange
+                await recordAlertThread();
+                const sut = getSut();
+
+                // act
+                await dispatch(sut, {}, true);
+
+                // assert
+                expect(handled[0].pointsTo).toBeNull();
+            });
+        });
+    });
+
     describe("when the app covers more than one channel", () => {
         it("should answer with the channel config that posted the thread", async () => {
             // arrange - each install posts with its own bot token, and replying to a channel with

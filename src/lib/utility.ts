@@ -2,6 +2,7 @@ import * as crypto from "crypto";
 import { log } from "../models/logger.js";
 import { sleepMs } from "./sleep.js";
 import { getEnvVar } from "./env.js";
+import { describeError } from "./error.js";
 
 Error.stackTraceLimit = Infinity;
 
@@ -245,26 +246,41 @@ export function shortHash(key: string) {
         .digest("hex");
 }
 
+/*
+ Retries func, and reports what went wrong. The thrown error names the reason as well as the label,
+ because barky's own wrapper is what an operator sees and "after 3 attempts" on its own says
+ nothing about what to go and fix.
+
+ isPermanent marks a failure retrying cannot change - a message slack has no record of, a channel
+ barky is not in - so the attempts and the waits between them are not spent on an answer that will
+ not move.
+ */
 export async function tryExecuteTimes<T>(
     label: string,
     times: number,
     func: () => Promise<T>,
     throwOnEventualFailure: boolean = true,
-    delayBetweenAttempts: number = 500): Promise<T> {
-    let counter = 0;
+    delayBetweenAttempts: number = 500,
+    isPermanent: (err: any) => boolean = null): Promise<T> {
+    let attempts = 0;
     let lastError = null;
-    while(counter++ < times) {
+    while (attempts < times) {
+        attempts++;
         try {
             return await func();
         } catch(err) {
-            const msg = `Error ${ label }: ${ err ? err["message"] : "" }`;
-            log(msg, err);
+            log(`Error ${ label }: ${ describeError(err) }`, err);
             lastError = err;
+            if (isPermanent?.(err)) {
+                break;
+            }
         }
         await sleepMs(delayBetweenAttempts);
     }
     if (throwOnEventualFailure && lastError) {
-        throw new Error(`Error executing ${ label} after ${ times } attempts`, { cause: lastError });
+        throw new Error(
+            `Error executing ${ label } after ${ attempts } ${ pluraliseWithS("attempt", attempts) }: ${ describeError(lastError) }`,
+            { cause: lastError });
     }
     return null;
 }

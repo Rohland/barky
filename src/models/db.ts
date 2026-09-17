@@ -176,6 +176,14 @@ export interface IChatThread {
     // the digest channel config that posted the message, so a reply to it is answered by the same
     // one - null for threads recorded before barky tracked this
     channelName?: string;
+    /*
+     Set on the follow-up ping barky posts while an alert is ongoing, and names the alert's own
+     thread. That message is deleted and reposted every time barky checks, so anything said in its
+     thread goes with it - a reply there is answered by pointing at the thread that lasts.
+     */
+    pointsToTs?: string;
+    // a deep link to that thread, where the channel configures a workspace to build one from
+    pointsToUrl?: string;
 }
 
 export interface IChatOpsAuditEntry {
@@ -208,10 +216,12 @@ async function writeChatThread(thread: IChatThread): Promise<void> {
             thread_ts: thread.threadTs,
             alert_ids: JSON.stringify(thread.alertIds ?? []),
             channel_name: thread.channelName ?? null,
+            points_to_ts: thread.pointsToTs ?? null,
+            points_to_url: thread.pointsToUrl ?? null,
             date: new Date().toISOString()
         })
         .onConflict(["channel", "thread_ts"])
-        .merge(["alert_ids", "channel_name", "date"]);
+        .merge(["alert_ids", "channel_name", "points_to_ts", "points_to_url", "date"]);
     await _connection("chat_threads")
         .where("date", "<", new Date(Date.now() - ChatThreadRetentionMs).toISOString())
         .del();
@@ -231,7 +241,9 @@ function toChatThread(result: any): IChatThread {
         channel: result.channel,
         threadTs: result.thread_ts,
         alertIds: JSON.parse(result.alert_ids ?? "[]"),
-        channelName: result.channel_name ?? null
+        channelName: result.channel_name ?? null,
+        pointsToTs: result.points_to_ts ?? null,
+        pointsToUrl: result.points_to_url ?? null
     };
 }
 
@@ -340,6 +352,7 @@ async function intialiseSchema(connection: Knex) {
 async function createChatThreadsTable(connection: Knex) {
     if (await connection.schema.hasTable("chat_threads")) {
         await addChannelNameToChatThreads(connection);
+        await addPointerToChatThreads(connection);
         return;
     }
     await connection.schema.createTable(
@@ -349,10 +362,28 @@ async function createChatThreadsTable(connection: Knex) {
             table.string("thread_ts");
             table.json("alert_ids");
             table.string("channel_name");
+            table.string("points_to_ts");
+            table.string("points_to_url");
             table.dateTime("date");
             table.primary(["channel", "thread_ts"]);
         }
     );
+}
+
+/*
+ Added once barky answered a mention in the thread of a follow-up ping rather than ignoring it.
+ Existing rows keep a null, which reads as what they are - threads of an alert message itself.
+ */
+async function addPointerToChatThreads(connection: Knex) {
+    if (await connection.schema.hasColumn("chat_threads", "points_to_ts")) {
+        return;
+    }
+    await connection.schema.alterTable(
+        "chat_threads",
+        table => {
+            table.string("points_to_ts");
+            table.string("points_to_url");
+        });
 }
 
 /*

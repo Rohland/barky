@@ -62,23 +62,54 @@ describe("SlackApi", () => {
             });
         });
         describe("when slack returns an error", () => {
-            it("should retry and then throw", async () => {
-                // arrange
-                mockResponse({ error: "channel_not_found" });
+            it("should throw, naming the call and the reason slack gave", async () => {
+                // arrange - this message is all an operator sees, since the retry log is silent
+                // without --debug
+                mockResponse({ error: "ratelimited" });
                 const sut = new SlackApi("token");
 
                 // act
                 let caught = null;
                 try {
-                    await sut.postMessage("#nope", "hello");
+                    await sut.postMessage("#ops", "hello");
                 } catch (err) {
                     caught = err;
                 }
 
                 // assert
                 expect(caught).not.toBeNull();
-                expect(caught.message).toContain("after 3 attempts");
+                expect(caught.message).toContain("chat.postMessage to #ops");
+                expect(caught.message).toContain("ratelimited");
+            });
+            it("should retry one that asking again could fix", async () => {
+                // arrange
+                mockResponse({ error: "ratelimited" });
+                const sut = new SlackApi("token");
+
+                // act
+                await expect(sut.postMessage("#ops", "hello")).rejects.toThrow("after 3 attempts");
+
+                // assert
                 expect(axios.request).toHaveBeenCalledTimes(3);
+            });
+            describe.each([
+                ["a channel barky is not in", "not_in_channel"],
+                ["a channel that does not exist", "channel_not_found"],
+                ["a message slack has no record of", "message_not_found"],
+                ["a token that is no longer valid", "invalid_auth"],
+                ["text slack will not accept", "msg_too_long"]
+            ])("given %s", (_label, error) => {
+                it("should not spend three attempts on an answer that will not move", async () => {
+                    // arrange
+                    mockResponse({ error });
+                    const sut = new SlackApi("token");
+
+                    // act
+                    await expect(sut.postMessage("#ops", "hello")).rejects.toThrow(error);
+
+                    // assert
+                    expect(axios.request).toHaveBeenCalledTimes(1);
+                });
             });
         });
     });

@@ -5,6 +5,8 @@ import { describeCoverage, IChatOpsApp, IChatOpsChannel, resolveChatOpsCoverage 
 import { ChatOpsConfig } from "./config.js";
 import { AiIntentResolver } from "./ai/resolver.js";
 import { IIntentResolver } from "./ai/types.js";
+import { ConfigDefinitionSource, RulesProvider } from "./definitions.js";
+import { GitPermalinkSource } from "./permalink.js";
 import { SlackApi } from "../models/channels/slack-api.js";
 import { log } from "../models/logger.js";
 
@@ -21,6 +23,13 @@ interface IRunningListener {
 // single connection, and slack spreads events across any others rather than repeating them
 const _running = new Map<string, IRunningListener>();
 const _nextAttemptAfter = new Map<string, number>();
+/*
+ How the running listeners reach the evaluator rules, which is where the yaml declaring a check
+ lives. Held here rather than captured per listener because barky reloads the configuration on
+ every pass: a listener built on the first pass would otherwise answer out of that pass's copy for
+ as long as the process ran.
+ */
+let _rules: RulesProvider = null;
 let _reportedIssues: string = null;
 let _reportedNotLooping = false;
 
@@ -29,6 +38,8 @@ export type ListenerFactory = (app: IChatOpsApp) => SlackChatOpsListener;
 export interface IStartChatOpsOptions {
     now?: number;
     createListener?: ListenerFactory;
+    // reads the current evaluator rules, so barky can say how a check is declared
+    rules?: RulesProvider;
 }
 
 /*
@@ -43,6 +54,7 @@ export async function startChatOps(
     options: IStartChatOpsOptions = {}): Promise<SlackChatOpsListener[]> {
     const now = options.now ?? Date.now();
     const createListener = options.createListener ?? buildListener;
+    _rules = options.rules ?? _rules;
     // the configuration is reloaded on every pass, so a channel that has had chat ops removed or
     // switched off must take its listener down with it rather than leaving the socket live until
     // the process restarts
@@ -69,6 +81,7 @@ export async function stopChatOps() {
     }
     _running.clear();
     _nextAttemptAfter.clear();
+    _rules = null;
     _reportedIssues = null;
     _reportedNotLooping = false;
 }
@@ -197,13 +210,20 @@ function reportNotLooping(): void {
 function sharedServices(): (channel: IChatOpsChannel) => ChatOpsService {
     const resolverFor = sharedResolvers();
     const byConfig = new Map<ChatOpsConfig, Map<string, ChatOpsService>>();
+    // both read only and hold nothing per channel, so every service shares the one of each
+    const definitions = new ConfigDefinitionSource(() => _rules?.() ?? null);
+    const permalinks = new GitPermalinkSource();
     return channel => {
         const byBotToken = byConfig.get(channel.config) ?? new Map<string, ChatOpsService>();
         byConfig.set(channel.config, byBotToken);
         const service = byBotToken.get(channel.botToken) ?? new ChatOpsService(
             channel.config,
             new SlackApi(channel.botToken),
-            { resolver: resolverFor(channel.config) });
+            {
+                resolver: resolverFor(channel.config),
+                definitions,
+                permalinks
+            });
         byBotToken.set(channel.botToken, service);
         return service;
     };

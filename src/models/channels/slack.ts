@@ -5,8 +5,9 @@ import { pluraliseWithS, toLocalTimeString } from "../../lib/utility.js";
 import { AlertConfiguration } from "../alert_configuration.js";
 import * as os from "os";
 import { getEnvVar } from "../../lib/env.js";
-import { SlackApi, SlackMaxMessageLength } from "./slack-api.js";
+import { isMissingSlackMessage, SlackApi, SlackMaxMessageLength } from "./slack-api.js";
 import { recordChatThread } from "../db.js";
+import { warn } from "../logger.js";
 
 export class SlackChannelConfig extends ChannelConfig {
     public channel: string;
@@ -171,10 +172,9 @@ export class SlackChannelConfig extends ChannelConfig {
     public async sendOngoingAlert(
         snapshots: Snapshot[],
         alert: AlertState): Promise<void> {
-        const timestamp = alert.state?.ts?.toString()?.replace('.', '');
-        const channel = alert.state?.channel;
-        const link = this.workspace && channel
-            ? `<https://${ this.workspace }.slack.com/archives/${ channel }/p${ timestamp }|See above ☝️>`
+        const url = this.permalinkFor(alert.state);
+        const link = url
+            ? `<${ url }|See above ☝️>`
             : "See above ☝️";
         const problems = pluraliseWithS("problem", snapshots.length);
         // this message is replaced on every interval, so replies to it would be lost - with chat
@@ -191,7 +191,9 @@ export class SlackChannelConfig extends ChannelConfig {
         ]);
     }
 
-    public async replaceLastMessageAboutOngoingAlert(msg: string, alert: AlertState) {
+    public async replaceLastMessageAboutOngoingAlert(
+        msg: string,
+        alert: AlertState) {
         const result = await this.postToSlack(
             msg,
             null);
@@ -202,6 +204,42 @@ export class SlackChannelConfig extends ChannelConfig {
         if (alert?.state) {
             alert.state.ongoing = result;
         }
+        await this.trackPointerThreadFor(result, alert);
+    }
+
+    /*
+     Notes the follow-up ping as a thread of its own, pointing back at the alert's. Without this a
+     mention in it matches no thread barky knows and is dropped in silence, which reads exactly like
+     barky having stopped working. It is not recorded as reporting the alerts, because this message
+     is deleted and reposted every time barky checks - a mute asked for here would be confirmed in a
+     message about to vanish, so people are pointed at the thread that lasts instead.
+     */
+    private async trackPointerThreadFor(
+        posted: { channel?: string, ts?: number },
+        alert: AlertState) {
+        if (!posted?.ts || !alert?.state?.ts || !this.chatOpsEnabled) {
+            return;
+        }
+        await recordChatThread({
+            channel: posted.channel ?? this.channel,
+            threadTs: posted.ts.toString(),
+            alertIds: [],
+            channelName: this.name,
+            pointsToTs: alert.state.ts.toString(),
+            pointsToUrl: this.permalinkFor(alert.state)
+        });
+    }
+
+    /*
+     A link to a message barky has already posted, for pointing people back at it. Null where the
+     channel configures no workspace, since there is nothing to build the url from.
+     */
+    private permalinkFor(state: { channel?: string, ts?: number }): string {
+        const timestamp = state?.ts?.toString()?.replace('.', '');
+        const channel = state?.channel;
+        return this.workspace && channel && timestamp
+            ? `https://${ this.workspace }.slack.com/archives/${ channel }/p${ timestamp }`
+            : null;
     }
 
     public async deleteMessage(channel: string, ts: number) {
@@ -211,10 +249,30 @@ export class SlackChannelConfig extends ChannelConfig {
     public async pingAboutOngoingAlert(
         snapshots: Snapshot[],
         alert: AlertState): Promise<void> {
-        await this.postToSlack(
+        const posted = await this.postToSlack(
             this.generateMessage(snapshots, alert),
             alert.state);
+        this.adoptMessage(alert, posted);
         await this.trackThreadFor(alert.state, snapshots);
+    }
+
+    /*
+     Takes ownership of the message just posted, where the alert had none to update or the one it
+     had has gone. Without this an alert whose first send failed, or whose message was deleted,
+     posts a fresh one on every pass instead of updating the one it made a moment ago.
+
+     An alert that already points at this message keeps its state untouched, so the reference to
+     the follow-up ping it has to delete is not dropped.
+     */
+    private adoptMessage(alert: AlertState, posted: { channel?: string, ts?: number }) {
+        if (!posted?.ts || alert?.state?.ts?.toString() === posted.ts?.toString()) {
+            return;
+        }
+        alert.state = {
+            ...(alert.state ?? {}),
+            channel: posted.channel ?? alert.state?.channel ?? this.channel,
+            ts: posted.ts
+        };
     }
 
     public async sendResolvedAlert(alert: AlertState): Promise<void> {
@@ -259,9 +317,24 @@ export class SlackChannelConfig extends ChannelConfig {
         message: string,
         state?: { channel: string, ts: number }): Promise<any> {
         const channel = state?.channel ?? this.channel;
-        return state
-            ? await this.api.updateMessage(channel, state.ts, message)
-            : await this.api.postMessage(channel, message);
+        if (!state) {
+            return await this.api.postMessage(channel, message);
+        }
+        try {
+            return await this.api.updateMessage(channel, state.ts, message);
+        } catch (err) {
+            if (!isMissingSlackMessage(err)) {
+                throw err;
+            }
+            /*
+             The message barky has been updating is gone - someone deleted it, or it is older than
+             the workspace keeps. The reference is dead however often it is retried, so a new
+             message is posted and adopted: without this the channel could never alert again until
+             its stored state was cleared by hand.
+             */
+            warn(`the slack message ${ channel }:${ state.ts } is gone, so barky is posting a new one in its place`, err);
+            return await this.api.postMessage(channel, message);
+        }
     }
 
     /*

@@ -1,5 +1,7 @@
 import mockConsole from "jest-mock-console";
-import { ChatOpsService, IAlertSource, IChatMessage } from "./chatops.service.js";
+import { ChatOpsService, IAlertSource, IChatMessage, IChatOpsDependencies } from "./chatops.service.js";
+import { IDefinition, IDefinitionSource } from "./definitions.js";
+import { IPermalinkSource } from "./permalink.js";
 import { AiUnavailableError, IIntent, IIntentContext, IIntentResolver, IntentAction } from "./ai/types.js";
 import { ChatOpsConfig } from "./config.js";
 import { ISelectionCandidate, SelectionStore } from "./selection.js";
@@ -60,11 +62,15 @@ describe("ChatOpsService", () => {
         };
     }
 
-    function getSut(ids: string[], config: any = {}, resolver: IIntentResolver = null) {
+    function getSut(
+        ids: string[],
+        config: any = {},
+        resolver: IIntentResolver = null,
+        dependencies: Partial<IChatOpsDependencies> = {}) {
         return new ChatOpsService(
             new ChatOpsConfig({ enabled: true, "app-token": "x", ...config }),
             getApi(),
-            { alerts: getAlertSource(ids), resolver });
+            { alerts: getAlertSource(ids), resolver, ...dependencies });
     }
 
     function resolverReturning(intent: Partial<IIntent>): IIntentResolver {
@@ -1132,6 +1138,17 @@ describe("ChatOpsService", () => {
                 await sut.handleMessage(messageFrom("the mysql ones"));
                 expect(lastReply()).toContain("Try `mute`");
             });
+            it("should offer every command, not only the ones that change something", async () => {
+                // arrange - a command left out here is a command nobody finds
+                const sut = getSut(twoAlerts);
+
+                // act
+                await sut.handleMessage(messageFrom("the mysql ones"));
+
+                // assert
+                ["`mute`", "`unmute`", "`define`", "`status`", "`help`"]
+                    .forEach(command => expect(lastReply()).toContain(command));
+            });
         });
     });
 
@@ -1266,6 +1283,498 @@ describe("ChatOpsService", () => {
                 const mutes = await Muter.getInstance().getDynamicMutes();
                 const twoHours = 2 * 60 * 60 * 1000;
                 expect(Math.abs(mutes[0].to.getTime() - (Date.now() + twoHours))).toBeLessThan(5000);
+            });
+        });
+    });
+
+    describe("when mentioned in the thread of a follow-up ping", () => {
+
+        const pointsTo = { url: "https://codeo.slack.com/archives/C1/p1699999999000100" };
+
+        function pingMessage(text: string) {
+            return messageFrom(text, {
+                ts: "1700000000.000200",
+                threadTs: "1699999999.000900",
+                pointsTo
+            });
+        }
+
+        it("should answer, rather than leaving the mention unanswered", async () => {
+            // arrange - silence here is indistinguishable from barky having stopped working
+            const sut = getSut(twoAlerts);
+
+            // act
+            await sut.handleMessage(pingMessage("mute for 1hr"));
+
+            // assert
+            expect(posted).toHaveLength(1);
+            expect(lastReply()).toContain(`<${ pointsTo.url }|the alert's own thread>`);
+            expect(lastReply()).toContain("I repost this message every time I check");
+        });
+        it("should reply in the thread it was asked in", async () => {
+            // arrange
+            const sut = getSut(twoAlerts);
+
+            // act
+            await sut.handleMessage(pingMessage("mute for 1hr"));
+
+            // assert
+            expect(posted[0].threadTs).toEqual("1699999999.000900");
+        });
+        it("should change nothing, since the answer would be deleted with the message", async () => {
+            // arrange - "mute all" needs no list, so without this it would silence everything and
+            // confirm it in a message barky is about to repost over
+            const sut = getSut(twoAlerts);
+
+            // act
+            await sut.handleMessage(pingMessage("mute all"));
+
+            // assert
+            expect(await Muter.getInstance().getDynamicMutes()).toEqual([]);
+            expect(await getChatOpsAudit()).toEqual([]);
+        });
+        it("should not pin a list there either", async () => {
+            // arrange
+            const sut = getSut(twoAlerts);
+
+            // act
+            await sut.handleMessage(pingMessage("mute"));
+
+            // assert
+            expect(sut.pendingSelectionCount).toEqual(0);
+        });
+        it("should not spend an ai call on it", async () => {
+            // arrange
+            const context: { value?: any } = {};
+            const sut = getSut(twoAlerts, {}, resolverCapturing(context, {}));
+
+            // act
+            await sut.handleMessage(pingMessage("please silence the noisy database one"));
+
+            // assert
+            expect(context.value).toBeUndefined();
+            expect(lastReply()).toContain("the alert's own thread");
+        });
+        describe("where there is no link to give", () => {
+            it("should still say where to go", async () => {
+                // arrange - the channel configures no workspace to build a url from
+                const sut = getSut(twoAlerts);
+
+                // act
+                await sut.handleMessage(messageFrom("mute", {
+                    ts: "1700000000.000200",
+                    threadTs: "1699999999.000900",
+                    pointsTo: { url: null }
+                }));
+
+                // assert
+                expect(lastReply()).toContain("the alert's own thread");
+            });
+        });
+    });
+
+    describe("define", () => {
+
+        const threadTs = "1699999999.000100";
+        let asked: string[];
+        let linked: string[];
+
+        beforeEach(() => {
+            asked = [];
+            linked = [];
+        });
+
+        function definitionFor(alertId: string, yaml: string): IDefinition {
+            const type = alertId.split("::")[0];
+            return {
+                alertId,
+                key: alertId.split("::")[1],
+                type,
+                filePath: `/repo/configs/${ type }.yaml`,
+                displayPath: `configs/${ type }.yaml`,
+                yaml,
+                firstLine: 8,
+                lastLine: 8 + yaml.split("\n").length - 1,
+                redacted: 0
+            };
+        }
+
+        function definitions(blocks: Record<string, string>): IDefinitionSource {
+            return {
+                find: (alertId: string) => {
+                    asked.push(alertId);
+                    return blocks[alertId]
+                        ? definitionFor(alertId, blocks[alertId])
+                        : null;
+                }
+            };
+        }
+
+        function permalinks(url: string): IPermalinkSource {
+            return {
+                forDefinition: async (definition: IDefinition) => {
+                    linked.push(definition.alertId);
+                    return url;
+                }
+            };
+        }
+
+        const blocks = {
+            "web::health::a.com": "a.com:\n  url: https://a.com\n  status: 200",
+            "mysql::lag::db-01": "lag:\n  connection: db-01\n  identifier: replica"
+        };
+
+        function longBlock(lines: number): string {
+            return Array.from(
+                { length: lines },
+                (_, i) => `  option-${ i }: a value long enough to matter when there are many`)
+                .join("\n");
+        }
+
+        function getDefineSut(
+            ids: string[],
+            blocksToUse: Record<string, string> = blocks,
+            options: { permalink?: string, config?: any, resolver?: IIntentResolver } = {}) {
+            return getSut(
+                ids,
+                options.config ?? {},
+                options.resolver ?? null,
+                {
+                    definitions: definitions(blocksToUse),
+                    permalinks: permalinks(options.permalink ?? null)
+                });
+        }
+
+        describe("asking for a definition", () => {
+            it("should offer the numbered list of active alerts", async () => {
+                // arrange
+                const sut = getDefineSut(twoAlerts);
+
+                // act
+                await sut.handleMessage(messageFrom("define"));
+
+                // assert
+                expect(lastReply()).toContain("2 active alerts");
+                expect(lastReply()).toContain("`1.` web::health::a.com");
+                expect(lastReply()).toContain("the number you want the configuration for");
+                expect(sut.pendingSelectionCount).toEqual(1);
+            });
+            it("should not read any configuration until it is told which", async () => {
+                // arrange
+                const sut = getDefineSut(twoAlerts);
+
+                // act
+                await sut.handleMessage(messageFrom("define"));
+
+                // assert
+                expect(asked).toEqual([]);
+            });
+            describe("when only one alert is active", () => {
+                it("should answer straight away rather than offering a list of one", async () => {
+                    // arrange
+                    const sut = getDefineSut(["web::health::a.com"]);
+
+                    // act
+                    await sut.handleMessage(messageFrom("define"));
+
+                    // assert
+                    expect(lastReply()).toContain("`web::health::a.com`");
+                    expect(lastReply()).toContain("url: https://a.com");
+                    expect(sut.pendingSelectionCount).toEqual(0);
+                });
+            });
+            describe("when nothing is alerting", () => {
+                it("should say so", async () => {
+                    // arrange
+                    const sut = getDefineSut([]);
+
+                    // act
+                    await sut.handleMessage(messageFrom("define"));
+
+                    // assert
+                    expect(lastReply()).toContain("Nothing is alerting right now");
+                });
+            });
+            describe("when barky has no rules to read", () => {
+                it("should say so rather than failing", async () => {
+                    // arrange - no definition source, which is the only state it cannot answer in
+                    const sut = getSut(twoAlerts, { "dashboard-url": "https://barky.acme.com" });
+
+                    // act
+                    await sut.handleMessage(messageFrom("define"));
+
+                    // assert
+                    expect(lastReply()).toContain("can't read the rules file");
+                    expect(lastReply()).toContain("https://barky.acme.com");
+                });
+            });
+        });
+
+        describe("answering the list", () => {
+            it("should post the block declaring the alert chosen", async () => {
+                // arrange
+                const sut = getDefineSut(twoAlerts);
+                await sut.handleMessage(messageFrom("define"));
+
+                // act
+                await sut.handleMessage(messageFrom("2"));
+
+                // assert
+                expect(asked).toEqual(["mysql::lag::db-01"]);
+                expect(lastReply()).toContain("`mysql::lag::db-01`");
+                expect(lastReply()).toContain("defined in `configs/mysql.yaml`");
+                expect(lastReply()).toContain("```\nlag:\n  connection: db-01\n  identifier: replica\n```");
+            });
+            it("should take the list down once it has answered", async () => {
+                // arrange
+                const sut = getDefineSut(twoAlerts);
+                await sut.handleMessage(messageFrom("define"));
+
+                // act
+                await sut.handleMessage(messageFrom("2"));
+
+                // assert
+                expect(sut.pendingSelectionCount).toEqual(0);
+            });
+            it("should change nothing", async () => {
+                // arrange
+                const sut = getDefineSut(twoAlerts);
+                await sut.handleMessage(messageFrom("define"));
+
+                // act
+                await sut.handleMessage(messageFrom("1"));
+
+                // assert
+                expect(await Muter.getInstance().getDynamicMutes()).toEqual([]);
+            });
+            it("should record who asked", async () => {
+                // arrange
+                const sut = getDefineSut(twoAlerts);
+                await sut.handleMessage(messageFrom("define"));
+
+                // act
+                await sut.handleMessage(messageFrom("1"));
+
+                // assert
+                const audit = await getChatOpsAudit();
+                expect(audit).toHaveLength(1);
+                expect(audit[0].action).toEqual("define");
+                expect(audit[0].userName).toEqual("Rohland");
+                expect(audit[0].detail.alerts).toEqual(["web::health::a.com"]);
+            });
+            describe("when the answer names more than one", () => {
+                it("should show none of them, since it posts one at a time", async () => {
+                    // arrange
+                    const sut = getDefineSut(twoAlerts);
+                    await sut.handleMessage(messageFrom("define"));
+
+                    // act
+                    await sut.handleMessage(messageFrom("1,2"));
+
+                    // assert
+                    expect(lastReply()).toContain("one definition at a time");
+                    expect(asked).toEqual([]);
+                });
+                it("should leave the list up for the one they meant", async () => {
+                    // arrange
+                    const sut = getDefineSut(twoAlerts);
+                    await sut.handleMessage(messageFrom("define"));
+
+                    // act
+                    await sut.handleMessage(messageFrom("1,2"));
+                    await sut.handleMessage(messageFrom("2"));
+
+                    // assert
+                    expect(asked).toEqual(["mysql::lag::db-01"]);
+                    expect(lastReply()).toContain("`mysql::lag::db-01`");
+                });
+                it("should refuse all of them the same way", async () => {
+                    // arrange
+                    const sut = getDefineSut(twoAlerts);
+                    await sut.handleMessage(messageFrom("define"));
+
+                    // act
+                    await sut.handleMessage(messageFrom("all"));
+
+                    // assert
+                    expect(lastReply()).toContain("one definition at a time");
+                    expect(sut.pendingSelectionCount).toEqual(1);
+                });
+            });
+            describe("when the answer is out of range", () => {
+                it("should say so rather than reading anything", async () => {
+                    // arrange
+                    const sut = getDefineSut(twoAlerts);
+                    await sut.handleMessage(messageFrom("define"));
+
+                    // act
+                    await sut.handleMessage(messageFrom("5"));
+
+                    // assert
+                    expect(lastReply()).toContain("no item numbered 5");
+                    expect(asked).toEqual([]);
+                });
+            });
+            describe("when the reply asks to mute instead", () => {
+                it("should not act on the definition list", async () => {
+                    // arrange - "mute 1" is not an answer to "which of these shall I explain?"
+                    const sut = getDefineSut(twoAlerts);
+                    await sut.handleMessage(messageFrom("define"));
+
+                    // act
+                    await sut.handleMessage(messageFrom("mute 1"));
+
+                    // assert
+                    expect(await Muter.getInstance().getDynamicMutes()).toEqual([]);
+                    expect(asked).toEqual([]);
+                    expect(lastReply()).toContain("didn't catch which of those you meant");
+                });
+            });
+        });
+
+        describe("inside an alert's own thread", () => {
+            it("should answer for that alert without offering a list", async () => {
+                // arrange
+                await recordChatThread({
+                    channel: "C1",
+                    threadTs,
+                    alertIds: ["mysql::lag::db-01"]
+                });
+                const sut = getDefineSut(twoAlerts);
+
+                // act
+                await sut.handleMessage(messageFrom("define", { ts: "1700000000.000200", threadTs }));
+
+                // assert
+                expect(asked).toEqual(["mysql::lag::db-01"]);
+                expect(lastReply()).toContain("`mysql::lag::db-01`");
+                expect(sut.pendingSelectionCount).toEqual(0);
+            });
+        });
+
+        describe("a block too long for one message", () => {
+            it("should carry a link to the rest of it", async () => {
+                // arrange
+                const url = "https://github.com/acme/widgets/blob/abc123/configs/web.yaml#L8-L207";
+                const sut = getDefineSut(
+                    ["web::health::a.com"],
+                    { "web::health::a.com": longBlock(200) },
+                    { permalink: url });
+
+                // act
+                await sut.handleMessage(messageFrom("define"));
+
+                // assert
+                expect(linked).toEqual(["web::health::a.com"]);
+                expect(lastReply()).toContain(`<${ url }|see all 200 lines on github>`);
+                expect(lastReply().length).toBeLessThanOrEqual(SlackMaxMessageLength);
+            });
+            it("should point at the file where no link could be built", async () => {
+                // arrange - no git, not a checkout, or a commit no remote has yet
+                const sut = getDefineSut(
+                    ["web::health::a.com"],
+                    { "web::health::a.com": longBlock(200) },
+                    { permalink: null });
+
+                // act
+                await sut.handleMessage(messageFrom("define"));
+
+                // assert
+                expect(linked).toEqual(["web::health::a.com"]);
+                expect(lastReply()).toContain("the rest is in `configs/web.yaml` from line 8");
+            });
+        });
+
+        describe("a block that fits", () => {
+            it("should not go looking for a link", async () => {
+                // arrange - a link costs a couple of git calls, and is not needed here
+                const sut = getDefineSut(["web::health::a.com"]);
+
+                // act
+                await sut.handleMessage(messageFrom("define"));
+
+                // assert
+                expect(linked).toEqual([]);
+            });
+        });
+
+        describe("an alert the rules no longer declare", () => {
+            it("should say it cannot find it rather than guessing", async () => {
+                // arrange
+                const sut = getDefineSut(
+                    ["web::health::gone.com"],
+                    {},
+                    { config: { "dashboard-url": "https://barky.acme.com" } });
+
+                // act
+                await sut.handleMessage(messageFrom("define"));
+
+                // assert
+                expect(lastReply()).toContain("can't find `web::health::gone.com`");
+                expect(lastReply()).toContain("renamed or removed");
+            });
+        });
+
+        describe("when the configuration cannot be read", () => {
+            it("should say what happened rather than reporting a failure", async () => {
+                // arrange
+                const sut = getSut(["web::health::a.com"], {}, null, {
+                    definitions: {
+                        find: () => {
+                            throw new Error("yaml is broken");
+                        }
+                    }
+                });
+
+                // act
+                await sut.handleMessage(messageFrom("define"));
+
+                // assert
+                expect(lastReply()).toContain("couldn't read the configuration");
+                expect(lastReply()).toContain("Nothing else was affected");
+            });
+        });
+
+        describe("when the request is interpreted", () => {
+            it("should answer for the alert the model chose", async () => {
+                // arrange
+                const sut = getDefineSut(twoAlerts, blocks, {
+                    resolver: resolverReturning({ action: IntentAction.Define, numbers: [2] })
+                });
+
+                // act
+                await sut.handleMessage(messageFrom("what does the db one actually check?"));
+
+                // assert
+                expect(asked).toEqual(["mysql::lag::db-01"]);
+                expect(lastReply()).toContain("`mysql::lag::db-01`");
+            });
+            it("should offer the list where the model named none", async () => {
+                // arrange
+                const sut = getDefineSut(twoAlerts, blocks, {
+                    resolver: resolverReturning({ action: IntentAction.RequestDefineList })
+                });
+
+                // act
+                await sut.handleMessage(messageFrom("how is this lot configured?"));
+
+                // assert
+                expect(lastReply()).toContain("the number you want the configuration for");
+                expect(sut.pendingSelectionCount).toEqual(1);
+            });
+            it("should refuse more than one without taking the list down", async () => {
+                // arrange
+                const sut = getDefineSut(twoAlerts, blocks, {
+                    resolver: resolverReturning({ action: IntentAction.Define, numbers: [1, 2] })
+                });
+                await sut.handleMessage(messageFrom("define"));
+
+                // act
+                await sut.handleMessage(messageFrom("both of them please"));
+
+                // assert
+                expect(lastReply()).toContain("one definition at a time");
+                expect(sut.pendingSelectionCount).toEqual(1);
             });
         });
     });

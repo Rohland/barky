@@ -7,6 +7,8 @@ import { ChatOpsConfig } from "./config.js";
 import { CommandType, ICommand, ISelectionReply, parseCommand, parseDuration, parseLocalDateTime, parseSelectionReply } from "./parser.js";
 import { AiUnavailableError, IIntent, IIntentResolver, IntentAction } from "./ai/types.js";
 import { AiIntentResolver } from "./ai/resolver.js";
+import { IDefinitionSource } from "./definitions.js";
+import { GitPermalinkSource, IPermalinkSource } from "./permalink.js";
 import { nextBusinessHoursStart } from "../lib/time.js";
 import { mutePatternFor } from "../lib/key.js";
 import { log } from "../models/logger.js";
@@ -18,6 +20,9 @@ export interface IChatMessage {
     threadTs?: string;
     userId: string;
     text: string;
+    // set where the mention is in the thread of a follow-up ping, which only points at the thread
+    // of the alert itself
+    pointsTo?: { url?: string };
 }
 
 export interface IAlertSource {
@@ -33,6 +38,8 @@ export interface IChatOpsDependencies {
     alerts?: IAlertSource;
     resolver?: IIntentResolver;
     selections?: SelectionStore;
+    definitions?: IDefinitionSource;
+    permalinks?: IPermalinkSource;
 }
 
 interface IInterpretation {
@@ -86,6 +93,10 @@ export class ChatOpsService {
     private readonly alerts: IAlertSource;
     private readonly resolver: IIntentResolver;
     private readonly selections: SelectionStore;
+    // absent where barky has no rules configuration to read, which is the only state in which it
+    // cannot answer for how a check is declared
+    private readonly definitions: IDefinitionSource;
+    private readonly permalinks: IPermalinkSource;
 
     constructor(
         private readonly config: ChatOpsConfig,
@@ -95,6 +106,8 @@ export class ChatOpsService {
         this.resolver = dependencies.resolver
             ?? (config.ai.configured ? new AiIntentResolver(config.ai) : null);
         this.selections = dependencies.selections ?? new SelectionStore(config.selectionTtlMs);
+        this.definitions = dependencies.definitions ?? null;
+        this.permalinks = dependencies.permalinks ?? new GitPermalinkSource();
     }
 
     public async handleMessage(message: IChatMessage): Promise<void> {
@@ -185,6 +198,12 @@ export class ChatOpsService {
     }
 
     private async resolve(message: IChatMessage, threadTs: string): Promise<string> {
+        if (message.pointsTo) {
+            // said in the thread of a message barky replaces on every check, so anything it did
+            // here - and anything it said about it - would be deleted underneath the person who
+            // asked. They are answered, and pointed at the thread that lasts
+            return messages.renderReplyInAlertThread(message.pointsTo.url);
+        }
         const found = this.selections.peek(message.channel, threadTs, message.userId);
         if (found) {
             // a reply to a pinned list is read against that list first, so "all" means the items
@@ -212,6 +231,8 @@ export class ChatOpsService {
                 return await this.requestMute(command, message, threadTs);
             case CommandType.Unmute:
                 return await this.requestUnmute(command, message, threadTs);
+            case CommandType.Define:
+                return await this.requestDefine(message, threadTs);
             case CommandType.Status:
                 return await this.status();
             case CommandType.Cancel:
@@ -263,6 +284,15 @@ export class ChatOpsService {
             case IntentAction.Unmute:
                 this.selections.clear(message.channel, threadTs, message.userId);
                 return await this.unmute(chosen(), message);
+            case IntentAction.Define: {
+                const targets = chosen();
+                const refusal = this.tooManyToDefine(targets);
+                if (refusal) {
+                    return refusal;
+                }
+                this.selections.clear(message.channel, threadTs, message.userId);
+                return await this.define(targets, message);
+            }
             case IntentAction.Select:
                 if (!pending) {
                     return messages.renderNotUnderstood(this.config.dashboardHint);
@@ -292,6 +322,8 @@ export class ChatOpsService {
                     threadTs);
             case IntentAction.RequestUnmuteList:
                 return await this.requestUnmute({ type: CommandType.Unmute, all: false }, message, threadTs);
+            case IntentAction.RequestDefineList:
+                return await this.requestDefine(message, threadTs);
             case IntentAction.Status:
                 return await this.status();
             case IntentAction.Cancel:
@@ -318,7 +350,14 @@ export class ChatOpsService {
         const chosen = reply.all
             ? pending.candidates
             : reply.indices.map(x => pending.candidates[x - 1]);
+        const refusal = pending.kind === "define" ? this.tooManyToDefine(chosen) : null;
+        if (refusal) {
+            return refusal;
+        }
         this.selections.clear(pending.channel, pending.threadTs, pending.userId);
+        if (pending.kind === "define") {
+            return await this.define(chosen, actor);
+        }
         return pending.kind === "mute"
             ? await this.mute({
                 chosen,
@@ -402,6 +441,107 @@ export class ChatOpsService {
             candidates: mutes
         });
         return list.text;
+    }
+
+    private async requestDefine(
+        message: IChatMessage,
+        threadTs: string): Promise<string> {
+        if (!this.definitions) {
+            return messages.renderDefineUnavailable(this.config.dashboardHint);
+        }
+        const scoped = await this.getThreadAlerts(message, threadTs);
+        const candidates = scoped ?? await this.getActiveAlerts();
+        if (candidates.length === 0) {
+            return scoped
+                ? messages.renderThreadCleared()
+                : messages.renderNothingToDefine();
+        }
+        // one alert is unambiguous however it was asked for, and anything more needs the list -
+        // only one definition is shown at a time, so "all" cannot be honoured as asked
+        if (candidates.length === 1) {
+            return await this.define(candidates, message);
+        }
+        const list = messages.renderSelectionListOrTooLong({
+            kind: "define",
+            candidates,
+            dashboardHint: this.config.dashboardHint
+        });
+        if (!list.fits) {
+            return list.text;
+        }
+        this.selections.pin({
+            kind: "define",
+            channel: message.channel,
+            threadTs,
+            userId: message.userId,
+            candidates,
+            scoped: !!scoped
+        });
+        return list.text;
+    }
+
+    /*
+     More than one definition asked for at once, which barky does not do. Nothing is acted on, so
+     callers check this before clearing anything: the numbered list stays pinned for a reply naming
+     one of them.
+     */
+    private tooManyToDefine(chosen: ISelectionCandidate[]): string {
+        return chosen.length > messages.MaxDefinitions
+            ? messages.renderTooManyToDefine(chosen.length, this.config.dashboardHint)
+            : null;
+    }
+
+    private async define(
+        chosen: ISelectionCandidate[],
+        actor: IChatMessage): Promise<string> {
+        if (!this.definitions) {
+            return messages.renderDefineUnavailable(this.config.dashboardHint);
+        }
+        if (chosen.length === 0) {
+            return messages.renderNothingToDefine();
+        }
+        const refusal = this.tooManyToDefine(chosen);
+        if (refusal) {
+            return refusal;
+        }
+        const described = await this.describeDefinition(chosen[0]);
+        // nothing changed, but who asked what barky is checking is worth having alongside the
+        // mutes in the same log
+        await recordChatOpsAudit({
+            ...await this.identify(actor),
+            action: "define",
+            detail: {
+                alerts: chosen.map(x => x.id),
+                requested: actor?.text
+            }
+        });
+        return described;
+    }
+
+    private async describeDefinition(candidate: ISelectionCandidate): Promise<string> {
+        try {
+            return await this.readDefinition(candidate);
+        } catch (err) {
+            // a config file edited mid-read, or yaml that no longer parses, is worth saying out
+            // loud - the generic failure message would send someone looking for a slack problem
+            log(`chatops: could not read the configuration for ${ candidate.id }: ${ err }`, err);
+            return messages.renderDefinitionUnreadable(candidate.id);
+        }
+    }
+
+    /*
+     One alert's configuration. Looking up a github link costs a couple of git calls, so it is only
+     done for a block that will not fit in the message.
+     */
+    private async readDefinition(candidate: ISelectionCandidate): Promise<string> {
+        const definition = this.definitions.find(candidate.id);
+        if (!definition) {
+            return messages.renderDefinitionNotFound(candidate.id, this.config.dashboardHint);
+        }
+        const permalink = messages.definitionFitsSlack(definition)
+            ? null
+            : await this.permalinks?.forDefinition(definition);
+        return messages.renderDefinition({ ...definition, permalink });
     }
 
     /*

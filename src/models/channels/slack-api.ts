@@ -1,5 +1,7 @@
 import axios from "axios";
 import { tryExecuteTimes } from "../../lib/utility.js";
+import { describeError } from "../../lib/error.js";
+import { log } from "../logger.js";
 
 export type SlackTimestamp = string | number;
 
@@ -16,13 +18,64 @@ export const SlackMaxMessageLength = 3000;
 
 /*
  Slack answers 200 with an error code in the body rather than a failure status, so the code is
- carried here for the retry and the debug log to read.
+ carried here for the retry and the debug log to read - and stated in the message, which is the
+ only part of it that reaches an operator who is not running with --debug.
  */
 export class SlackApiError extends Error {
     constructor(public readonly slackError: string) {
-        super("slack rejected the request");
+        super(`slack rejected the request: ${ slackError }`);
         this.name = "SlackApiError";
     }
+}
+
+/*
+ Refusals retrying cannot change. Most are configuration or state barky cannot fix by asking again
+ a moment later - the message is gone, the channel is not one it is in, the token is not valid, the
+ text is too long - so the attempt is reported once rather than three times half a second apart.
+ */
+const PermanentSlackErrors = new Set([
+    "message_not_found",
+    "cant_update_message",
+    "cant_delete_message",
+    "channel_not_found",
+    "not_in_channel",
+    "is_archived",
+    "invalid_auth",
+    "account_inactive",
+    "token_revoked",
+    "token_expired",
+    "no_permission",
+    "missing_scope",
+    "not_allowed_token_type",
+    "restricted_action",
+    "ekm_access_denied",
+    "msg_too_long",
+    "no_text",
+    "invalid_arguments",
+    "invalid_blocks"
+]);
+
+/*
+ The code slack refused a request with, from anywhere in an error's cause chain - barky wraps the
+ failure as it passes back through the retry, so the code is no longer on the error being handled.
+ */
+export function slackErrorCodeOf(err: any, depth: number = 0): string {
+    if (!err || depth > 10) {
+        return null;
+    }
+    return err.slackError ?? slackErrorCodeOf(err.cause, depth + 1);
+}
+
+export function isPermanentSlackError(err: any): boolean {
+    return PermanentSlackErrors.has(slackErrorCodeOf(err));
+}
+
+/*
+ Slack has no record of the message barky is updating - someone deleted it, or it is older than the
+ workspace retains. The reference barky is holding is dead, whatever it does next.
+ */
+export function isMissingSlackMessage(err: any): boolean {
+    return slackErrorCodeOf(err) === "message_not_found";
 }
 
 /*
@@ -99,9 +152,10 @@ export class SlackApi {
     public async deleteMessage(channel: string, ts: SlackTimestamp): Promise<void> {
         try {
             await this.request("chat.delete", { channel, ts });
-        } catch {
+        } catch (err) {
             // barky deletes its own superseded alerts - one that will not go is left where it is
             // rather than failing the alert that replaces it
+            log(`slack would not delete the message ${ channel }:${ ts }: ${ describeError(err) }`, err);
         }
     }
 
@@ -167,7 +221,9 @@ export class SlackApi {
 
     private async send(method: string, body: any): Promise<ISlackMessageRef> {
         return await tryExecuteTimes(
-            `posting to slack`,
+            // named, because "posting to slack" on its own leaves an operator with no idea which
+            // call to which channel it was that would not go
+            `posting to slack (${ method } to ${ body?.channel })`,
             3,
             async () => {
                 const result = await this.request(method, body);
@@ -178,7 +234,10 @@ export class SlackApi {
                     channel: result.channel,
                     ts: result.ts
                 };
-            });
+            },
+            true,
+            500,
+            isPermanentSlackError);
     }
 
     private async request(method: string, body: any): Promise<any> {

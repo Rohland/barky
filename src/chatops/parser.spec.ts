@@ -51,6 +51,30 @@ describe("chatops parser", () => {
                 expect(result.all).toEqual(all);
             });
         });
+        describe.each([
+            ["define"],
+            ["Define?"],
+            ["config"],
+            ["configuration"],
+            ["explain"],
+            ["<@U123> define"],
+            ["define this"],
+            ["define these"],
+            ["define it"],
+            ["explain this"],
+            ["explain it"],
+            ["config for this"],
+            ["config this"],
+            ["define all"],
+            ["define everything"],
+            ["config all"]
+        ])("given '%s'", (input) => {
+            // one definition is shown at a time, so every phrasing asks for the same thing - what
+            // matters is that it is read here rather than handed to the AI service
+            it("should parse it as a request for a definition", async () => {
+                expect(parseCommand(input).type).toEqual(CommandType.Define);
+            });
+        });
         describe("given a command carrying a duration", () => {
             it("should keep the duration", async () => {
                 const result = parseCommand("mute all for 4h");
@@ -167,7 +191,8 @@ describe("chatops parser", () => {
             it.each([
                 ["mute 1", "mute"],
                 ["unmute 2", "unmute"],
-                ["mute all", "mute"]
+                ["mute all", "mute"],
+                ["define 2", "define"]
             ])("should accept '%s' against a %s list", async (input, kind) => {
                 expect(parseSelectionReply(input, kind as any)).not.toBeNull();
             });
@@ -177,7 +202,11 @@ describe("chatops parser", () => {
                 ["mute 1", "unmute"],
                 ["unmute 1", "mute"],
                 ["mute all", "unmute"],
-                ["unmute all", "mute"]
+                ["unmute all", "mute"],
+                ["define 1", "mute"],
+                ["define 1", "unmute"],
+                ["mute 1", "define"],
+                ["unmute 1", "define"]
             ])("should reject '%s' against a %s list", async (input, kind) => {
                 // asking to silence something is not an answer to "which of these shall I un-silence?"
                 expect(parseSelectionReply(input, kind as any)).toBeNull();
@@ -205,6 +234,7 @@ describe("chatops parser", () => {
             it("should be accepted against either list", async () => {
                 expect(parseSelectionReply("1,3", "mute" as any)).not.toBeNull();
                 expect(parseSelectionReply("1,3", "unmute" as any)).not.toBeNull();
+                expect(parseSelectionReply("2", "define" as any).indices).toEqual([2]);
                 expect(parseSelectionReply("all", "unmute" as any).all).toEqual(true);
             });
         });

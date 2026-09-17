@@ -1,7 +1,7 @@
-export type SelectionKind = "mute" | "unmute";
+export type SelectionKind = "mute" | "unmute" | "define";
 
 export interface ISelectionCandidate {
-    id: string;      // alert id for a mute, the mute match expression for an unmute
+    id: string;      // alert id for a mute or a define, the mute match expression for an unmute
     title: string;
     detail?: string;
 }

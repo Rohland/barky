@@ -3,9 +3,11 @@ import { ISelectionCandidate, SelectionKind } from "../selection.js";
 export enum IntentAction {
     Mute = "mute",
     Unmute = "unmute",
+    Define = "define",
     Select = "select",
     RequestMuteList = "request_mute_list",
     RequestUnmuteList = "request_unmute_list",
+    RequestDefineList = "request_define_list",
     Status = "status",
     Help = "help",
     Cancel = "cancel",

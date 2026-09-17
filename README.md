@@ -1031,6 +1031,21 @@ Mention it in an alert thread, and it replies in that same thread:
 deliberate: people working an outage need to be able to say "all" or "1" to each other in the
 thread without barky acting on it.
 
+While an alert is ongoing barky also posts a short follow-up ping to the channel, so a long running
+outage does not scroll away. That message is deleted and reposted every time barky checks, so
+anything said in its thread goes with it. Mention barky there and it answers with a link back to
+the alert's own thread rather than acting:
+
+> **barky**: 🔥 @channel Alert ongoing: `3 problems` for `27h, 44m and 56s`. See above ☝️
+> _reply in the thread above to mute_
+> > **@rohland**: @barky mute for 1hr
+> >
+> > **barky**: 👆 I repost this message every time I check, so anything either of us says here goes
+> > with it. Mention me in the alert's own thread instead and I'll pick it up.
+
+The link needs `workspace` set on the channel; without it barky names the thread without linking to
+it.
+
 The list is pinned at the moment it is posted, so `all` always means the alerts you were shown -
 anything that starts alerting in between is reported back to you rather than quietly swept into the
 mute. That is measured against the set the list was drawn from, so a list drawn inside an alert's
@@ -1054,10 +1069,59 @@ message reported has since cleared, barky says so rather than muting nothing.
 Note that `mute this` only means "everything here" inside a thread. Said anywhere else it has no
 referent, so barky shows the list instead.
 
+**Asking how a check is configured**
+
+`define` answers with the yaml that declares a check, read back out of the rules file it lives in -
+comments and all, rather than rebuilt from what barky loaded:
+
+> **barky**: 🔥 Ongoing Outage!
+> `web::health::www.acme.com` — expected 200, received 500
+> `mysql::lag::db-01` — 340 seconds behind
+> > **@rohland**: @barky define
+> >
+> > **barky**: *2 active alerts* — mention me with the number you want the configuration for (`2`), or `cancel`.
+> >
+> > `1.` web::health::www.acme.com — _expected 200, received 500_
+> > `2.` mysql::lag::db-01 — _340 seconds behind_
+> >
+> > **@rohland**: 2
+> >
+> > **barky**: 📄 `mysql::lag::db-01` — defined in `configs/acme.yaml`
+> > ```
+> > lag:
+> >   connection: db-01
+> >   query: show slave status
+> >   identifier: status
+> > ```
+
+`config`, `configuration` and `explain` are read the same way. Asked inside an alert's own thread,
+or when only one alert is active, barky skips the list and answers directly.
+
+One definition per reply: a block of yaml is most of a Slack message on its own, so `1,3` and `all`
+are declined rather than half answered, and the list stays up for whichever one you meant.
+
+A check using `vary-by` is declared once and alerts under each variation, so barky shows the block
+and says which variation the alert in front of you is. An id like `mysql::monitor::replication`
+reports the check failing to run at all, and answers with what that check declares.
+
+Values under keys that could hold a secret - `password`, `token`, `authorization`, `*-key` and the
+like - are posted only where they read as the name of an environment variable, which is barky's own
+convention: the `$` form (`Authorization: $my-auth-token`), or a short separated name written in one
+case (`token: sumo-token`). Anything else in that position is replaced with `***redacted***` and the
+message says how many values were held back.
+
+A block too long for one Slack message is cut at a line boundary. Where the rules file is in a git
+checkout with a GitHub remote, the rest of it is a link: barky links the commit it is running
+rather than a branch, so the lines keep pointing at what it actually read. There is no link where
+git is not on the path, the file is not tracked, the remote is not GitHub, or the commit is on no
+remote branch yet - in each of those a link would go nowhere, so barky names the file and the line
+number instead.
+
 Commands:
 
 - `mute` / `unmute` - lists what is available and waits for your numbers
 - `mute all` / `unmute all` - acts on everything, and works even when the list is too long to show
+- `define` / `config` - lists the active alerts and waits for one number, then shows how that check is configured
 - `status` - what is currently alerting and what is muted
 - `help`
 - `cancel` - abandons a pending list
@@ -1070,8 +1134,8 @@ instead of posting an unusable wall of numbers. `mute all` needs no list, so it 
 
 **Audit trail**
 
-Every mute and unmute made through Slack is recorded - who asked, what they said, which alerts were
-affected and until when - and kept for 30 days. People are named by their Slack display name where
+Every mute, unmute and define made through Slack is recorded - who asked, what they said, which
+alerts were affected and until when - and kept for 30 days. People are named by their Slack display name where
 the optional `users:read` scope is granted, and by their Slack id otherwise. It survives Slack message retention and deletion.
 
 The dashboard has a **Chat ops log** link in the top right that shows it, and it is also available
@@ -1100,7 +1164,7 @@ legitimately reaches into Monday.
 
 The commands above work on their own. Configure `ai` as well and barky will interpret anything it
 does not recognise, so "silence the database one for an hour" works as well as `mute` followed by
-a number.
+a number, and "what does the db one actually check?" works as well as `define`.
 
 It is only ever asked to pick numbers from a list barky supplies. It never names an alert,
 builds a mute expression or works out an expiry time - barky does all of that, and discards any

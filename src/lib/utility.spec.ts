@@ -359,6 +359,23 @@ describe("utility functions", () => {
                 // assert
                 expect(func).toHaveBeenCalledTimes(2);
             });
+            it("should say what actually went wrong", async () => {
+                // arrange - barky's own wrapper is all an operator sees, and "after 2 attempts"
+                // on its own names nothing to go and fix
+                const func = jest.fn().mockRejectedValue(new Error("slack rejected the request: message_not_found"));
+
+                // act
+                await expect(tryExecuteTimes("posting to slack", 2, func, true, 0))
+                    .rejects.toThrow("after 2 attempts: slack rejected the request: message_not_found");
+            });
+            it("should count the attempts it actually made", async () => {
+                // arrange
+                const func = jest.fn().mockRejectedValue(new Error("inner-failure"));
+
+                // act
+                await expect(tryExecuteTimes("my-label", 1, func, true, 0))
+                    .rejects.toThrow("after 1 attempt:");
+            });
             it("should preserve original error as cause", async () => {
                 // arrange
                 const originalError = new Error("inner-failure");
@@ -374,8 +391,34 @@ describe("utility functions", () => {
 
                 // assert
                 expect(caught).not.toBeNull();
-                expect(caught.message).toEqual("Error executing my-label after 2 attempts");
+                expect(caught.message).toEqual("Error executing my-label after 2 attempts: inner-failure");
                 expect(caught.cause).toBe(originalError);
+            });
+            describe("when the failure is one retrying cannot change", () => {
+                it("should stop after the first attempt", async () => {
+                    // arrange - three attempts half a second apart cannot make slack find a
+                    // message it has no record of
+                    const permanent = new Error("gone");
+                    const func = jest.fn().mockRejectedValue(permanent);
+
+                    // act
+                    await expect(tryExecuteTimes("my-label", 3, func, true, 0, err => err === permanent))
+                        .rejects.toThrow("after 1 attempt: gone");
+
+                    // assert
+                    expect(func).toHaveBeenCalledTimes(1);
+                });
+                it("should still retry anything else", async () => {
+                    // arrange
+                    const func = jest.fn().mockRejectedValue(new Error("temporary"));
+
+                    // act
+                    await expect(tryExecuteTimes("my-label", 3, func, true, 0, () => false))
+                        .rejects.toThrow("after 3 attempts");
+
+                    // assert
+                    expect(func).toHaveBeenCalledTimes(3);
+                });
             });
             describe("with throw set to false", () => {
                 it("should not throw", async () => {

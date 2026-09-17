@@ -183,7 +183,12 @@ export class SlackChatOpsListener {
             ts: event.ts,
             threadTs: event.thread_ts,
             userId: event.user,
-            text: event.text
+            text: event.text,
+            // a thread that only points at an alert's own gets an answer saying so, rather than
+            // acting on a message barky is about to delete
+            pointsTo: thread.pointsToTs
+                ? { url: thread.pointsToUrl }
+                : null
         });
     }
 
