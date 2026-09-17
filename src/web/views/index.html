@@ -419,7 +419,7 @@
         </div>
     </div>
 
-    <div v-if="auditModal.show" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-75 z-40">
+    <div v-if="auditModal.show" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-75 z-40 p-4">
         <div role="dialog"
              aria-modal="true"
              aria-labelledby="audit-modal-title"
@@ -427,9 +427,9 @@
              tabindex="-1"
              ref="auditDialog"
              @keydown="trapFocus($event, 'auditDialog')"
-             class="bg-white dark:bg-gray-900 p-6 rounded-lg shadow-lg w-full max-w-4xl max-h-[80vh] flex flex-col">
-            <h3 id="audit-modal-title" class="text-lg font-bold mb-1 text-gray-800 dark:text-gray-100">Chat ops log</h3>
-            <p id="audit-modal-description" class="text-xs text-gray-500 dark:text-gray-400 mb-4">
+             class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl dark:shadow-lg w-full max-w-7xl max-h-[90vh] flex flex-col">
+            <h3 id="audit-modal-title" class="text-2xl font-semibold mb-1 text-gray-800 dark:text-gray-100">Chat ops log</h3>
+            <p id="audit-modal-description" class="text-sm text-gray-600 dark:text-gray-400 mb-4">
                 Mutes and unmutes made from Slack, most recent first. Kept for 30 days.
             </p>
             <div class="overflow-auto flex-1">
@@ -443,16 +443,26 @@
                 <table v-else class="min-w-full table-auto text-left text-sm">
                     <thead>
                     <tr class="bg-gray-100 dark:bg-gray-700">
-                        <th class="p-2">When</th>
-                        <th class="p-2">Action</th>
-                        <th class="p-2">Who</th>
-                        <th class="p-2">Affected</th>
-                        <th class="p-2">Until</th>
+                        <th class="p-2 border-b border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200">
+                            When
+                        </th>
+                        <th class="p-2 border-b border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200">
+                            Action
+                        </th>
+                        <th class="p-2 border-b border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200">
+                            Who
+                        </th>
+                        <th class="p-2 border-b border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200">
+                            Affected
+                        </th>
+                        <th class="p-2 border-b border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200">
+                            Until
+                        </th>
                     </tr>
                     </thead>
-                    <tbody>
+                    <tbody class="text-gray-800 dark:text-gray-300">
                     <tr v-for="entry in auditModal.entries"
-                        class="border-b border-gray-200 dark:border-gray-700 align-top">
+                        class="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 align-top">
                         <td class="p-2 whitespace-nowrap">{{ new Date(entry.date).toLocaleString() }}</td>
                         <td class="p-2">
                             <span :class="entry.action === 'mute'
@@ -465,7 +475,7 @@
                         <td class="p-2 whitespace-nowrap">
                             <span v-if="entry.userName">{{ entry.userName }}</span>
                             <span v-else
-                                  class="border-b border-dotted border-gray-400 cursor-help"
+                                  class="border-b border-dotted border-gray-400 dark:border-gray-500 cursor-help"
                                   title="Slack display names need the optional users:read scope on the app - without it, entries are recorded against the Slack user id">
                                 {{ entry.userId }}
                             </span>

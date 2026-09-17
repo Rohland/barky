@@ -3,7 +3,7 @@ import {
     evaluateNewResult, generateDigest,
     generateResultsToEvaluate
 } from "./digest.js";
-import { MySqlResult, Result, SkippedResult } from "../models/result.js";
+import { MonitorFailureResult, MySqlResult, Result, SkippedResult } from "../models/result.js";
 import { MonitorLog } from "../models/log.js";
 import { Snapshot } from "../models/snapshot.js";
 import {
@@ -691,6 +691,44 @@ describe("digest", () => {
                         expect(snapshots.length).toEqual(0);
                     });
                 });
+            });
+        });
+        describe("when a skipped result and a failure resolve to the same check", () => {
+            it("should persist a single snapshot for the check", async () => {
+                // arrange
+                const app = {
+                    alert: {
+                        channels: ["test-channel"],
+                        rules: []
+                    }
+                };
+                await persistSnapshots([
+                    new Snapshot({
+                        date: new Date(),
+                        type: "mysql",
+                        label: "monitor",
+                        identifier: "invalid-store-config",
+                        last_result: "Channel 'missing-channel' not found in digest config",
+                        success: false,
+                        alert_config: app.alert
+                    })
+                ]);
+                // the app was skipped this run, but a channel config issue was still raised for it
+                const skipped = new SkippedResult(new Date(), "mysql", "monitor", "invalid-store-config", app);
+                const configIssue = new MonitorFailureResult(
+                    "mysql",
+                    "invalid-store-config",
+                    "Channel 'missing-channel' not found in digest config",
+                    app);
+
+                // act
+                const context = await generateDigest([skipped, configIssue]);
+
+                // assert
+                expect(context.snapshots.length).toEqual(1);
+                const snapshots = await getSnapshots();
+                expect(snapshots.length).toEqual(1);
+                expect(snapshots[0].uniqueId).toEqual("mysql::monitor::invalid-store-config");
             });
         });
         describe("when has results", () => {
