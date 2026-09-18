@@ -4,6 +4,8 @@ import { AlertState } from "../models/alerts.js";
 import { flatten } from "../lib/utility.js";
 import { Snapshot } from "../models/snapshot.js";
 import { DigestConfiguration } from "../models/digest.js";
+import { warn } from "../models/logger.js";
+import { describeError } from "../lib/error.js";
 
 
 
@@ -38,11 +40,35 @@ function tagResolvedSnapshots(
     });
 }
 
+/*
+ One channel failing must not take the others with it, and must not take barky down with either.
+
+ Before this, a slack refusal anywhere below rejected the whole digest: the run stopped short of
+ persisting the alert state, and the process exited - so a restart re-alerted everything as new and
+ met the same refusal again. Now the alerts that can be sent are sent, what changed is persisted,
+ and the failure is reported for the next pass to try again.
+ */
+async function sendEach<T>(
+    items: T[],
+    describe: (item: T) => string,
+    send: (item: T) => Promise<void>): Promise<void> {
+    const outcomes = await Promise.allSettled(items.map(send));
+    outcomes.forEach((outcome, index) => {
+        if (outcome.status === "rejected") {
+            // said out loud: an alert that did not reach its channel is the one thing an operator
+            // has to hear about, and barky is the only thing that knows
+            warn(
+                `barky could not alert '${ describe(items[index]) }': ${ describeError(outcome.reason) }`,
+                outcome.reason);
+        }
+    });
+}
+
 async function sendNewAlerts(
     newAlerts: AlertState[],
     config: DigestConfiguration,
     context: DigestContext) {
-    await Promise.all(newAlerts.map(async alert => {
+    await sendEach(newAlerts, x => x.channel, async alert => {
         const channel = config.getChannelConfig(alert.channel);
         if (!channel) {
             return;
@@ -57,7 +83,7 @@ async function sendNewAlerts(
             alert);
         alert.last_alert_date = new Date();
         alert.track(snapshots);
-    }));
+    });
 }
 
 function earliestDateFor(snapshots: Snapshot[]): Date {
@@ -73,7 +99,7 @@ async function sendOngoingAlerts(
     alerts: AlertState[],
     config: DigestConfiguration,
     context: DigestContext) {
-    await Promise.all(alerts.map(async alert => {
+    await sendEach(alerts, x => x.channel, async alert => {
         const channel = config.getChannelConfig(alert.channel);
         if (!channel) {
             return;
@@ -90,13 +116,13 @@ async function sendOngoingAlerts(
             await channel.pingAboutOngoingAlert(snapshots, alert);
         }
         alert.track(snapshots);
-    }));
+    });
 }
 
 async function sendResolvedAlerts(
     alerts: AlertState[],
     config: DigestConfiguration) {
-    await Promise.all(alerts.map(async alert => {
+    await sendEach(alerts, x => x.channel, async alert => {
         alert.resolve();
         if (alert.size === 0) {
             return;
@@ -106,7 +132,7 @@ async function sendResolvedAlerts(
             return;
         }
         await channel.sendResolvedAlert(alert);
-    }));
+    });
 }
 
 async function sendMutedOrResolvedAlert(

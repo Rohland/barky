@@ -1,7 +1,8 @@
 import { singleton } from "./lib/singleton.js";
 import { IDigestConfig } from "./models/digest.js";
-import { addMuteWindow, deleteMuteWindowsByIds, getMuteWindows } from "./models/db.js";
+import { addMuteWindow, addMuteWindows, deleteMuteWindowsByIds, getMuteWindows } from "./models/db.js";
 import { IMuteWindowDb } from "./models/mute-window.js";
+import { addLocalDays, toLocalDateAndTime } from "./lib/utility.js";
 
 export class Muter {
 
@@ -57,6 +58,17 @@ export class Muter {
         });
     }
 
+    /*
+     Registers a set of mutes as one operation, so a failure part way through cannot leave some
+     alerts silenced while the caller reports that nothing was changed.
+     */
+    public async registerMutes(
+        matches: string[],
+        from: Date,
+        to: Date) {
+        await addMuteWindows(matches.map(match => ({ match, from, to })));
+    }
+
     public async unmute(matches: string[]) {
         const windows = await this.getDynamicMutes();
         const toDelete = [];
@@ -74,42 +86,17 @@ export class Muter {
     }
 
     private splitDateRangeIntoArray(from: Date, to: Date): { date: string, startTime: string, endTime: string }[] {
-        const formatDate = (dateObj: Date) => {
-            const year = dateObj.getFullYear();
-            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-            const day = String(dateObj.getDate()).padStart(2, '0');
-            return `${ year }-${ month }-${ day }`;
-        };
-
-        const formatTime = (dateObj: Date) => {
-            const hours = String(dateObj.getHours()).padStart(2, '0');
-            const minutes = String(dateObj.getMinutes()).padStart(2, '0');
-            return `${ hours }:${ minutes }`;
-        };
-
-        const startDateStr = formatDate(from);
-        const endDateStr = formatDate(to);
-
-        let currentDate = new Date(from.getFullYear(), from.getMonth(), from.getDate());
-        const lastDate = new Date(to.getFullYear(), to.getMonth(), to.getDate());
+        // dates and times are evaluated in the configured timezone when the window is applied,
+        // so they must be captured in that timezone too - not the timezone of the host process
+        const start = toLocalDateAndTime(from);
+        const end = toLocalDateAndTime(to);
         const result = [];
-        while (currentDate <= lastDate) {
-            const currentDateStr = formatDate(currentDate);
-            let startTime = "00:00";
-            let endTime = "24:00";
-
-            // For the first day, use the actual start time
-            const isFirstDateInRange = currentDateStr === startDateStr;
-            if (isFirstDateInRange) {
-                startTime = formatTime(from);
-            }
-            const isLastDateInRange = currentDateStr === endDateStr;
-            if (isLastDateInRange) {
-                endTime = formatTime(to);
-            }
-
-            result.push({ date: currentDateStr, startTime, endTime });
-            currentDate.setDate(currentDate.getDate() + 1);
+        for (let date = start.date; date <= end.date; date = addLocalDays(date, 1)) {
+            result.push({
+                date,
+                startTime: date === start.date ? start.time : "00:00",
+                endTime: date === end.date ? end.time : "24:00"
+            });
         }
         return result;
     }

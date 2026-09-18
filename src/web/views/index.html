@@ -107,6 +107,18 @@
         .dark #theme-toggle:hover {
             background-color: rgba(75, 85, 99, 0.8); /* gray-600 with transparency */
         }
+
+        .rule-name {
+            text-align: left;
+            font-weight: 700;
+            text-decoration: underline dotted;
+            text-decoration-color: #9ca3af; /* gray-400 */
+            text-underline-offset: 4px;
+        }
+
+        .rule-name:hover {
+            text-decoration-style: solid;
+        }
     </style>
 </head>
 <body class="bg-gray-100 dark:bg-gray-800 p-4 sm:p-8 flex justify-center min-h-screen transition-colors duration-300">
@@ -139,8 +151,13 @@
                     No active alerts
                 </div>
             </h2>
-            <div style="float:right" class="text-xs text-gray-500 dark:text-gray-400 font-normal">
-                Refreshing in {{ timeToRefresh }}s
+            <div style="float:right" class="text-xs text-gray-500 dark:text-gray-400 font-normal text-right">
+                <button @click="showAuditModal"
+                        title="Mutes and unmutes made from Slack"
+                        class="underline hover:text-gray-700 dark:hover:text-gray-200">
+                    🗒️ Chat ops log
+                </button>
+                <div>Refreshing in {{ timeToRefresh }}s</div>
             </div>
         </div>
 
@@ -169,8 +186,12 @@
                     {{ humanizeTime(snapshot.startTime, false) }} ago
                 </td>
                 <td class="p-2 border-b border-gray-200 dark:border-gray-700">
-                     <span class="font-bold">{{ snapshot.type }}:{{ snapshot.label }} → <span
-                             class="text-red-600 dark:text-red-500">{{ snapshot.identifier }}</span></span>
+                    <button @click="showDefinitionModal(snapshot.id)"
+                            title="Show how this rule is configured"
+                            class="rule-name">
+                        {{ snapshot.type }}:{{ snapshot.label }} → <span
+                            class="text-red-600 dark:text-red-500">{{ snapshot.identifier }}</span>
+                    </button>
                 </td>
                 <td class="p-2 border-b border-gray-200 dark:border-gray-700">
                      <span v-html="linkifyUrls(snapshot.last_result)">
@@ -234,8 +255,12 @@
                         {{ simpleTime(snapshot.startTime) }}
                     </td>
                     <td class="p-2 border-b border-gray-200 dark:border-gray-700">
-                         <span class="font-bold">{{ snapshot.type }}:{{ snapshot.label }} → <span
-                                 class="text-red-600 dark:text-red-500">{{ snapshot.identifier }}</span></span>
+                        <button @click="showDefinitionModal(snapshot.id)"
+                                title="Show how this rule is configured"
+                                class="rule-name">
+                            {{ snapshot.type }}:{{ snapshot.label }} → <span
+                                class="text-red-600 dark:text-red-500">{{ snapshot.identifier }}</span>
+                        </button>
                     </td>
                     <td class="p-2 border-b border-gray-200 dark:border-gray-700">
                         <span v-html="linkifyUrls(snapshot.last_result)"></span>
@@ -293,8 +318,11 @@
                             }} ago</span>
                     </td>
                     <td class="p-2 border-b border-gray-200 dark:border-gray-700">
-                        <span class="font-bold">{{ snapshot.type }}:{{ snapshot.label }} → {{ snapshot.identifier
-                            }}</span>
+                        <button @click="showDefinitionModal(snapshot.id)"
+                                title="Show how this rule is configured"
+                                class="rule-name">
+                            {{ snapshot.type }}:{{ snapshot.label }} → {{ snapshot.identifier }}
+                        </button>
                     </td>
                     <td class="p-2 border-b border-gray-200 dark:border-gray-700">
                         <span v-html="linkifyUrls(snapshot.last_result)"></span>
@@ -408,6 +436,160 @@
                         @click="muteModal.show = false"
                         class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition duration-200"
                 >
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div v-if="auditModal.show" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-75 z-40 p-4">
+        <div role="dialog"
+             aria-modal="true"
+             aria-labelledby="audit-modal-title"
+             aria-describedby="audit-modal-description"
+             tabindex="-1"
+             ref="auditDialog"
+             @keydown="trapFocus($event, 'auditDialog')"
+             class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl dark:shadow-lg w-full max-w-7xl max-h-[90vh] flex flex-col">
+            <h3 id="audit-modal-title" class="text-2xl font-semibold mb-1 text-gray-800 dark:text-gray-100">Chat ops log</h3>
+            <p id="audit-modal-description" class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                Mutes and unmutes made from Slack, most recent first. Kept for 30 days.
+            </p>
+            <div class="overflow-auto flex-1">
+                <div v-if="auditModal.isLoading" class="text-sm text-gray-500 dark:text-gray-400">Loading...</div>
+                <div v-else-if="auditModal.error" class="text-sm text-red-600 dark:text-red-400">
+                    {{ auditModal.error }}
+                </div>
+                <div v-else-if="auditModal.entries.length === 0" class="text-sm text-gray-500 dark:text-gray-400">
+                    Nothing has been muted or unmuted from Slack yet.
+                </div>
+                <table v-else class="min-w-full table-auto text-left text-sm">
+                    <thead>
+                    <tr class="bg-gray-100 dark:bg-gray-700">
+                        <th class="p-2 border-b border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200">
+                            When
+                        </th>
+                        <th class="p-2 border-b border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200">
+                            Action
+                        </th>
+                        <th class="p-2 border-b border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200">
+                            Who
+                        </th>
+                        <th class="p-2 border-b border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200">
+                            Affected
+                        </th>
+                        <th class="p-2 border-b border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200">
+                            Until
+                        </th>
+                    </tr>
+                    </thead>
+                    <tbody class="text-gray-800 dark:text-gray-300">
+                    <tr v-for="entry in auditModal.entries"
+                        class="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 align-top">
+                        <td class="p-2 whitespace-nowrap">{{ new Date(entry.date).toLocaleString() }}</td>
+                        <td class="p-2">
+                            <span :class="entry.action === 'mute'
+                                    ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
+                                    : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'"
+                                  class="text-xs font-medium px-1 py-0.5 rounded-sm">
+                                {{ entry.action === 'mute' ? '🔕 muted' : '🔔 unmuted' }}
+                            </span>
+                        </td>
+                        <td class="p-2 whitespace-nowrap">
+                            <span v-if="entry.userName">{{ entry.userName }}</span>
+                            <span v-else
+                                  class="border-b border-dotted border-gray-400 dark:border-gray-500 cursor-help"
+                                  title="Slack display names need the optional users:read scope on the app - without it, entries are recorded against the Slack user id">
+                                {{ entry.userId }}
+                            </span>
+                            <div v-if="entry.userName" class="text-xs text-gray-500 dark:text-gray-400">
+                                {{ entry.userId }}
+                            </div>
+                        </td>
+                        <td class="p-2">
+                            <div v-for="id in auditTargets(entry)">{{ id }}</div>
+                            <div v-if="entry.detail && entry.detail.requested"
+                                 class="text-xs text-gray-500 dark:text-gray-400 italic">
+                                "{{ entry.detail.requested }}"
+                            </div>
+                        </td>
+                        <td class="p-2 whitespace-nowrap">
+                            {{ entry.detail && entry.detail.until ? new Date(entry.detail.until).toLocaleString() : "-" }}
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="flex justify-end mt-4">
+                <button @click="closeModals"
+                        class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition duration-200">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div v-if="definitionModal.show" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-75 z-40 p-4">
+        <div role="dialog"
+             aria-modal="true"
+             aria-labelledby="definition-modal-title"
+             aria-describedby="definition-modal-description"
+             tabindex="-1"
+             ref="definitionDialog"
+             @keydown="trapFocus($event, 'definitionDialog')"
+             class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl dark:shadow-lg w-full max-w-5xl max-h-[90vh] flex flex-col">
+            <h3 id="definition-modal-title" class="text-2xl font-semibold mb-1 text-gray-800 dark:text-gray-100">
+                📄 Rule definition
+            </h3>
+            <p id="definition-modal-description" class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                How this alert is configured, read from the rules barky is running.
+                <span class="bg-red-100 text-red-800 text-xs font-medium px-1 py-0.5 rounded-sm dark:bg-red-900 dark:text-red-300">{{ definitionModal.id }}</span>
+            </p>
+            <div class="overflow-auto flex-1">
+                <div v-if="definitionModal.isLoading" class="text-sm text-gray-500 dark:text-gray-400">Loading...</div>
+                <div v-else-if="definitionModal.error" class="text-sm text-red-600 dark:text-red-400">
+                    {{ definitionModal.error }}
+                </div>
+                <div v-else-if="definitionModal.definition?.unreadable"
+                     class="text-sm text-red-600 dark:text-red-400">
+                    ⚠️ The configuration for this alert could not be read - the rules file may have changed while
+                    barky was looking. Nothing else was affected.
+                </div>
+                <div v-else-if="!definitionModal.definition?.found" class="text-sm text-gray-500 dark:text-gray-400">
+                    This alert is not in the rules barky is running - it may have been renamed or removed since it
+                    last fired.
+                </div>
+                <div v-else>
+                    <p v-if="definitionModal.definition.monitorFor"
+                       class="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                        That id is the monitor for the
+                        <code class="font-mono">{{ definitionModal.definition.monitorFor }}</code> check, so this is
+                        what the check itself declares:
+                    </p>
+                    <pre class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 text-xs font-mono p-3 rounded border border-gray-200 dark:border-gray-700 overflow-auto">{{ definitionModal.definition.yaml }}</pre>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                        Declared in <code class="font-mono">{{ definitionModal.definition.displayPath }}</code>,
+                        {{ describeLineRange(definitionModal.definition) }}
+                        <template v-if="definitionModal.definition.permalink">
+                            &nbsp;|&nbsp;
+                            <a class="text-blue-600 dark:text-blue-400 hover:underline"
+                               :href="definitionModal.definition.permalink" target="_blank">view on GitHub</a>
+                        </template>
+                    </p>
+                    <p v-if="definitionModal.definition.variation"
+                       class="text-xs text-gray-500 dark:text-gray-400 italic mt-1">
+                        This alert is the <code class="font-mono">{{ definitionModal.definition.variation }}</code>
+                        variation of <code class="font-mono">{{ definitionModal.definition.key }}</code>.
+                    </p>
+                    <p v-if="definitionModal.definition.redacted > 0"
+                       class="text-xs text-gray-500 dark:text-gray-400 italic mt-1">
+                        🔒 {{ describeRedaction(definitionModal.definition) }}
+                    </p>
+                </div>
+            </div>
+            <div class="flex justify-end mt-4">
+                <button @click="closeModals"
+                        class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition duration-200">
                     Close
                 </button>
             </div>
@@ -622,6 +804,17 @@
         return `${now.getFullYear()}-${padZero(now.getMonth() + 1)}-${padZero(now.getDate())}`;
     }
 
+    function describeLineRange(definition) {
+        return definition.firstLine === definition.lastLine
+            ? `line ${definition.firstLine}`
+            : `lines ${definition.firstLine}-${definition.lastLine}`;
+    }
+
+    function describeRedaction(definition) {
+        const values = pluraliseWithS("value", definition.redacted);
+        return `${definition.redacted} ${values} redacted before showing.`;
+    }
+
     function getMuteEndDescriptor(mutedBy, muteRules) {
         if (!mutedBy) {
             return null;
@@ -656,6 +849,121 @@
                 show: false,
                 isSaving: false
             });
+            const auditModal = ref({
+                show: false,
+                isLoading: false,
+                error: null,
+                entries: []
+            });
+
+            const definitionModal = ref({
+                show: false,
+                isLoading: false,
+                error: null,
+                id: null,
+                definition: null
+            });
+
+            const auditDialog = ref(null);
+            const definitionDialog = ref(null);
+
+            const closeModals = () => {
+                auditModal.value.show = false;
+                definitionModal.value.show = false;
+                muteModal.value.show = false;
+                unMuteModal.value.show = false;
+            };
+
+            const focusableWithin = (container) => {
+                if (!container) {
+                    return [];
+                }
+                return Array.from(container.querySelectorAll(
+                    'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+                )).filter(el => el.offsetParent !== null);
+            };
+
+            // keeps tabbing inside the dialog, so keyboard users cannot wander onto the obscured page
+            const trapFocus = (event, dialogRef) => {
+                if (event.key !== "Tab") {
+                    return;
+                }
+                const dialogs = {auditDialog, definitionDialog};
+                const container = dialogs[dialogRef]?.value ?? null;
+                const focusable = focusableWithin(container);
+                if (focusable.length === 0) {
+                    return;
+                }
+                const first = focusable[0];
+                const last = focusable[focusable.length - 1];
+                const active = document.activeElement;
+                if (event.shiftKey && (active === first || active === container)) {
+                    event.preventDefault();
+                    last.focus();
+                } else if (!event.shiftKey && active === last) {
+                    event.preventDefault();
+                    first.focus();
+                }
+            };
+
+            const auditTargets = (entry) => {
+                const detail = entry.detail || {};
+                return detail.alerts || detail.mutes || [];
+            };
+
+            const showAuditModal = async () => {
+                auditModal.value.entries = [];
+                auditModal.value.error = null;
+                auditModal.value.isLoading = true;
+                auditModal.value.show = true;
+                // move focus into the dialog so it is announced and the page behind is left behind
+                Vue.nextTick(() => auditDialog.value?.focus());
+                try {
+                    const response = await fetch('/api/chat-ops/audit');
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    auditModal.value.entries = await response.json();
+                } catch (error) {
+                    console.error('Failed to load chat ops log:', error);
+                    auditModal.value.error = "Could not load the chat ops log.";
+                } finally {
+                    auditModal.value.isLoading = false;
+                }
+            };
+
+            const showDefinitionModal = async (alertId) => {
+                definitionModal.value = {
+                    show: true,
+                    isLoading: true,
+                    error: null,
+                    id: alertId,
+                    definition: null
+                };
+                // move focus into the dialog so it is announced and the page behind is left behind
+                Vue.nextTick(() => definitionDialog.value?.focus());
+                await loadDefinition(alertId);
+            };
+
+            const loadDefinition = async (alertId) => {
+                try {
+                    definitionModal.value.definition = await requestDefinition(alertId);
+                } catch (error) {
+                    console.error('Failed to load the rule definition:', error);
+                    definitionModal.value.error = "Could not load the rule definition.";
+                } finally {
+                    definitionModal.value.isLoading = false;
+                }
+            };
+
+            const requestDefinition = async (alertId) => {
+                const response = await fetch(`/api/definition?id=${encodeURIComponent(alertId)}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return await response.json();
+            };
+
             const unMuteModal = ref({
                 snapshot: null,
                 show: false,
@@ -822,6 +1130,12 @@
             };
 
             onMounted(() => {
+                // escape closes whichever dialog is open, which is what a keyboard user expects
+                window.addEventListener("keydown", (event) => {
+                    if (event.key === "Escape") {
+                        closeModals();
+                    }
+                });
                 const oneSec = 1_000;
                 fetchStatus();
                 setInterval(fetchStatus, refreshInterval * oneSec);
@@ -850,6 +1164,17 @@
                 data,
                 muteModal,
                 unMuteModal,
+                auditModal,
+                auditDialog,
+                auditTargets,
+                showAuditModal,
+                definitionModal,
+                definitionDialog,
+                showDefinitionModal,
+                describeLineRange,
+                describeRedaction,
+                closeModals,
+                trapFocus,
                 timeToRefresh,
                 linkifyUrls,
                 mute,

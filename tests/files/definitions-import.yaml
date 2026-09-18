@@ -1,0 +1,13 @@
+sumo:
+
+  aws-root-login-monitor:
+    token: sumo-token
+    period: -1h to -0m
+    query: >
+      _sourceCategory=AWS/CloudTrail/Log "ConsoleLogin" "Root"
+      | count by accountId
+    identifier: accountId
+    alert:
+      channels: [ slack-ops ]
+      rules:
+        - count: 1

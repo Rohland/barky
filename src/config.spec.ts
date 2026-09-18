@@ -40,7 +40,7 @@ describe("cli", () => {
                 expect(config).toMatchObject(args);
                 expect(config.fileName).toEqual("importer");
                 expect(config.digest).toEqual(null);
-                expect(config.env.import.length).toEqual(2);
+                expect(config.env.import.length).toEqual(3);
                 expect(config).toMatchObject({
                     env: {
                         config: {
@@ -59,6 +59,12 @@ describe("cli", () => {
                             "codeo.dev": {
                                 url: "https://codeo.dev",
                                 __configPath:  expect.stringContaining("tests/files/import-2.yaml")
+                            },
+                            // imported without an extension, so the path tagged on it has to be
+                            // the file it was resolved to rather than the name that asked for it
+                            "codeo.io": {
+                                url: "https://codeo.io",
+                                __configPath: expect.stringContaining("tests/files/import-3.yml")
                             }
                         },
                         mysql: {

@@ -1,4 +1,4 @@
-import { dayOfWeek, flatten, toLocalTimeString } from "./utility.js";
+import { addLocalDays, dayOfWeek, flatten, fromLocalDateAndTime, toLocalDateAndTime, toLocalTimeString } from "./utility.js";
 import { parseDaysOfWeek, parseTimeRange } from "./period-parser.js";
 
 export class Time {
@@ -56,6 +56,40 @@ export class Time {
 
 export function toLocalTime(date: Date): Time {
     return new Time(date);
+}
+
+export const BusinessDays = ["mon", "tue", "wed", "thu", "fri"];
+export const BusinessStart = "08:00";
+
+/*
+ Returns the next instant at which business hours begin, in the configured timezone.
+
+ Note this is deliberately *not* "the start of the next calendar business day" - someone muting an
+ alert at 02:00 on a Tuesday wants quiet until the team picks it up at 08:00 that same morning, not
+ until Wednesday. So it resolves to the next occurrence of the business start time that is still
+ ahead of us, skipping non-business days:
+
+   Tue 02:00 -> Tue 08:00      Fri 14:00 -> Mon 08:00
+   Tue 10:00 -> Wed 08:00      Sat 09:00 -> Mon 08:00
+ */
+export function nextBusinessHoursStart(now?: Date): Date {
+    const days = parseDaysOfWeek(BusinessDays);
+    const startTime = new Time(BusinessStart);
+    const wallTime = `${ pad(startTime.hours) }:${ pad(startTime.minutes) }`;
+    const from = now ?? new Date();
+    const today = toLocalDateAndTime(from).date;
+    const maxDaysToScan = 14;
+    for (let offset = 0; offset <= maxDaysToScan; offset++) {
+        const candidate = fromLocalDateAndTime(addLocalDays(today, offset), wallTime);
+        if (candidate > from && days.includes(dayOfWeek(candidate))) {
+            return candidate;
+        }
+    }
+    throw new Error(`could not resolve the next business day within ${ maxDaysToScan } days`);
+}
+
+function pad(value: number): string {
+    return value.toString().padStart(2, "0");
 }
 
 export function humanizeDuration(time: number, type: string = "m"): string {

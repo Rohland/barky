@@ -89,7 +89,10 @@ function explodeImports(env, fileInfo: { fileName: string; filePath: any }) {
         Object.keys(EvaluatorType).forEach(type => {
             if (importConfig.env[type]) {
                 env[type] ??= {};
-                Object.assign(env[type], tagConfigsWithFileMetaData(importConfig.env[type], importPath, false));
+                // already tagged with the file each check was actually read out of, which is not
+                // necessarily importPath - an import can name a file without its extension, and
+                // what it imports in turn comes from a file of its own
+                Object.assign(env[type], importConfig.env[type]);
             }
         })
     });
@@ -116,8 +119,20 @@ function tagConfigsWithFileMetaData(config: any, path: string, isRootFile: boole
     return config;
 }
 
+/*
+ The rules barky is running right now, for chat ops and the dashboard, which read the yaml
+ declaring a check back out of its file. Re-recorded on every pass because the loop reloads the
+ configuration, and a copy taken at startup would describe a file that has since been edited.
+ */
+let _currentRules: IFileConfig = null;
+
+export function getCurrentRules(): IFileConfig {
+    return _currentRules;
+}
+
 export async function initialiseGlobalConfig(args: any) {
     const config = getConfig(args);
+    _currentRules = config.env;
     await initConnection(config.fileName);
     await Muter.getInstance().init(config.digest);
     return config;

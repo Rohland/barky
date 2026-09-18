@@ -1,0 +1,73 @@
+config:
+  locale: en-ZA
+  timezone: Africa/Johannesburg
+
+import:
+  - definitions-import.yaml
+  # named without its extension, which is a form barky resolves
+  - definitions-import-shell
+
+web:
+
+  # this comment sits above the block and is not part of it
+  comms.engine.$1:
+    vary-by: [ za,bw ]
+    url: https://ce.example.com/$1/api/status
+    status: 404      # the service answers 404 when it is healthy
+    headers:
+      Authorization: $whatsapp-bot-token-za
+    alert:
+      channels: [ slack-ops ]
+      rules:
+        - count: 1
+
+  whatsapp-bot-za-prod:
+    name: whats-app-bot(prod)
+    url: https://chatbot.example.com/api/status
+    status: 204
+    headers:
+      Authorization: ak4nqf3HorvnHPxdG9XtXwcQz7nWythRrYADDzN
+      Token: sumo-token
+    alert:
+      channels: [ slack-ops ]
+
+  inline.example.com:
+    url: https://inline.example.com/status
+    headers: { Authorization: "Bearer 8f14e45fceea167a5a36dedd4bea2543, and more", Accept: application/json }
+    alert:
+      channels: [ slack-ops ]
+
+  quoted.example.com:
+    url: https://quoted.example.com/status
+    headers: { "Authorization": "Bearer 1f0e3dad99908345f7439f8ffabdffc4", Accept: application/json }
+    alert:
+      channels: [ slack-ops ]
+
+  bare.example.com:
+    url: https://bare.example.com/status
+    headers:
+      password: letmein123
+      secret: prod-db-password-2024
+      Token: sumo-token
+    alert:
+      channels: [ slack-ops ]
+
+mysql:
+
+  replication:
+    connection: ca-slave
+    timeout: 2000
+    query: >
+      show slave status
+    identifier: status
+    emit: [Seconds_Behind_Master]
+    triggers:
+      - match: .*
+        rules:
+          - expression: Seconds_Behind_Master >= 60
+            message: "Replication is too far behind ({{ Seconds_Behind_Master }} seconds)"
+    alert:
+      exception-policy: monitor
+      channels: [slack-ops]
+      rules:
+        - count: 3

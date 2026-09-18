@@ -32,6 +32,8 @@ In addition to this, the results are evaluated and alerts emitted in a digest fo
 
 So, the pipeline is `Evaluate > Digest` where the evaluation emits status of things monitored and the digest step emits any alerts (triggered, ongoing or resolution) via the configured channels. The digest step is optional.
 
+Alerts can be muted from the dashboard, or from Slack itself - see [Chat Ops](#chat-ops-slack).
+
 ## Usage
 
 Commands:
@@ -745,7 +747,487 @@ A simple web interface is exposed on the configured port (defaults to 3000, edit
 of all alerts and their current status. It enables dynamic muting/un-muting of alerts, and provides a summary of
 active, resolved and muted alerts. The UI is updated every 10 seconds.
 
+Clicking an alert's rule name shows how that check is declared, in a dialog: the block of yaml it
+was read out of, the file and line numbers it came from, and a link to it on GitHub where the rules
+are in a git checkout with a GitHub remote. This is the same answer `define` gives in Slack, read
+from the same source and with the same values held back - see
+[Chat Ops](#chat-ops-slack) for what is redacted and why. It is also available as JSON at
+`/api/definition?id=<alert id>`.
+
 Security of this interface is left in the hands of the user.
+
+### Chat Ops (Slack)
+
+Barky can take instructions in Slack, so an alert can be muted by replying to the message that
+reported it rather than by switching to the dashboard.
+
+```yaml
+channels:
+  slack:
+    type: slack
+    token: slack-token             # bot token (xoxb-...), used to post
+    channel: "#ops"
+    chat-ops:
+      enabled: true
+      app-token: slack-app-token   # app level token (xapp-...), used to listen - see below
+      dashboard-url: https://barky.acme.com  # linked whenever barky suggests the dashboard
+      selection-ttl: 10m           # optional - how long a numbered list stays valid
+      max-mute: 7d                 # optional - longest mute anyone can ask for
+      mention-name: barky          # optional - what people call barky when they @ it
+      ai:                          # optional - understands plain english when configured
+        api-key: openai-api-key    # env var holding an OpenAI key
+        model: gpt-5.6-luna        # optional - discovered automatically when omitted
+        url: https://api.openai.com/v1   # optional - point at azure, a gateway or a local model
+        timeout: 15s               # optional
+        max-calls-per-hour: 60     # optional
+```
+
+Every value except `enabled`, `app-token` and the AI `api-key` is optional.
+
+**The two tokens**
+
+These are two different Slack credentials and both are needed - they are not a duplication:
+
+- `token` is the **bot token** (`xoxb-...`), which barky already uses to post alerts. It is what
+  barky talks to Slack *with*.
+- `app-token` is an **app level token** (`xapp-...`), which authorises the Socket Mode websocket.
+  It is what barky *listens* on. It is scoped to the app rather than to a workspace installation,
+  and cannot post anything by itself.
+
+Barky checks its granted scopes when it starts and logs which are missing (visible with `--debug`),
+since an app that cannot read mentions looks exactly like one that is ignoring you.
+
+Chat ops connects over [Socket Mode](https://docs.slack.dev/apis/events-api/using-socket-mode),
+so barky needs no inbound network access and no public URL. It only runs under the `loop` command,
+since the connection has to outlive a single evaluation. If Slack cannot be reached, barky logs it
+and carries on monitoring, retrying every five minutes.
+
+**One slack app per barky**
+
+Every barky that runs chat ops needs a Slack app of its own. Slack hands each event to *one* of the
+sockets an app has open rather than repeating it to all of them, so two barkys sharing an `app-token`
+split the replies between them at random - and the one that receives a reply to a thread it did not
+post cannot act on it: the alerts it names, and the mutes that would silence them, live in the
+database of the barky that posted it. The reply is dropped, and nothing is said in the channel.
+
+This is not something barky can work around. Slack offers no way to say which connection an event
+belongs to, and the instances share nothing but the workspace.
+
+The symptom is distinctive: barky answers some replies and ignores others at random, while alerting
+carries on working perfectly - posting alerts is an ordinary API call and never touches the socket.
+Run with `--debug` and barky reports how many connections its app has open, which is the first thing
+to check:
+
+> chatops: this slack app has 4 socket connections open, so this is not the only barky listening on it
+
+One is what you want. See *Setting up a slack app for an instance* below.
+
+**Several barkys in one channel**
+
+Separate barkys, each with a slack app of its own, can sit in the same channel - that is the setup
+the section above asks for, and there is nothing to configure for it. Slack only tells an app about
+mentions of *its own* bot user, though, so `@barky-yumbi 1` is never delivered to `barky-spar` as a
+mention at all, and people naming the wrong one in a thread is inevitable once there are two.
+
+So barky reads the ordinary channel messages it already receives, and answers a reply that names
+*any* barky as long as it is in a thread it posted itself. The thread is what decides: the barky
+that posted an alert is the only one that knows what the numbers in a reply mean, and the others
+have no record of the thread and stay out of it, whichever of them was named. Exactly one answers,
+as before.
+
+Naming is what matters, not the subject: `@barky 1` is an answer, and "wonder if barky is broken"
+is people talking to each other, which barky stays out of. Recognising a mention of *another* barky
+means turning the id slack puts in the message back into a name, and that lookup needs the
+`users:read` scope - without it barky still answers mentions of itself as it always did.
+
+Set `mention-name` where your barkys are not called barky - it is matched against the bot's slack
+display name, without case and anywhere in it, so `barky` covers `Barky`, `barky-spar` and
+`Barky (YUMBI)`.
+
+**More than one channel**
+
+Chat ops is configured once per Slack app, not once per channel. Every other slack channel posting
+with the same bot `token` is covered by it, because that is the same app: it already receives those
+events and can already post there. So alerts routed to `#ops` and `#db` are both answerable with
+one `chat-ops` block:
+
+```yaml
+channels:
+  slack-ops:
+    type: slack
+    token: slack-token
+    channel: "#ops"
+    chat-ops:
+      enabled: true
+      app-token: slack-app-token
+  slack-db:
+    type: slack
+    token: slack-token          # same bot, so chat ops covers this channel too
+    channel: "#db"
+  slack-quiet:
+    type: slack
+    token: slack-token
+    channel: "#noise"
+    chat-ops:
+      enabled: false            # opt this one out
+```
+
+Opting a channel out takes effect on the next pass: barky stops answering there, including in the
+threads of alerts it had already posted in that channel.
+
+A channel posting with a *different* bot token is a different Slack app, and needs its own
+`chat-ops` block with its own `app-token`. Barky then opens a connection per app and keeps them
+apart: each reply is answered by the channel config that posted the alert it is threaded under, so
+it goes out with a token that can actually post there.
+
+At startup barky logs the channels each app covers, and says so when a `chat-ops` block cannot be
+used - one that cannot listen otherwise looks exactly like one that is working. Both are visible
+with `--debug`.
+
+Two settings are needed to receive anything, on two different screens, and **both are required**:
+
+- **OAuth & Permissions** grants the app *permission* to read mentions and channel history
+- **Event Subscriptions** tells Slack to actually *send* those events
+
+Granting the scope does not subscribe you to the event. With scopes but no subscriptions, barky
+connects to Slack successfully, posts alerts, and silently never receives a single reply - there is
+no error anywhere, because nothing is wrong from Slack's point of view.
+
+**Setting up a slack app for an instance**
+
+Since every barky needs its own app, name each one for the instance it belongs to. The bot's
+*username* has to be unique in the workspace; its *display name* does not, so all of them can still
+appear as plain `Barky` in the channel:
+
+| Setting | Where | Example |
+|---|---|---|
+| App name | *Basic Information* → *Display Information* | `Barky (SPAR)` |
+| Icon | *Basic Information* → *Display Information* | the same image for all of them |
+| Display name | *App Home* → *Your App's Presence in Slack* | `Barky` |
+| Default username | *App Home* → *Your App's Presence in Slack* | `barky-spar` |
+
+Slack appends a number to a username that is already taken, so set it explicitly rather than letting
+it pick. Each bot is only invited to its own channel, so typing `@bark` there offers the one that
+belongs to it - Slack ranks channel members first - and picking the wrong one fails loudly with
+"they're not in the channel" rather than silently.
+
+1. Create the app at api.slack.com/apps and fill in the names above.
+2. Under *Socket Mode*, turn it on. This generates an app level token (`xapp-...`) with the
+   `connections:write` scope - that is `app-token`.
+3. Under *OAuth & Permissions* → *Scopes* → *Bot Token Scopes*, add the scopes in the table below.
+4. Under *Event Subscriptions*, toggle *Enable Events* on, then expand *Subscribe to bot events*
+   and add both `app_mention` and `message.channels` (`message.groups` for a private channel).
+   Socket Mode means there is no request URL to verify - the section may look finished without
+   these, so check the list itself rather than the toggle.
+5. Install the app to the workspace and copy the bot token (`xoxb-...`).
+6. Invite the bot to the channel barky posts to: `/invite @barky-spar`.
+
+**Wiring it up**
+
+Name the environment variables for the instance too, so it is obvious which app a config belongs to:
+
+```
+slack-token-spar=xoxb-...       # bot token, posts alerts and replies
+slack-app-token-spar=xapp-...   # app level token, holds the socket open
+```
+
+The digest config names those variables rather than the tokens themselves:
+
+```yaml
+channels:
+  slack-ops:
+    type: slack
+    token: slack-token-spar            # this instance's bot token
+    channel: "#spar-ops"
+    chat-ops:
+      enabled: true
+      app-token: slack-app-token-spar  # this instance's app level token
+```
+
+Both must belong to the *same* app: the bot token posts the alert, and the app token listens for the
+replies to it. Mixing tokens from two apps means barky posts as one bot while listening as another,
+and every reply goes unanswered.
+
+To check it: start barky with `--debug` and look for
+
+> chat ops is listening for slack-ops (#spar-ops)
+
+and make sure the line about *socket connections open* does not appear. If it does, another barky is
+running on the same app - see *One slack app per barky* above.
+
+**Bot token scopes**
+
+| Scope | Required | What it is for | Without it |
+|---|---|---|---|
+| `chat:write` | yes | Posting alerts and replies | Nothing works |
+| `app_mentions:read` | yes | Being told when someone mentions barky | Barky never receives anything |
+| `channels:history` | yes | Reading the thread a mention arrived in (`groups:history` for a private channel) | Barky never receives anything |
+| `users:read` | no | Looking up the display name of whoever ran a command, and of the barky a reply names | The chat ops log records the Slack user id (`U0HKZGDKQ`) instead of a name, and a reply naming *another* barky in a shared channel is not recognised as naming one |
+| `reactions:write` | no | The 👀 acknowledgement while barky is thinking | No reaction, everything else unaffected |
+
+Barky reports any that are missing when it starts, visible with `--debug`.
+
+**Naming people in the chat ops log**
+
+Slack only ever tells barky the *id* of whoever sent a message - `U0HKZGDKQ`, never a name. Turning
+that into something readable needs a lookup, and that lookup needs the `users:read` scope. There is
+no way around it: the display name is not in the message payload.
+
+So if the chat ops log shows ids rather than names, add `users:read` under *OAuth & Permissions*
+and reinstall the app. Two things to expect afterwards:
+
+- **Entries already recorded keep their ids.** The name is captured at the time of the action, so
+  only new entries pick it up.
+- Where a name cannot be resolved the id is shown with a dotted underline, and hovering it explains
+  why - so an id in the log always means the scope is absent, never that something failed silently.
+
+**Adding chat ops to the app you already use for alerts**
+
+If barky is already posting alerts, that app only needs a token to post with - it has no way to
+listen. To add chat ops to it:
+
+1. Open the existing app at api.slack.com/apps and turn on *Socket Mode*, generating an app level
+   token (`connections:write`). Put it in `app-token`.
+2. Under *OAuth & Permissions*, add the scopes from the table above to the ones it already has -
+   an app built only to post alerts typically has just `chat:write` and `incoming-webhook`. An app created
+   only to post alerts typically has just `chat:write` and `incoming-webhook`, and **without the
+   read scopes Slack never delivers any events at all** - barky connects, posts alerts and appears
+   to ignore every reply. **Adding scopes requires reinstalling the app** - Slack will prompt you,
+   and the existing `xoxb-` token keeps working afterwards, so `token` does not change.
+3. Under *Event Subscriptions*, toggle *Enable Events* on, then under *Subscribe to bot events*
+   add `app_mention` and `message.channels` (`message.groups` for a private channel). An app that
+   only posted alerts has no subscriptions at all, and this is a **separate step from the scopes
+   above** - adding `app_mentions:read` in step 2 does not subscribe you to `app_mention`.
+   **Changing subscriptions also requires reinstalling**, the same as scopes.
+4. Make sure the bot is a member of the channel - it may already be, if it posts there.
+
+No change to your alert configuration is needed; chat ops sits alongside it.
+
+**If barky posts alerts but ignores every reply**
+
+The app is connected but is not being sent anything. In order of likelihood:
+
+1. *Event Subscriptions* has no `app_mention` under *Subscribe to bot events* - the most common
+   cause, because the scopes screen looks complete on its own.
+2. Scopes or subscriptions were changed without reinstalling the app afterwards.
+3. The bot is not a member of the channel.
+4. The reply did not name barky, or was not in the thread of one of barky's own alert messages
+   - barky deliberately ignores everything else, including top level mentions in the channel. A
+   reply naming another barky in the same channel *is* answered, but only in a thread this barky
+   posted, and only with `users:read` granted - see *Several barkys in one channel* above.
+5. The channel posts with a different bot token to the one chat ops is configured on, so no app is
+   listening there - see *More than one channel* above.
+
+**If the chat ops log shows Slack ids instead of names**
+
+The `users:read` scope is not granted - see *Naming people in the chat ops log* above.
+
+Run with `--debug` and barky reports which scopes are missing at startup. The quickest check of the
+rest is your app's *App Manifest*, which should contain:
+
+```yaml
+settings:
+  event_subscriptions:
+    bot_events:
+      - app_mention
+      - message.channels
+  socket_mode_enabled: true
+```
+
+Anyone who can see the channel can mute - channel membership is the authorisation boundary, so
+there is no separate user list to maintain.
+
+**Talking to barky**
+
+Barky only takes part in the threads of its own alert messages, and only when it is addressed
+directly. It does not watch the rest of the channel, it does not answer direct messages, and it
+stays out of conversations between people - including conversations in an alert's own thread.
+Mention it in an alert thread, and it replies in that same thread:
+
+> **barky**: 🔥 Ongoing Outage!
+> `web::health::www.acme.com` — expected 200, received 500
+> `mysql::lag::db-01` — 340 seconds behind
+> > **@rohland**: @barky mute
+> >
+> > **barky**: *2 active alerts* — reply with numbers (`1,3`), `all`, or `cancel`.
+> > Add a period to override the default of *08:00 tomorrow* — for example `1,3 for 4h`.
+> >
+> > `1.` web::health::www.acme.com — _expected 200, received 500_
+> > `2.` mysql::lag::db-01 — _340 seconds behind_
+> >
+> > **@rohland**: 1 for 4h
+> >
+> > **barky**: 🔕 Muted until *12:30 today*: web::health::www.acme.com
+
+**Every message to barky must mention it, including answers to its own questions.** That is
+deliberate: people working an outage need to be able to say "all" or "1" to each other in the
+thread without barky acting on it.
+
+While an alert is ongoing barky also posts a short follow-up ping to the channel, so a long running
+outage does not scroll away. That message is deleted and reposted every time barky checks, so
+anything said in its thread goes with it. Mention barky there and it answers with a link back to
+the alert's own thread rather than acting:
+
+> **barky**: 🔥 @channel Alert ongoing: `3 problems` for `27h, 44m and 56s`. See above ☝️
+> _reply in the thread above to mute_
+> > **@rohland**: @barky mute for 1hr
+> >
+> > **barky**: 👆 I repost this message every time I check, so anything either of us says here goes
+> > with it. Mention me in the alert's own thread instead and I'll pick it up.
+
+The link needs `workspace` set on the channel; without it barky names the thread without linking to
+it.
+
+The list is pinned at the moment it is posted, so `all` always means the alerts you were shown -
+anything that starts alerting in between is reported back to you rather than quietly swept into the
+mute. That is measured against the set the list was drawn from, so a list drawn inside an alert's
+thread is compared to what that message reported rather than to the whole system. An alert that recovers while you are typing is still muted, so it stays quiet if it flaps
+back.
+
+**Replying to an alert directly**
+
+Barky remembers which alerts each of its messages was reporting, so the thread already says what
+you mean:
+
+> **barky**: 🔥 Ongoing Outage! ... web::health::www.acme.com ...
+> > **@rohland**: @barky mute
+> >
+> > **barky**: 🔕 Muted until *08:00 tomorrow*: web::health::www.acme.com
+
+Where the message covered several alerts, `mute` offers just those to choose from and `mute this`
+takes all of them - in both cases unrelated alerts elsewhere are left alone. If everything that
+message reported has since cleared, barky says so rather than muting nothing.
+
+Note that `mute this` only means "everything here" inside a thread. Said anywhere else it has no
+referent, so barky shows the list instead.
+
+**Asking how a check is configured**
+
+`define` answers with the yaml that declares a check, read back out of the rules file it lives in -
+comments and all, rather than rebuilt from what barky loaded:
+
+> **barky**: 🔥 Ongoing Outage!
+> `web::health::www.acme.com` — expected 200, received 500
+> `mysql::lag::db-01` — 340 seconds behind
+> > **@rohland**: @barky define
+> >
+> > **barky**: *2 active alerts* — mention me with the number you want the configuration for (`2`), or `cancel`.
+> >
+> > `1.` web::health::www.acme.com — _expected 200, received 500_
+> > `2.` mysql::lag::db-01 — _340 seconds behind_
+> >
+> > **@rohland**: 2
+> >
+> > **barky**: 📄 `mysql::lag::db-01` — defined in `configs/acme.yaml`
+> > ```
+> > lag:
+> >   connection: db-01
+> >   query: show slave status
+> >   identifier: status
+> > ```
+
+`config`, `configuration` and `explain` are read the same way. Asked inside an alert's own thread,
+or when only one alert is active, barky skips the list and answers directly.
+
+One definition per reply: a block of yaml is most of a Slack message on its own, so `1,3` and `all`
+are declined rather than half answered, and the list stays up for whichever one you meant.
+
+A check using `vary-by` is declared once and alerts under each variation, so barky shows the block
+and says which variation the alert in front of you is. An id like `mysql::monitor::replication`
+reports the check failing to run at all, and answers with what that check declares.
+
+Values under keys that could hold a secret - `password`, `token`, `authorization`, `*-key` and the
+like - are posted only where they read as the name of an environment variable, which is barky's own
+convention: the `$` form (`Authorization: $my-auth-token`), or a short separated name written in one
+case (`token: sumo-token`). Anything else in that position is replaced with `***redacted***` and the
+message says how many values were held back.
+
+A block too long for one Slack message is cut at a line boundary. Where the rules file is in a git
+checkout with a GitHub remote, the rest of it is a link: barky links the commit it is running
+rather than a branch, so the lines keep pointing at what it actually read. There is no link where
+git is not on the path, the file is not tracked, the remote is not GitHub, or the commit is on no
+remote branch yet - in each of those a link would go nowhere, so barky names the file and the line
+number instead.
+
+Commands:
+
+- `mute` / `unmute` - lists what is available and waits for your numbers
+- `mute all` / `unmute all` - acts on everything, and works even when the list is too long to show
+- `define` / `config` - lists the active alerts and waits for one number, then shows how that check is configured
+- `status` - what is currently alerting and what is muted
+- `help`
+- `cancel` - abandons a pending list
+
+Replies to a list accept `1`, `1,3`, `2 and 4`, `1-3` or `all`, optionally with an expiry. Ordinary
+politeness is read straight through, so `all please` and `1,3 thanks` are the answers they look like.
+
+Where a list would be too long to fit in a single Slack message, barky points at the dashboard
+instead of posting an unusable wall of numbers. `mute all` needs no list, so it still works.
+
+**Audit trail**
+
+Every mute, unmute and define made through Slack is recorded - who asked, what they said, which
+alerts were affected and until when - and kept for 30 days. People are named by their Slack display name where
+the optional `users:read` scope is granted, and by their Slack id otherwise. It survives Slack message retention and deletion.
+
+The dashboard has a **Chat ops log** link in the top right that shows it, and it is also available
+as JSON at `/api/chat-ops/audit`.
+
+**Mute duration**
+
+With no period given, a mute runs until the next business day - the next occurrence of 08:00 on a
+weekday. This is deliberately not configurable. Note it resolves to the next such moment still
+ahead of you, so muting at 02:00 on a Tuesday lasts until 08:00 that morning rather than until
+Wednesday, and muting on Friday afternoon lasts until Monday.
+
+An expiry can be given either as a period or as a day, on the original request or on the reply to
+a list - `mute for 4h`, `mute until Monday`, `1,3 for 90 mins`, `all until tomorrow`. Periods accept
+`s`, `m`/`mins`/`minutes`, `h`/`hours` and `d`/`days`. Days accept `tomorrow` or any weekday, long
+or short (`until thurs`), and resolve to 08:00 on the next such day still ahead - so `until
+Thursday` said on a Thursday afternoon means the following one.
+
+Saying it once is enough: an expiry given with the original request survives the detour through a
+numbered list, and an expiry named on the reply overrides it.
+
+Anything longer than `max-mute` is capped. Barky's own default is exempt, since on a Friday it
+legitimately reaches into Monday.
+
+**Plain english**
+
+The commands above work on their own. Configure `ai` as well and barky will interpret anything it
+does not recognise, so "silence the database one for an hour" works as well as `mute` followed by
+a number, and "what does the db one actually check?" works as well as `define`.
+
+It is only ever asked to pick numbers from a list barky supplies. It never names an alert,
+builds a mute expression or works out an expiry time - barky does all of that, and discards any
+number that was not on the list it gave. Output captured from monitored systems is passed to the
+model inside a delimited block and marked as data, and any delimiter the output itself contains is
+stripped along with its line breaks - so a failing check can neither smuggle in an instruction by
+putting one in its response body nor close the block early to make it look like barky's own words. Where the model is unsure, it is told to show the
+numbered list rather than guess.
+
+**Choosing a model**
+
+Leave `model` unset and barky lists the models your key has access to when it starts, then picks the
+newest cost optimised one - the job is choosing a number from a short list, so the cheapest capable
+model is the right one. Models announced for shutdown are skipped, as are pinned snapshots in favour
+of their moving alias, so the choice keeps up with the lineup on its own rather than being pinned to
+a name that ages out. The model it settled on is written to the log at startup.
+
+Set `model` explicitly to override that. If the lookup fails, barky reports the AI service as
+unavailable and retries on the next request rather than guessing a name.
+
+Any request barky cannot interpret locally costs one API call, capped at `max-calls-per-hour` -
+a ceiling across every channel configured with the same AI settings, rather than one each.
+Replies that are plainly numbers (`1,3`, `all`) never reach the model at all.
+
+If the AI service times out or is unreachable, barky says so and points at the dashboard rather
+than guessing:
+
+> ⚠️ I can't reach the AI service right now, so I can't interpret that.
+> Please use the alerts dashboard, or reply with plain numbers (`1,3`) or `all` if I've given you a list.
+
+Numbered replies keep working throughout an outage of the AI service, since they never needed it.
 
 ### Message Templates
 

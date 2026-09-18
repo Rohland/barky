@@ -8,6 +8,18 @@ export function uniqueKey(item: IUniqueKey) {
     return [item.type, item.label, item.identifier].join("::");
 }
 
+export function escapeRegex(value: string): string {
+    return (value ?? "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/*
+ Builds the mute match expression targeting exactly one alert. Anchored, so muting
+ web::health::acme.com cannot also silence web::health::acme.com.au.
+ */
+export function mutePatternFor(id: string): string {
+    return `^${ escapeRegex(id) }$`;
+}
+
 export function hasWildcard(item: IUniqueKey) {
     if (!item) {
         return false;

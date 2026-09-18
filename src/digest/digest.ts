@@ -96,6 +96,7 @@ export enum DigestState {
 export class DigestContext {
 
     private _snapshots: Snapshot[] = [];
+    private _snapshotIds: Set<string> = new Set<string>();
     private _idsToDelete: number[] = [];
     private _previousSnapshotLookup: Map<string, Snapshot>;
     private _logMap: Map<string, MonitorLog[]>;
@@ -185,7 +186,7 @@ export class DigestContext {
         } else {
             data.date = existingSnapshot?.date ?? data.date;
         }
-        this._snapshots.push(new Snapshot(data));
+        this.addSnapshot(new Snapshot(data));
     }
 
     private tryFindAndAddExistingSnapshotsForSkippedResult(result: SkippedResult) {
@@ -193,7 +194,23 @@ export class DigestContext {
         if (found.length === 0) {
             return;
         }
-        this._snapshots.push(...found);
+        found.forEach(x => this.addSnapshot(x));
+    }
+
+    /*
+     More than one result can resolve to the same check in a run - a skipped app carries its
+     previous snapshot over while a channel configuration issue raises a fresh monitor failure for
+     the same key, and a wildcard skip matches several previous snapshots at once. Snapshots are
+     keyed on type, label and identifier, so the first snapshot for a check wins and later
+     duplicates are dropped rather than failing the insert and stopping the run.
+     */
+    private addSnapshot(snapshot: Snapshot) {
+        if (this._snapshotIds.has(snapshot.uniqueId)) {
+            log(`digest: ignoring duplicate snapshot for '${snapshot.uniqueId}'`);
+            return;
+        }
+        this._snapshotIds.add(snapshot.uniqueId);
+        this._snapshots.push(snapshot);
     }
 
     private generateLogLookup(logs: MonitorLog[]): Map<string, MonitorLog[]> {

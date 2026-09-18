@@ -14,12 +14,14 @@ import { emitAndPersistResults, execute } from "./exec.js";
 import { loop } from "./loop.js";
 import { initLogger, log } from "./models/logger.js";
 import { Argv } from "yargs";
-import { initialiseGlobalConfig } from "./config.js";
+import { getCurrentRules, initialiseGlobalConfig } from "./config.js";
+import { describeError } from "./lib/error.js";
 import { NestFactory } from "@nestjs/core";
 import { AppModule, DebugLogger } from "./web/app.module.js";
 import { NestExpressApplication } from "@nestjs/platform-express";
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
+import { startChatOps } from "./chatops/bootstrap.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -57,12 +59,20 @@ async function run(args: any) {
     try {
         const config = await initialiseGlobalConfig(args);
         await bootstrapWebApp(config.env?.config?.port);
+        // the rules are read through an accessor rather than passed by value, because chat ops
+        // outlives this pass and the configuration is reloaded on the next one
+        await startChatOps(args, config.digest, { rules: getCurrentRules });
         log(`starting ${ args.eval } evaluators`);
         await execute(
             config,
             args.eval);
         return 0;
     } catch (err) {
+        // this ends the process, chat ops socket and all, so it is said out loud rather than only
+        // under --debug - a watchdog that vanishes without explaining itself is worse than one
+        // that reports a fault, and there is nothing else left running to report it. The cause
+        // chain goes with it, since barky's own wrapper rarely names the thing to go and fix
+        console.log(`barky is stopping - it could not complete this run: ${ describeError(err) }`);
         log(err.toString(), err);
         // emits a global config error - assume cloud watch monitor is set up for this as a safety net
         await emitAndPersistResults([MonitorFailureResult.ConfigurationError(err)]);

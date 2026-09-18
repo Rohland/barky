@@ -2,19 +2,25 @@ import {
     addMuteWindow,
     deleteDbIfExists, deleteMuteWindowsByIds,
     destroy, getAlerts,
+    getChatOpsAudit,
+    getChatThread,
     getConnection,
     getLogs, getMuteWindows,
     getSnapshots,
     initConnection,
     mutateAndPersistSnapshotState, persistAlerts,
     persistResults,
-    persistSnapshots
+    persistSnapshots,
+    recordChatOpsAudit,
+    recordChatThread,
+    tryRecordChatEvent
 } from "./db.js";
 import { Result } from "./result.js";
 import { Snapshot } from "./snapshot.js";
 import { AlertState } from "./alerts.js";
 import { AlertConfiguration, IAlertConfig } from "./alert_configuration.js";
 import { getTestSnapshot } from "./snapshot.spec.js";
+import knex from "knex";
 
 describe("db", () => {
 
@@ -475,6 +481,239 @@ describe("db", () => {
                     expect(remaining.length).toEqual(1);
                     expect(remaining[0]).toMatchObject(newWindow);
                 });
+            });
+        });
+    });
+    describe("chat events", () => {
+        it("should only accept an event once", async () => {
+            expect(await tryRecordChatEvent("C1:123.456")).toEqual(true);
+            expect(await tryRecordChatEvent("C1:123.456")).toEqual(false);
+            expect(await tryRecordChatEvent("C1:123.457")).toEqual(true);
+        });
+        describe("when recording fails for a reason other than it being a duplicate", () => {
+            it("should let the message through rather than silently dropping it", async () => {
+                // arrange - slack has already been acked, so a drop here is a drop for good
+                await destroy();
+
+                // act
+                const result = await tryRecordChatEvent("C1:123.456");
+
+                // assert
+                expect(result).toEqual(true);
+
+                // cleanup - the outer afterEach expects a connection it can close
+                await initConnection(testDb);
+            });
+        });
+    });
+
+    describe("chat threads", () => {
+        it("should record and return the alerts a message reported", async () => {
+            // arrange
+            await recordChatThread({
+                channel: "C1",
+                threadTs: "1700000000.000100",
+                alertIds: ["web::health::a.com", "mysql::lag::db-01"]
+            });
+
+            // act
+            const result = await getChatThread("C1", "1700000000.000100");
+
+            // assert
+            expect(result.alertIds).toEqual(["web::health::a.com", "mysql::lag::db-01"]);
+        });
+        it("should record a thread that only points at another, for a message barky reposts", async () => {
+            // arrange
+            await recordChatThread({
+                channel: "C1",
+                threadTs: "1700000000.000900",
+                alertIds: [],
+                pointsToTs: "1700000000.000100",
+                pointsToUrl: "https://codeo.slack.com/archives/C1/p1700000000000100"
+            });
+
+            // act
+            const result = await getChatThread("C1", "1700000000.000900");
+
+            // assert
+            expect(result.pointsToTs).toEqual("1700000000.000100");
+            expect(result.pointsToUrl).toEqual("https://codeo.slack.com/archives/C1/p1700000000000100");
+        });
+        it("should leave an alert's own thread pointing at nothing", async () => {
+            // arrange
+            await recordChatThread({
+                channel: "C1",
+                threadTs: "1700000000.000100",
+                alertIds: ["web::health::a.com"]
+            });
+
+            // act
+            const result = await getChatThread("C1", "1700000000.000100");
+
+            // assert
+            expect(result.pointsToTs).toBeNull();
+            expect(result.pointsToUrl).toBeNull();
+        });
+        it("should record which channel config posted it, so a reply is answered by the same one", async () => {
+            // arrange
+            await recordChatThread({
+                channel: "C1",
+                threadTs: "1700000000.000100",
+                alertIds: ["mysql::lag::db-01"],
+                channelName: "slack-db"
+            });
+
+            // act
+            const result = await getChatThread("C1", "1700000000.000100");
+
+            // assert
+            expect(result.channelName).toEqual("slack-db");
+        });
+        describe("when the same message is recorded again", () => {
+            it("should replace what it reports, not duplicate it", async () => {
+                // arrange - the alert message is edited in place as the outage changes
+                await recordChatThread({ channel: "C1", threadTs: "1.1", alertIds: ["a"] });
+
+                // act
+                await recordChatThread({ channel: "C1", threadTs: "1.1", alertIds: ["a", "b"] });
+
+                // assert
+                const result = await getChatThread("C1", "1.1");
+                expect(result.alertIds).toEqual(["a", "b"]);
+            });
+        });
+        describe("for a thread that was never recorded", () => {
+            it("should return nothing", async () => {
+                expect(await getChatThread("C1", "9.9")).toBeNull();
+            });
+        });
+    });
+
+    describe("for a database created by a version before chat ops covered several channels", () => {
+
+        const olderDb = "dbtestsolder";
+
+        beforeEach(async () => {
+            // the outer hook already holds a connection to a current schema db
+            await destroy();
+            deleteDbIfExists(olderDb);
+            const older = knex({
+                client: "better-sqlite3",
+                connection: { filename: `./db/${ olderDb }.sqlite` },
+                useNullAsDefault: true
+            });
+            await older.schema.createTable("chat_threads", table => {
+                table.string("channel");
+                table.string("thread_ts");
+                table.json("alert_ids");
+                table.dateTime("date");
+                table.primary(["channel", "thread_ts"]);
+            });
+            await older("chat_threads").insert({
+                channel: "C_OLD",
+                thread_ts: "1699999999.000100",
+                alert_ids: JSON.stringify(["web::health::a.com"]),
+                date: new Date().toISOString()
+            });
+            await older.destroy();
+        });
+
+        afterEach(async () => {
+            await destroy();
+            deleteDbIfExists(olderDb);
+            // leave the connection as the outer hooks expect to find it
+            await initConnection(testDb);
+        });
+
+        it("should keep the threads already recorded, belonging to no particular channel config", async () => {
+            // act - what barky does when it starts against an existing file
+            await initConnection(olderDb);
+
+            // assert - a thread naming no channel routes a reply to the one that declared chat ops
+            const existing = await getChatThread("C_OLD", "1699999999.000100");
+            expect(existing.alertIds).toEqual(["web::health::a.com"]);
+            expect(existing.channelName).toBeNull();
+        });
+
+        it("should add the column it needs, so threads recorded from here name the channel that posted them", async () => {
+            // arrange - what barky does when it starts against an existing file
+            await initConnection(olderDb);
+
+            // act
+            await recordChatThread({
+                channel: "C_NEW",
+                threadTs: "1700000000.000200",
+                alertIds: ["mysql::lag::db-01"],
+                channelName: "slack-db"
+            });
+
+            // assert
+            expect((await getChatThread("C_NEW", "1700000000.000200")).channelName).toEqual("slack-db");
+        });
+
+        describe("and barky is restarted again afterwards", () => {
+            it("should leave the upgraded file alone", async () => {
+                // arrange
+                await initConnection(olderDb);
+                await destroy();
+
+                // act
+                await initConnection(olderDb);
+
+                // assert
+                expect((await getChatThread("C_OLD", "1699999999.000100")).alertIds)
+                    .toEqual(["web::health::a.com"]);
+            });
+        });
+    });
+
+    describe("chat ops audit", () => {
+        it("should record entries newest first", async () => {
+            // arrange
+            await recordChatOpsAudit({
+                channel: "C1",
+                userId: "U1",
+                action: "mute",
+                detail: { alerts: ["web::health::a.com"] }
+            });
+            await recordChatOpsAudit({
+                channel: "C1",
+                userId: "U2",
+                action: "unmute",
+                detail: { mutes: ["^web::health::a\\.com$"] }
+            });
+
+            // act
+            const result = await getChatOpsAudit();
+
+            // assert
+            expect(result).toHaveLength(2);
+            expect(result[0].action).toEqual("unmute");
+            expect(result[0].userId).toEqual("U2");
+            expect(result[1].detail.alerts).toEqual(["web::health::a.com"]);
+            expect(result[1].date).toBeInstanceOf(Date);
+        });
+        describe("entries older than the retention period", () => {
+            it("should not be returned, even when nothing new has been written", async () => {
+                // arrange - pruning only happens on write, so a quiet month would otherwise leave
+                // the dashboard showing entries older than the retention it promises
+                await recordChatOpsAudit({ channel: "C1", userId: "U1", action: "mute", detail: {} });
+                const longAgo = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString();
+                await getConnection("dbtests")("chat_ops_audit").update({ date: longAgo });
+
+                // act
+                const result = await getChatOpsAudit();
+
+                // assert
+                expect(result).toHaveLength(0);
+            });
+        });
+        describe("when a limit is given", () => {
+            it("should honour it", async () => {
+                for (let i = 0; i < 5; i++) {
+                    await recordChatOpsAudit({ channel: "C1", userId: "U1", action: "mute", detail: { i } });
+                }
+                expect(await getChatOpsAudit(2)).toHaveLength(2);
             });
         });
     });

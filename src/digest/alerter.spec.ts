@@ -323,6 +323,155 @@ describe("alerter", () => {
             });
         });
     });
+    describe("when a channel will not accept the alert", () => {
+
+        const slackRefusal = new Error(
+            "Error executing posting to slack (chat.update to C123) after 1 attempt: slack rejected the request: message_not_found");
+
+        function configWithABrokenChannel() {
+            const config = new DigestConfiguration({
+                channels: {
+                    "good": { type: "console" },
+                    "broken": { type: "console" }
+                }
+            });
+            const broken = config.getChannelConfig("broken");
+            broken.sendNewAlert = jest.fn().mockRejectedValue(slackRefusal) as any;
+            broken.sendOngoingAlert = jest.fn().mockRejectedValue(slackRefusal) as any;
+            broken.pingAboutOngoingAlert = jest.fn().mockRejectedValue(slackRefusal) as any;
+            return config;
+        }
+
+        function contextAlertingTo(channels: string[]) {
+            const context = new DigestContext([], []);
+            channels.forEach((channel, index) => {
+                context.addSnapshotForResult(new Result(
+                    new Date(),
+                    "web",
+                    "health",
+                    `www.host-${ index }.com`,
+                    false,
+                    "FAIL",
+                    0,
+                    false,
+                    { alert: { channels: [channel] } }));
+            });
+            return context;
+        }
+
+        it("should still alert the channels that will", async () => {
+            // arrange - before this, one channel refusing took the whole digest down with it
+            const config = configWithABrokenChannel();
+
+            // act
+            await executeAlerts(config, contextAlertingTo(["good", "broken"]));
+
+            // assert
+            expect(console.log).toHaveBeenCalledWith(expect.stringMatching(/Outage started at/));
+        });
+
+        it("should still persist the state of the channels that did accept it", async () => {
+            /*
+             The regression this is here for: the throw happened before persistAlerts, so nothing
+             at all was recorded, the process exited, and a restart re-alerted every channel as new
+             - then met the same refusal and exited again.
+             */
+            const config = configWithABrokenChannel();
+
+            // act
+            await executeAlerts(config, contextAlertingTo(["good", "broken"]));
+
+            // assert
+            const channels = (await getAlerts()).map(x => x.channel);
+            expect(channels).toContain("good");
+        });
+
+        describe("and another channel did accept it", () => {
+            it("should remember the message it posted, rather than posting a new one every pass", async () => {
+                /*
+                 The symptom this is here for: barky posting the same alert over and over, once per
+                 evaluation loop. Writing to slack was working the whole time - what failed was the
+                 run finishing. The throw came before persistAlerts, so the message barky had just
+                 posted was never recorded, and the next pass saw an alert it had never announced
+                 and announced it again.
+                 */
+                const config = new DigestConfiguration({
+                    channels: {
+                        "slack-ops": { type: "slack", channel: "#ops" },
+                        "broken": { type: "console" }
+                    }
+                });
+                const api = {
+                    postMessage: jest.fn().mockResolvedValue({ channel: "C1", ts: "111" }),
+                    updateMessage: jest.fn().mockResolvedValue({ channel: "C1", ts: "111" }),
+                    deleteMessage: jest.fn()
+                };
+                Object.defineProperty(config.getChannelConfig("slack-ops"), "api", { get: () => api });
+                const broken = config.getChannelConfig("broken");
+                broken.sendNewAlert = jest.fn().mockRejectedValue(slackRefusal) as any;
+
+                // act - two evaluation loops, the second finding the alert still failing
+                await executeAlerts(config, contextAlertingTo(["slack-ops", "broken"]));
+                await executeAlerts(config, contextAlertingTo(["slack-ops", "broken"]));
+
+                // assert - announced once, then updated in place
+                expect(api.postMessage).toHaveBeenCalledTimes(1);
+                expect(api.updateMessage).toHaveBeenCalledTimes(1);
+                const alert = (await getAlerts()).find(x => x.channel === "slack-ops");
+                expect(alert.state.ts).toEqual("111");
+            });
+        });
+
+        it("should say which channel it could not alert, and why", async () => {
+            // arrange - said out loud, since the retry log is silent without --debug
+            const config = configWithABrokenChannel();
+
+            // act
+            await executeAlerts(config, contextAlertingTo(["broken"]));
+
+            // assert
+            expect(console.log).toHaveBeenCalledWith(
+                expect.stringContaining("barky could not alert 'broken'"));
+            expect(console.log).toHaveBeenCalledWith(
+                expect.stringContaining("message_not_found"));
+        });
+
+        it("should leave a new alert to be raised again next pass", async () => {
+            // arrange
+            const config = configWithABrokenChannel();
+
+            // act
+            await executeAlerts(config, contextAlertingTo(["broken"]));
+
+            // assert - nothing reached the channel, so nothing is recorded as having reached it,
+            // and the alert is raised again rather than treated as already announced
+            expect((await getAlerts()).map(x => x.channel)).not.toContain("broken");
+        });
+
+        describe("and the alert is already ongoing", () => {
+            it("should keep the alert, rather than losing it to the state being rewritten", async () => {
+                // arrange - persistAlerts rewrites the table from what it is given, and before
+                // this it was never reached at all when a channel refused
+                const config = configWithABrokenChannel();
+                const lastAlerted = new Date(Date.now() - 24 * 60 * 60 * 1000);
+                const existing = AlertState.New("broken");
+                existing.last_alert_date = lastAlerted;
+                existing.track(contextAlertingTo(["broken"]).digestableSnapshots);
+                await persistAlerts([existing]);
+
+                // act
+                await executeAlerts(config, contextAlertingTo(["broken"]));
+
+                // assert - still there, and still due, so the next pass tries again
+                const alert = (await getAlerts()).find(x => x.channel === "broken");
+                expect(alert).not.toBeUndefined();
+                expect(+alert.last_alert_date).toEqual(+lastAlerted);
+            });
+        });
+
+
+    });
+
     describe("with resolving alert", () => {
         it("should send notification and be left with no alerts", async () => {
             // arrange

@@ -1,0 +1,10 @@
+shell:
+
+  disk-space:
+    path: ./my-script.sh
+    responseType: json
+    identifier: mount
+    alert:
+      channels: [ slack-ops ]
+      rules:
+        - count: 1
