@@ -1,9 +1,10 @@
-import { Body, Controller, Get, Post, Res } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, Res } from '@nestjs/common';
 import { Response } from 'express';
 import path, { join } from 'path';
 import { WebState } from "./web.state.js";
 import { Muter } from "../muter.js";
 import { getChatOpsAudit } from "../models/db.js";
+import { getWebDefinitions, IWebDefinition } from "./definitions.js";
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
 const __filename = fileURLToPath(import.meta.url);
@@ -39,6 +40,11 @@ export class AppController {
     @Get('api/chat-ops/audit')
     async getChatOpsAuditTrail() {
         return await getChatOpsAudit();
+    }
+
+    @Get('api/definition')
+    async getDefinition(@Query('id') id: string): Promise<IWebDefinition> {
+        return await getWebDefinitions().find(id);
     }
 
     @Get('api/status')

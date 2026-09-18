@@ -129,7 +129,7 @@ export function renderListTooLong(
         : pluraliseWithS("active alert", count);
     // "define all" is capped, so offering it here would be offering something barky would refuse
     const advice = kind === "define"
-        ? `Please use ${ dashboardHint } to find the one you want, or ask me inside the alert's own thread.`
+        ? `Please use ${ dashboardHint } to find out more about alerts.`
         : `Please use ${ dashboardHint } to pick them out, or reply \`${ kind } all\` if you really do want every one of them.`;
     return [
         `There are *${ count }* ${ noun }, which is more than will fit in a single Slack message.`,

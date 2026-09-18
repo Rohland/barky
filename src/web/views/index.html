@@ -107,6 +107,18 @@
         .dark #theme-toggle:hover {
             background-color: rgba(75, 85, 99, 0.8); /* gray-600 with transparency */
         }
+
+        .rule-name {
+            text-align: left;
+            font-weight: 700;
+            text-decoration: underline dotted;
+            text-decoration-color: #9ca3af; /* gray-400 */
+            text-underline-offset: 4px;
+        }
+
+        .rule-name:hover {
+            text-decoration-style: solid;
+        }
     </style>
 </head>
 <body class="bg-gray-100 dark:bg-gray-800 p-4 sm:p-8 flex justify-center min-h-screen transition-colors duration-300">
@@ -174,8 +186,12 @@
                     {{ humanizeTime(snapshot.startTime, false) }} ago
                 </td>
                 <td class="p-2 border-b border-gray-200 dark:border-gray-700">
-                     <span class="font-bold">{{ snapshot.type }}:{{ snapshot.label }} → <span
-                             class="text-red-600 dark:text-red-500">{{ snapshot.identifier }}</span></span>
+                    <button @click="showDefinitionModal(snapshot.id)"
+                            title="Show how this rule is configured"
+                            class="rule-name">
+                        {{ snapshot.type }}:{{ snapshot.label }} → <span
+                            class="text-red-600 dark:text-red-500">{{ snapshot.identifier }}</span>
+                    </button>
                 </td>
                 <td class="p-2 border-b border-gray-200 dark:border-gray-700">
                      <span v-html="linkifyUrls(snapshot.last_result)">
@@ -239,8 +255,12 @@
                         {{ simpleTime(snapshot.startTime) }}
                     </td>
                     <td class="p-2 border-b border-gray-200 dark:border-gray-700">
-                         <span class="font-bold">{{ snapshot.type }}:{{ snapshot.label }} → <span
-                                 class="text-red-600 dark:text-red-500">{{ snapshot.identifier }}</span></span>
+                        <button @click="showDefinitionModal(snapshot.id)"
+                                title="Show how this rule is configured"
+                                class="rule-name">
+                            {{ snapshot.type }}:{{ snapshot.label }} → <span
+                                class="text-red-600 dark:text-red-500">{{ snapshot.identifier }}</span>
+                        </button>
                     </td>
                     <td class="p-2 border-b border-gray-200 dark:border-gray-700">
                         <span v-html="linkifyUrls(snapshot.last_result)"></span>
@@ -298,8 +318,11 @@
                             }} ago</span>
                     </td>
                     <td class="p-2 border-b border-gray-200 dark:border-gray-700">
-                        <span class="font-bold">{{ snapshot.type }}:{{ snapshot.label }} → {{ snapshot.identifier
-                            }}</span>
+                        <button @click="showDefinitionModal(snapshot.id)"
+                                title="Show how this rule is configured"
+                                class="rule-name">
+                            {{ snapshot.type }}:{{ snapshot.label }} → {{ snapshot.identifier }}
+                        </button>
                     </td>
                     <td class="p-2 border-b border-gray-200 dark:border-gray-700">
                         <span v-html="linkifyUrls(snapshot.last_result)"></span>
@@ -496,6 +519,73 @@
                     </tr>
                     </tbody>
                 </table>
+            </div>
+            <div class="flex justify-end mt-4">
+                <button @click="closeModals"
+                        class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition duration-200">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div v-if="definitionModal.show" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-75 z-40 p-4">
+        <div role="dialog"
+             aria-modal="true"
+             aria-labelledby="definition-modal-title"
+             aria-describedby="definition-modal-description"
+             tabindex="-1"
+             ref="definitionDialog"
+             @keydown="trapFocus($event, 'definitionDialog')"
+             class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl dark:shadow-lg w-full max-w-5xl max-h-[90vh] flex flex-col">
+            <h3 id="definition-modal-title" class="text-2xl font-semibold mb-1 text-gray-800 dark:text-gray-100">
+                📄 Rule definition
+            </h3>
+            <p id="definition-modal-description" class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                How this alert is configured, read from the rules barky is running.
+                <span class="bg-red-100 text-red-800 text-xs font-medium px-1 py-0.5 rounded-sm dark:bg-red-900 dark:text-red-300">{{ definitionModal.id }}</span>
+            </p>
+            <div class="overflow-auto flex-1">
+                <div v-if="definitionModal.isLoading" class="text-sm text-gray-500 dark:text-gray-400">Loading...</div>
+                <div v-else-if="definitionModal.error" class="text-sm text-red-600 dark:text-red-400">
+                    {{ definitionModal.error }}
+                </div>
+                <div v-else-if="definitionModal.definition?.unreadable"
+                     class="text-sm text-red-600 dark:text-red-400">
+                    ⚠️ The configuration for this alert could not be read - the rules file may have changed while
+                    barky was looking. Nothing else was affected.
+                </div>
+                <div v-else-if="!definitionModal.definition?.found" class="text-sm text-gray-500 dark:text-gray-400">
+                    This alert is not in the rules barky is running - it may have been renamed or removed since it
+                    last fired.
+                </div>
+                <div v-else>
+                    <p v-if="definitionModal.definition.monitorFor"
+                       class="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                        That id is the monitor for the
+                        <code class="font-mono">{{ definitionModal.definition.monitorFor }}</code> check, so this is
+                        what the check itself declares:
+                    </p>
+                    <pre class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 text-xs font-mono p-3 rounded border border-gray-200 dark:border-gray-700 overflow-auto">{{ definitionModal.definition.yaml }}</pre>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                        Declared in <code class="font-mono">{{ definitionModal.definition.displayPath }}</code>,
+                        {{ describeLineRange(definitionModal.definition) }}
+                        <template v-if="definitionModal.definition.permalink">
+                            &nbsp;|&nbsp;
+                            <a class="text-blue-600 dark:text-blue-400 hover:underline"
+                               :href="definitionModal.definition.permalink" target="_blank">view on GitHub</a>
+                        </template>
+                    </p>
+                    <p v-if="definitionModal.definition.variation"
+                       class="text-xs text-gray-500 dark:text-gray-400 italic mt-1">
+                        This alert is the <code class="font-mono">{{ definitionModal.definition.variation }}</code>
+                        variation of <code class="font-mono">{{ definitionModal.definition.key }}</code>.
+                    </p>
+                    <p v-if="definitionModal.definition.redacted > 0"
+                       class="text-xs text-gray-500 dark:text-gray-400 italic mt-1">
+                        🔒 {{ describeRedaction(definitionModal.definition) }}
+                    </p>
+                </div>
             </div>
             <div class="flex justify-end mt-4">
                 <button @click="closeModals"
@@ -714,6 +804,17 @@
         return `${now.getFullYear()}-${padZero(now.getMonth() + 1)}-${padZero(now.getDate())}`;
     }
 
+    function describeLineRange(definition) {
+        return definition.firstLine === definition.lastLine
+            ? `line ${definition.firstLine}`
+            : `lines ${definition.firstLine}-${definition.lastLine}`;
+    }
+
+    function describeRedaction(definition) {
+        const values = pluraliseWithS("value", definition.redacted);
+        return `${definition.redacted} ${values} redacted before showing.`;
+    }
+
     function getMuteEndDescriptor(mutedBy, muteRules) {
         if (!mutedBy) {
             return null;
@@ -755,10 +856,20 @@
                 entries: []
             });
 
+            const definitionModal = ref({
+                show: false,
+                isLoading: false,
+                error: null,
+                id: null,
+                definition: null
+            });
+
             const auditDialog = ref(null);
+            const definitionDialog = ref(null);
 
             const closeModals = () => {
                 auditModal.value.show = false;
+                definitionModal.value.show = false;
                 muteModal.value.show = false;
                 unMuteModal.value.show = false;
             };
@@ -777,7 +888,8 @@
                 if (event.key !== "Tab") {
                     return;
                 }
-                const container = dialogRef === "auditDialog" ? auditDialog.value : null;
+                const dialogs = {auditDialog, definitionDialog};
+                const container = dialogs[dialogRef]?.value ?? null;
                 const focusable = focusableWithin(container);
                 if (focusable.length === 0) {
                     return;
@@ -818,6 +930,38 @@
                 } finally {
                     auditModal.value.isLoading = false;
                 }
+            };
+
+            const showDefinitionModal = async (alertId) => {
+                definitionModal.value = {
+                    show: true,
+                    isLoading: true,
+                    error: null,
+                    id: alertId,
+                    definition: null
+                };
+                // move focus into the dialog so it is announced and the page behind is left behind
+                Vue.nextTick(() => definitionDialog.value?.focus());
+                await loadDefinition(alertId);
+            };
+
+            const loadDefinition = async (alertId) => {
+                try {
+                    definitionModal.value.definition = await requestDefinition(alertId);
+                } catch (error) {
+                    console.error('Failed to load the rule definition:', error);
+                    definitionModal.value.error = "Could not load the rule definition.";
+                } finally {
+                    definitionModal.value.isLoading = false;
+                }
+            };
+
+            const requestDefinition = async (alertId) => {
+                const response = await fetch(`/api/definition?id=${encodeURIComponent(alertId)}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return await response.json();
             };
 
             const unMuteModal = ref({
@@ -1024,6 +1168,11 @@
                 auditDialog,
                 auditTargets,
                 showAuditModal,
+                definitionModal,
+                definitionDialog,
+                showDefinitionModal,
+                describeLineRange,
+                describeRedaction,
                 closeModals,
                 trapFocus,
                 timeToRefresh,

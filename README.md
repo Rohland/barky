@@ -747,6 +747,13 @@ A simple web interface is exposed on the configured port (defaults to 3000, edit
 of all alerts and their current status. It enables dynamic muting/un-muting of alerts, and provides a summary of
 active, resolved and muted alerts. The UI is updated every 10 seconds.
 
+Clicking an alert's rule name shows how that check is declared, in a dialog: the block of yaml it
+was read out of, the file and line numbers it came from, and a link to it on GitHub where the rules
+are in a git checkout with a GitHub remote. This is the same answer `define` gives in Slack, read
+from the same source and with the same values held back - see
+[Chat Ops](#chat-ops-slack) for what is redacted and why. It is also available as JSON at
+`/api/definition?id=<alert id>`.
+
 Security of this interface is left in the hands of the user.
 
 ### Chat Ops (Slack)

@@ -339,7 +339,9 @@ describe("chatops messages", () => {
                 // assert
                 expect(list.fits).toEqual(false);
                 expect(list.text).not.toContain("define all");
-                expect(list.text).toContain("the alert's own thread");
+                // the dashboard shows a definition of its own now, so that is where a list too
+                // long to post sends people
+                expect(list.text).toContain("the dashboard to find out more about alerts");
             });
         });
     });

@@ -14,7 +14,7 @@ import { emitAndPersistResults, execute } from "./exec.js";
 import { loop } from "./loop.js";
 import { initLogger, log } from "./models/logger.js";
 import { Argv } from "yargs";
-import { initialiseGlobalConfig } from "./config.js";
+import { getCurrentRules, initialiseGlobalConfig } from "./config.js";
 import { describeError } from "./lib/error.js";
 import { NestFactory } from "@nestjs/core";
 import { AppModule, DebugLogger } from "./web/app.module.js";
@@ -59,9 +59,9 @@ async function run(args: any) {
     try {
         const config = await initialiseGlobalConfig(args);
         await bootstrapWebApp(config.env?.config?.port);
-        // the rules are read through a closure rather than passed by value, because chat ops
+        // the rules are read through an accessor rather than passed by value, because chat ops
         // outlives this pass and the configuration is reloaded on the next one
-        await startChatOps(args, config.digest, { rules: () => config.env });
+        await startChatOps(args, config.digest, { rules: getCurrentRules });
         log(`starting ${ args.eval } evaluators`);
         await execute(
             config,
