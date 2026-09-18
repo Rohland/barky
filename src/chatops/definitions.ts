@@ -4,6 +4,7 @@ import YAML from "yaml";
 import { AppVariant } from "../models/app.js";
 import { EvaluatorType } from "../evaluators/base.js";
 import { explodeUniqueKey, IUniqueKey } from "../lib/key.js";
+import { log } from "../models/logger.js";
 
 /*
  Where an alert comes from: the yaml block that declares it, verbatim from the file it was read out
@@ -109,6 +110,10 @@ function describe(match: IDefinitionMatch): IDefinition {
     const { alertId, key, found } = match;
     const filePath = found.app.__configPath;
     if (!filePath || !fs.existsSync(filePath)) {
+        // the check is in the configuration barky is running, but the file that declared it
+        // cannot be read. Logged because the caller is only told the definition was not found,
+        // which reads as though the check itself were gone
+        log(`chatops: ${ alertId } is declared by '${ found.key }', but its source could not be read: ${ filePath ?? "no path recorded" }`);
         return null;
     }
     const source = fs.readFileSync(filePath, "utf8");

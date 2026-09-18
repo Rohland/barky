@@ -4,6 +4,8 @@ config:
 
 import:
   - definitions-import.yaml
+  # named without its extension, which is a form barky resolves
+  - definitions-import-shell
 
 web:
 

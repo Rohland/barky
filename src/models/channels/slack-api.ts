@@ -101,9 +101,12 @@ export class SlackApi {
             return this._userNames.get(userId);
         }
         const name = await this.lookUpUserName(userId);
-        if (name) {
-            this._userNames.set(userId, name);
-        }
+        /*
+         The miss is kept as well as the hit. Every mention in one of barky's threads is looked up
+         now, and an app without users:read can never resolve any of them - re-asking would cost a
+         request per mention, forever, for an answer that is not coming.
+         */
+        this._userNames.set(userId, name);
         return name;
     }
 

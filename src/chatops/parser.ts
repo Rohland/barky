@@ -216,9 +216,19 @@ function expandIndexRange(from: number, to: number): number[] {
     return indices;
 }
 
+// "@barky", "@barky-spar:" or "@Barky(yumbi)" typed out rather than picked from the autocomplete
+const TypedMentionRegex = /^(?:@[\w.()-]+[,:]?(?:\s+|$))+/;
+
 function stripMention(input: string): string {
     // messages addressed to the bot arrive as "<@U123> mute", and the mention may be repeated
-    return (input ?? "").replace(/<@[^>]+>/g, " ").trim();
+    const linked = (input ?? "").replace(/<@[^>]+>/g, " ").trim();
+    /*
+     A reply that names barky without slack linking it up arrives as plain text, and is answered on
+     the strength of the name alone - see namesBarky. It has to be taken off the front here too, or
+     the reply barky has just decided is for it reads as gibberish: "@barky 1" is the same answer as
+     "<@U123> 1", and where no ai service is configured there is nothing to fall back on.
+     */
+    return linked.replace(TypedMentionRegex, "").trim();
 }
 
 /*

@@ -977,6 +977,79 @@ describe("ChatOpsService", () => {
             (muter as any).registerMutes = original;
         });
     });
+    describe("namesBarky", () => {
+        // a reply naming another barky arrives as an ordinary message rather than a mention, and
+        // this is what decides whether it was meant for a barky - see "Several barkys in one
+        // channel" in the README
+        const anotherBarky = "U05NX4E9VEW";
+        const colleague = "U0HKZGDKQ";
+
+        beforeEach(() => {
+            userNames = { [anotherBarky]: "Barky (SPAR)", [colleague]: "Joe" };
+        });
+
+        describe("when the message names another barky", () => {
+            it("should be taken as naming one, whichever barky it was", async () => {
+                // arrange
+                const sut = getSut(twoAlerts);
+
+                // act
+                const named = await sut.namesBarky(`<@${ anotherBarky }> 1`);
+
+                // assert
+                expect(named).toEqual(true);
+            });
+        });
+        describe("when the mention was never turned into an id", () => {
+            it("should read the name as typed, so no lookup is needed", async () => {
+                // arrange - slack leaves the text alone where it did not link the mention up
+                const sut = getSut(twoAlerts);
+
+                // act & assert
+                expect(await sut.namesBarky("@Barky 1")).toEqual(true);
+            });
+        });
+        describe("when the message names a person", () => {
+            it("should not be taken as naming barky", async () => {
+                // arrange - people asking each other for a hand in an alert's thread
+                const sut = getSut(twoAlerts);
+
+                // act
+                const named = await sut.namesBarky(`<@${ colleague }> can you look at this?`);
+
+                // assert
+                expect(named).toEqual(false);
+            });
+        });
+        describe("when the message only talks about barky", () => {
+            it("should not be taken as naming it", async () => {
+                const sut = getSut(twoAlerts);
+                expect(await sut.namesBarky("wonder if barky is broken")).toEqual(false);
+            });
+        });
+        describe("when the name cannot be looked up", () => {
+            it("should not guess", async () => {
+                // arrange - users:read is optional, and without it an id stays an id
+                userNames = {};
+                const sut = getSut(twoAlerts);
+
+                // act & assert
+                expect(await sut.namesBarky(`<@${ anotherBarky }> 1`)).toEqual(false);
+            });
+        });
+        describe("when the barkys are named something else entirely", () => {
+            it("should use the name the configuration gives", async () => {
+                // arrange
+                userNames = { [anotherBarky]: "watchdog-spar" };
+                const sut = getSut(twoAlerts, { "mention-name": "watchdog" });
+
+                // act & assert
+                expect(await sut.namesBarky(`<@${ anotherBarky }> 1`)).toEqual(true);
+                expect(await sut.namesBarky("@watchdog 1")).toEqual(true);
+            });
+        });
+    });
+
     describe("verifyScopes", () => {
         describe("when the app can read mentions and history", () => {
             it("should report nothing missing", async () => {

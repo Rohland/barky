@@ -89,7 +89,10 @@ function explodeImports(env, fileInfo: { fileName: string; filePath: any }) {
         Object.keys(EvaluatorType).forEach(type => {
             if (importConfig.env[type]) {
                 env[type] ??= {};
-                Object.assign(env[type], tagConfigsWithFileMetaData(importConfig.env[type], importPath, false));
+                // already tagged with the file each check was actually read out of, which is not
+                // necessarily importPath - an import can name a file without its extension, and
+                // what it imports in turn comes from a file of its own
+                Object.assign(env[type], importConfig.env[type]);
             }
         })
     });

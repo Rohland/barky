@@ -4,6 +4,7 @@ import { ChatOpsConfig } from "./config.js";
 import { ChatOpsService, IChatMessage } from "./chatops.service.js";
 import { ChatOpsRouter } from "./router.js";
 import { deleteDbIfExists, destroy, initConnection, recordChatThread } from "../models/db.js";
+import { initLogger } from "../models/logger.js";
 
 describe("SlackChatOpsListener", () => {
 
@@ -26,11 +27,19 @@ describe("SlackChatOpsListener", () => {
         restoreConsole();
     });
 
+    const barkySpar = "U05NX4E9VEW";
+    const barkyYumbi = "U04LM2T8QAB";
+    const colleague = "U0HKZGDKQ";
+    // reading a message for the name of a barky is the service's job and is covered there, so
+    // these are simply the texts these tests mean as naming one
+    const namingABarky = [`<@${ barkySpar }>`, `<@${ barkyYumbi }>`, "@barky"];
+
     function serviceRecordingInto(into: IChatMessage[]): ChatOpsService {
         return {
             handleMessage: async (message: IChatMessage) => {
                 into.push(message);
             },
+            namesBarky: async (text: string) => namingABarky.some(x => text.includes(x)),
             pendingSelectionCount: 0
         } as unknown as ChatOpsService;
     }
@@ -66,6 +75,24 @@ describe("SlackChatOpsListener", () => {
                 ...event
             }
         };
+    }
+
+    // a listener whose only channel config is for another channel, so the thread below has none
+    async function listenerForAnOptedOutChannel(): Promise<SlackChatOpsListener> {
+        const sut = getSut(new ChatOpsRouter(
+            serviceRecordingInto(handled),
+            new Map([["slack-ops", serviceRecordingInto(handled)]])));
+        await recordChatThread({
+            channel: "C1",
+            threadTs: alertThreadTs,
+            alertIds: ["mysql::lag::db-01"],
+            channelName: "slack-db"
+        });
+        return sut;
+    }
+
+    function logged(): string {
+        return (console.log as jest.Mock).mock.calls.map(x => x.join(" ")).join("\n");
     }
 
     async function dispatch(sut: SlackChatOpsListener, event: any, isMention = false) {
@@ -198,6 +225,34 @@ describe("SlackChatOpsListener", () => {
                 expect(ops).toHaveLength(0);
                 expect(acked).toEqual(1);
             });
+            describe("and people are talking to each other in its threads", () => {
+                // the log is the only thing an operator has to go on here, and a line saying barky
+                // ignored a reply for every message with an @ in it makes it worthless
+                afterEach(() => initLogger({}));
+
+                it("should not report their chatter as a reply it ignored", async () => {
+                    // arrange - said out loud, which is the only place this shows up
+                    initLogger({ debug: true });
+                    const sut = await listenerForAnOptedOutChannel();
+
+                    // act
+                    await dispatch(sut, { text: `<@${ colleague }> can you look at this?` }, false);
+
+                    // assert
+                    expect(logged()).not.toContain("no longer has chat ops enabled");
+                });
+                it("should still report a reply that was for barky", async () => {
+                    // arrange - a mention slack delivers as one is still worth explaining
+                    initLogger({ debug: true });
+                    const sut = await listenerForAnOptedOutChannel();
+
+                    // act
+                    await dispatch(sut, { text: `<@${ barkySpar }> 1` }, true);
+
+                    // assert
+                    expect(logged()).toContain("no longer has chat ops enabled");
+                });
+            });
         });
         describe("for a thread recorded before barky noted which channel posted it", () => {
             it("should fall back to the channel that declared chat ops", async () => {
@@ -319,9 +374,76 @@ describe("SlackChatOpsListener", () => {
             it("should be taken as an answer", async () => {
                 await recordAlertThread();
                 const sut = getSut();
-                await dispatch(sut, { text: "<@U05NX4E9VEW> 1,3" }, true);
+                await dispatch(sut, { text: `<@${ barkySpar }> 1,3` }, true);
                 expect(handled).toHaveLength(1);
             });
+        });
+        describe("and they name each other in it", () => {
+            it("should still stay out of it", async () => {
+                // arrange - the message is delivered because it names someone, but not barky
+                await recordAlertThread();
+                const sut = getSut();
+
+                // act
+                await dispatch(sut, { text: `<@${ colleague }> can you look at this?` }, false);
+
+                // assert
+                expect(handled).toHaveLength(0);
+            });
+        });
+    });
+
+    describe("when several barkys sit in the same channel", () => {
+        // slack delivers a reply naming the wrong barky to none of them as a mention, so it
+        // arrives as an ordinary channel message instead - see "Several barkys in one channel" in
+        // the README
+        it("should answer a reply that names another barky, in a thread it posted", async () => {
+            // arrange
+            await recordAlertThread();
+            const sut = getSut();
+
+            // act
+            await dispatch(sut, { text: `<@${ barkyYumbi }> 1` }, false);
+
+            // assert
+            expect(handled).toHaveLength(1);
+            expect(handled[0].text).toEqual(`<@${ barkyYumbi }> 1`);
+        });
+        it("should answer one naming a barky slack never linked up", async () => {
+            await recordAlertThread();
+            const sut = getSut();
+            await dispatch(sut, { text: "@barky 1" }, false);
+            expect(handled).toHaveLength(1);
+        });
+        describe("in a thread it did not post", () => {
+            it("should stay out of it, and leave it to the barky that did", async () => {
+                // arrange - the other barky owns this thread, and only it knows what the numbers
+                // in the reply mean or how to mute what they name
+                const sut = getSut();
+
+                // act
+                await dispatch(sut, { text: `<@${ barkyYumbi }> 1`, thread_ts: "1234.5678" }, false);
+
+                // assert
+                expect(handled).toHaveLength(0);
+                expect(acked).toEqual(1);
+            });
+        });
+    });
+
+    describe("when the same reply arrives as both a mention and a message", () => {
+        it("should only answer once", async () => {
+            // arrange - slack sends both for a mention of this bot, and now reads the message as
+            // naming a barky too
+            await recordAlertThread();
+            const sut = getSut();
+
+            // act
+            await dispatch(sut, { text: `<@${ barkySpar }> 1` }, true);
+            await dispatch(sut, { text: `<@${ barkySpar }> 1` }, false);
+
+            // assert
+            expect(handled).toHaveLength(1);
         });
     });
 

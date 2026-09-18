@@ -6,6 +6,7 @@ describe("chatops definitions", () => {
 
     const rulesFile = "./tests/files/definitions.yaml";
     const importedFile = "tests/files/definitions-import.yaml";
+    const importedShellFile = "tests/files/definitions-import-shell.yml";
 
     function getSut(): ConfigDefinitionSource {
         // read through getConfig so the imports and the __configPath tagging are the real thing
@@ -104,6 +105,18 @@ describe("chatops definitions", () => {
                 expect(definition.displayPath).toEqual(importedFile);
                 expect(definition.yaml).toContain("aws-root-login-monitor:");
                 expect(definition.yaml).toContain("count by accountId");
+            });
+            it("should read it where the import named the file without its extension", async () => {
+                // arrange - the path tagged on the check is the file it was read out of, which is
+                // not the path the import asked for and does not exist on disk
+                const sut = getSut();
+
+                // act
+                const definition = sut.find("shell::disk-space::/dev/disk1s1");
+
+                // assert
+                expect(definition.displayPath).toEqual(importedShellFile);
+                expect(definition.yaml).toContain("disk-space:");
             });
         });
 

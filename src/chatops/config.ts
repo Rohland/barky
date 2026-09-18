@@ -6,6 +6,7 @@ export const DefaultMaxMute = "7d";
 export const DefaultAiUrl = "https://api.openai.com/v1";
 export const DefaultAiTimeout = "15s";
 export const DefaultAiMaxCallsPerHour = 60;
+export const DefaultMentionName = "barky";
 
 export class AiConfig {
     public apiKey: string;
@@ -45,6 +46,7 @@ export class ChatOpsConfig {
     public dashboardUrl: string;
     public selectionTtlMs: number;
     public maxMuteMs: number;
+    public mentionName: string;
     public ai: AiConfig;
 
     constructor(config: any) {
@@ -54,6 +56,7 @@ export class ChatOpsConfig {
         this.dashboardUrl = config["dashboard-url"];
         this.selectionTtlMs = parsePeriodToMillis(config["selection-ttl"] ?? DefaultSelectionTtl);
         this.maxMuteMs = parsePeriodToMillis(config["max-mute"] ?? DefaultMaxMute);
+        this.mentionName = (config["mention-name"] ?? DefaultMentionName).toString().trim();
         this.ai = new AiConfig(config.ai);
     }
 

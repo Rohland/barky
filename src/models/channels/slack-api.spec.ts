@@ -230,6 +230,19 @@ describe("SlackApi", () => {
                 jest.spyOn(axios, "request").mockRejectedValue(new Error("boom"));
                 expect(await new SlackApi("token").getUserName("U1")).toBeNull();
             });
+            it("should not ask again, since the answer is not coming", async () => {
+                // arrange - every mention in one of barky's threads is looked up, and an app
+                // without users:read resolves none of them: asking again costs a request a message
+                const spy = mockUser({ ok: false, error: "missing_scope" });
+                const sut = new SlackApi("token");
+
+                // act
+                await sut.getUserName("U1");
+                await sut.getUserName("U1");
+
+                // assert
+                expect(spy).toHaveBeenCalledTimes(1);
+            });
         });
         describe("given no user id", () => {
             it("should not call slack at all", async () => {

@@ -5,6 +5,7 @@ config:
 import:
   - ./import-1.yaml
   - import-2.yaml
+  - ./import-3
 
 web:
   codeo.co.za:

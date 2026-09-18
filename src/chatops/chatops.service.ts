@@ -13,6 +13,7 @@ import { nextBusinessHoursStart } from "../lib/time.js";
 import { mutePatternFor } from "../lib/key.js";
 import { log } from "../models/logger.js";
 import * as messages from "./messages.js";
+import { couldNameAnyone, isNamed, mentionedUserIds, namesInText } from "./mentions.js";
 
 export interface IChatMessage {
     channel: string;
@@ -66,7 +67,7 @@ const RequiredHistoryScopes = ["channels:history", "groups:history"];
 // chat ops works without these, just less well
 const DegradedWithoutScopes: Record<string, string> = {
     "reactions:write": "no acknowledgement reaction while barky is thinking",
-    "users:read": "the chat ops log names people by slack id rather than display name"
+    "users:read": "the chat ops log names people by slack id rather than display name, and a reply naming another barky in a channel several of them share cannot be recognised as naming one"
 };
 
 function toCandidate(alert: { id: string, last_result: string }): ISelectionCandidate {
@@ -127,6 +128,32 @@ export class ChatOpsService {
 
     public get pendingSelectionCount(): number {
         return this.selections.size;
+    }
+
+    /*
+     Whether a message slack did not deliver as a mention of this bot names a barky all the same,
+     which is how a reply naming another barky in a shared channel is answered - see "Several
+     barkys in one channel" in the README.
+
+     The name has to be mentioned rather than merely said, so people can talk about barky in an
+     alert's thread without it joining in.
+     */
+    public async namesBarky(text: string): Promise<boolean> {
+        const name = this.config.mentionName;
+        if (!name || !couldNameAnyone(text)) {
+            return false;
+        }
+        if (namesInText(text, name)) {
+            return true;
+        }
+        // slack replaces what was typed with an opaque id, and only a lookup turns it back into
+        // something that can be compared - which is what users:read is needed for here
+        for (const userId of mentionedUserIds(text)) {
+            if (isNamed(await this.api.getUserName(userId), name)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /*

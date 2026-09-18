@@ -766,6 +766,7 @@ channels:
       dashboard-url: https://barky.acme.com  # linked whenever barky suggests the dashboard
       selection-ttl: 10m           # optional - how long a numbered list stays valid
       max-mute: 7d                 # optional - longest mute anyone can ask for
+      mention-name: barky          # optional - what people call barky when they @ it
       ai:                          # optional - understands plain english when configured
         api-key: openai-api-key    # env var holding an OpenAI key
         model: gpt-5.6-luna        # optional - discovered automatically when omitted
@@ -813,6 +814,28 @@ to check:
 > chatops: this slack app has 4 socket connections open, so this is not the only barky listening on it
 
 One is what you want. See *Setting up a slack app for an instance* below.
+
+**Several barkys in one channel**
+
+Separate barkys, each with a slack app of its own, can sit in the same channel - that is the setup
+the section above asks for, and there is nothing to configure for it. Slack only tells an app about
+mentions of *its own* bot user, though, so `@barky-yumbi 1` is never delivered to `barky-spar` as a
+mention at all, and people naming the wrong one in a thread is inevitable once there are two.
+
+So barky reads the ordinary channel messages it already receives, and answers a reply that names
+*any* barky as long as it is in a thread it posted itself. The thread is what decides: the barky
+that posted an alert is the only one that knows what the numbers in a reply mean, and the others
+have no record of the thread and stay out of it, whichever of them was named. Exactly one answers,
+as before.
+
+Naming is what matters, not the subject: `@barky 1` is an answer, and "wonder if barky is broken"
+is people talking to each other, which barky stays out of. Recognising a mention of *another* barky
+means turning the id slack puts in the message back into a name, and that lookup needs the
+`users:read` scope - without it barky still answers mentions of itself as it always did.
+
+Set `mention-name` where your barkys are not called barky - it is matched against the bot's slack
+display name, without case and anywhere in it, so `barky` covers `Barky`, `barky-spar` and
+`Barky (YUMBI)`.
 
 **More than one channel**
 
@@ -932,7 +955,7 @@ running on the same app - see *One slack app per barky* above.
 | `chat:write` | yes | Posting alerts and replies | Nothing works |
 | `app_mentions:read` | yes | Being told when someone mentions barky | Barky never receives anything |
 | `channels:history` | yes | Reading the thread a mention arrived in (`groups:history` for a private channel) | Barky never receives anything |
-| `users:read` | no | Looking up the display name of whoever ran a command | The chat ops log records the Slack user id (`U0HKZGDKQ`) instead of a name |
+| `users:read` | no | Looking up the display name of whoever ran a command, and of the barky a reply names | The chat ops log records the Slack user id (`U0HKZGDKQ`) instead of a name, and a reply naming *another* barky in a shared channel is not recognised as naming one |
 | `reactions:write` | no | The 👀 acknowledgement while barky is thinking | No reaction, everything else unaffected |
 
 Barky reports any that are missing when it starts, visible with `--debug`.
@@ -981,8 +1004,10 @@ The app is connected but is not being sent anything. In order of likelihood:
    cause, because the scopes screen looks complete on its own.
 2. Scopes or subscriptions were changed without reinstalling the app afterwards.
 3. The bot is not a member of the channel.
-4. The reply did not mention barky, or was not in the thread of one of barky's own alert messages
-   - barky deliberately ignores everything else, including top level mentions in the channel.
+4. The reply did not name barky, or was not in the thread of one of barky's own alert messages
+   - barky deliberately ignores everything else, including top level mentions in the channel. A
+   reply naming another barky in the same channel *is* answered, but only in a thread this barky
+   posted, and only with `users:read` granted - see *Several barkys in one channel* above.
 5. The channel posts with a different bot token to the one chat ops is configured on, so no app is
    listening there - see *More than one channel* above.
 

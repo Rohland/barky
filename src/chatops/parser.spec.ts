@@ -39,6 +39,10 @@ describe("chatops parser", () => {
         describe.each([
             ["mute", CommandType.Mute, false],
             ["<@U123> mute", CommandType.Mute, false],
+            // a reply that names barky by hand, which reaches the parser exactly as it was typed
+            ["@barky mute", CommandType.Mute, false],
+            ["@barky-spar: mute all", CommandType.Mute, true],
+            ["@Barky(yumbi) mute all", CommandType.Mute, true],
             ["Mute.", CommandType.Mute, false],
             ["mute all", CommandType.Mute, true],
             ["mute everything", CommandType.Mute, true],
@@ -130,7 +134,14 @@ describe("chatops parser", () => {
             ["1-3", [1, 2, 3], undefined],
             ["3,1,3", [1, 3], undefined],
             ["1,3 for 4h", [1, 3], 4 * oneHour],
-            ["mute 1 for 1h", [1], oneHour]
+            ["mute 1 for 1h", [1], oneHour],
+            /*
+             The same answers with the mention slack never linked up, which arrives as plain text -
+             barky answers these on the strength of the name alone, so the parser has to read them.
+             */
+            ["@barky 1", [1], undefined],
+            ["<@U123> @barky 1,3", [1, 3], undefined],
+            ["@barky-spar: mute 1 for 1h", [1], oneHour]
         ])("given '%s'", (input, indices, durationMs) => {
             it("should resolve the selected numbers", async () => {
                 const result = parseSelectionReply(input);
@@ -139,7 +150,7 @@ describe("chatops parser", () => {
                 expect(result.durationMs ?? undefined).toEqual(durationMs);
             });
         });
-        describe.each([["all"], ["All of them"], ["everything"], ["mute all"]])("given '%s'", (input) => {
+        describe.each([["all"], ["All of them"], ["everything"], ["mute all"], ["@barky all"]])("given '%s'", (input) => {
             it("should select everything on the pinned list", async () => {
                 const result = parseSelectionReply(input);
                 expect(result.all).toEqual(true);
